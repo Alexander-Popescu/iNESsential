@@ -2,6 +2,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include "opcodes.h"
+#include "addressing_modes.h"
 //6502
 //A: Accumulator
 //X: Register
@@ -25,12 +27,18 @@
 
 typedef struct
 {
+    //registers
+
     uint8_t a; //accumulator
     uint8_t x; //x register
     uint8_t y; //y register
     uint8_t p; //status flags
     uint8_t sp; //stack pointer
     uint16_t pc; //program counter
+
+    //addressing modes in addressing_modes.c
+
+    //opcodes in opcodes.c
 } cpu;
 
 //P register flags:
