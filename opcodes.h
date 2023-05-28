@@ -56,3 +56,15 @@ uint8_t TSX();
 uint8_t TXA();
 uint8_t TXS();
 uint8_t TYA();
+uint8_t XXX(); //catch illegal opcodes
+
+//opcode reference
+typedef struct opcode
+{
+    char *name;
+    uint8_t (*addressing_mode)(void);
+    uint8_t (*opcode_function)(void);
+    uint8_t cycles;
+} opcode;
+
+opcode opcode_matrix[256];

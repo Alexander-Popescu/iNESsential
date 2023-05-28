@@ -1,3 +1,4 @@
 DAY 1: Research and stuff
 -6502 registers, get/set flag register
 -bus and get/set ram addresses
+-opcodes and addressing modes definitions
