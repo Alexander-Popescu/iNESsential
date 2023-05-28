@@ -20,62 +20,25 @@
 
 
 
-//CPU 6502
+//CPU 6502, globals ah!
 
+//Accumulator: A
+uint8_t accumulator = 0x00;
 
+//Registers: X, Y
+uint8_t x_register = 0x00;
+uint8_t y_register = 0x00;
 
-typedef struct
-{
-    //registers
+//Program Counter: PC
+uint16_t program_counter = 0x0000;
 
-    uint8_t a; //accumulator
-    uint8_t x; //x register
-    uint8_t y; //y register
-    uint8_t p; //status flags
-    uint8_t sp; //stack pointer
-    uint16_t pc; //program counter
+//Stack Pointer: SP
+uint8_t stack_pointer = 0x00;
 
-    //addressing modes in addressing_modes.c
+//Status Register: P
+uint8_t status_register = 0x00;
 
-    //opcodes in opcodes.c
-
-    //useful variables
-    uint8_t fetched; //fetched data
-    uint16_t absolute_address; //absolute address
-    uint16_t relative_address; //relative address
-    uint8_t opcode; //current opcode
-    uint8_t cycles; //current number of cycles
-} cpu;
-
-//Bus of NES
-
-
-
-typedef struct
-{
-    uint8_t ram[64 * 1024];
-} bus;
-
-void bus_write(bus *nes_bus, uint16_t address, uint8_t data)
-{
-    //check if valid memory request
-    if ((address >= 0x0000) && (address <= 0xFFFF))
-    {
-        nes_bus->ram[address] = data;
-    }
-}
-
-uint8_t bus_read(bus *nes_bus, uint16_t address, bool ReadOnly)
-{
-    //check if valid memory request
-    if ((address >= 0x0000) && (address <= 0xFFFF))
-    {
-        return nes_bus->ram[address];
-    }
-}
-
-
-//P register flags:
+//Flags:
 //C carry bit flag
 //Z zero flag
 //I interrupt disable
@@ -85,8 +48,34 @@ uint8_t bus_read(bus *nes_bus, uint16_t address, bool ReadOnly)
 //V overflow flag
 //N negative flag
 
-//special cpu related functions
+//related variables
+uint8_t current_opcode = 0x00;
+uint8_t cycles = 0x00;
 
+//memory
+uint8_t ram[64 * 1024];
+
+
+//memory IO
+void mem_write(uint16_t address, uint8_t data)
+{
+    //check if valid memory request
+    if ((address >= 0x0000) && (address <= 0xFFFF))
+    {
+        ram[address] = data;
+    }
+}
+
+uint8_t mem_read(uint16_t address, bool ReadOnly)
+{
+    //check if valid memory request
+    if ((address >= 0x0000) && (address <= 0xFFFF))
+    {
+        return ram[address];
+    }
+}
+
+//needs refactoring and testing
 opcode get_opcode(uint8_t input) {
     for (int i = 0; i < sizeof(opcode_matrix) / sizeof(opcode_matrix[0]); i++) {
         if (opcode_matrix[i].name == input) {
@@ -95,22 +84,20 @@ opcode get_opcode(uint8_t input) {
     }
 }
 
-void clock(cpu *nes_cpu)
+void clock()
 {
-    if (nes_cpu->cycles == 0) {
-        nes_cpu->opcode = bus_read(nes_bus, nes_cpu->pc, false);
-        nes_cpu->pc++;
-        
-        
-        uint8_t additional_cycle1 = get_opcode(nes_cpu->opcode).addressing_mode();
-        
-        uint8_t additional_cycle2 = get_opcode(nes_cpu->opcode).opcode_function();
+    if (cycles == 0) {
+        //get next opcode
+        current_opcode = mem_read(program_counter, false);
+        //increment program counter of course
+        program_counter++;
 
-        //add extra cycles if necessary
-        nes_cpu->cycles += (additional_cycle1 & additional_cycle2);
+        //check if more cycles need to be added
+        
 
     }
-    nes_cpu->cycles--;
+    //decrement a cycle every clock cycle, we dont have to calculate every cycle as long as the clock is synced in the main function
+    cycles--;
 }
 
 void reset()
@@ -128,54 +115,43 @@ void non_maskable_interrupt_request()
 
 }
 
-void set_flag(cpu *nes_cpu, uint8_t flag, bool value)
+void set_flag(uint8_t flag, bool value)
 {
-    nes_cpu->p = value ? nes_cpu->p | (1 << flag) : nes_cpu->p & ~(1 << flag);
+    status_register = value ? status_register | (1 << flag) : status_register & ~(1 << flag);
 }
-bool check_flag(cpu *nes_cpu, uint8_t flag)
+bool check_flag(uint8_t flag)
 {
-    return (nes_cpu->p & (1 << flag)) > 0;
+    return (status_register & (1 << flag)) > 0;
 }
 
 //initializes cpu
-void initialize_cpu(cpu *nes_cpu)
+void initialize_cpu()
 {
-    //set registers to 0
-    nes_cpu->a = 0x00;
-    nes_cpu->x = 0x00;
-    nes_cpu->y = 0x00;
-    nes_cpu->p = 0b00000000;
-    nes_cpu->sp = 0x00;
-    nes_cpu->pc = 0x0000;
+    //sets cpu stuff to zero and ram as well
+    uint8_t accumulator = 0x00;
+    uint8_t x_register = 0x00;
+    uint8_t y_register = 0x00;
 
-    //set other variables to defaults
-    nes_cpu->fetched = 0x00;
-    nes_cpu->absolute_address = 0x0000;
-    nes_cpu->relative_address = 0x00;
-    nes_cpu->opcode = 0x00;
-    nes_cpu->cycles = 0;
+    uint16_t program_counter = 0x0000;
+    uint8_t stack_pointer = 0x00;
+    uint8_t status_register = 0x00;
 
-}
+    uint8_t current_opcode = 0x00;
+    uint8_t cycles = 0x00;
 
-void initialize_bus(bus *nes_bus)
-{
-    for (int i = 0; i < sizeof(nes_bus->ram); i++)
+    for (int i = 0; i < sizeof(ram); i++)
     {
         //make sure ram is zerod
-        nes_bus->ram[i] = 0x00;
+        ram[i] = 0x00;
     }
+
 }
 
 int main(void)
 {
-    //create cpu
-    cpu nes_cpu;
-    initialize_cpu(&nes_cpu);
-
-    //create bus
-    bus nes_bus;
-    initialize_bus(&nes_bus);
+    //cpu and ram
+    initialize_cpu();
     return 0;
 
-    //TODO: test the functions already written and fix them up. make cpu and bus global, move everthing into header files, and then start working on the addressing modes and opcodes
+    //TODO: test the functions already written and fix them up. make cpu and bus global, move everthing into header files, and then start working on the addressing modes and opcodes, and write unit tests?
 }
