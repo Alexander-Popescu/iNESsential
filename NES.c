@@ -47,71 +47,6 @@ typedef struct
     uint8_t cycles; //current number of cycles
 } cpu;
 
-//P register flags:
-//C carry bit flag
-//Z zero flag
-//I interrupt disable
-//D decimal mode
-//B break command
-//U unused
-//V overflow flag
-//N negative flag
-
-//special cpu related functions
-
-void clock(cpu *nes_cpu)
-{
-    if (nes_cpu->cycles == 0) {
-        nes_cpu->opcode = bus_read(nes_cpu, nes_cpu->pc, false);
-        nes_cpu->pc++;
-        
-        
-        uint8_t additional_cycle1 = get_opcode(nes_cpu->opcode)->addressing_mode();
-        
-        uint8_t additional_cycle2 = get_opcode(nes_cpu->opcode)->opcode_function();
-
-        //add extra cycles if necessary
-        nes_cpu->cycles += (additional_cycle1 & additional_cycle2);
-
-    }
-    nes_cpu->cycles--;
-}
-
-opcode* get_opcode(char* opcode_Input) {
-    for (int i = 0; i < 256; i++) {
-        if (opcode_Input == opcode_matrix[i].name) {
-            return &opcode_matrix[i];
-        }
-    }
-    return NULL;
-}
-
-void reset()
-{
-
-}
-
-void interrupt_request()
-{
-
-}
-
-void non_maskable_interrupt_request()
-{
-
-}
-
-void set_flag(cpu *nes_cpu, uint8_t flag, bool value)
-{
-    nes_cpu->p = value ? nes_cpu->p | (1 << flag) : nes_cpu->p & ~(1 << flag);
-}
-bool check_flag(cpu *nes_cpu, uint8_t flag)
-{
-    return (nes_cpu->p & (1 << flag)) > 0;
-}
-
-
-
 //Bus of NES
 
 
@@ -139,14 +74,68 @@ uint8_t bus_read(bus *nes_bus, uint16_t address, bool ReadOnly)
     }
 }
 
-//instruction format
-typedef struct
+
+//P register flags:
+//C carry bit flag
+//Z zero flag
+//I interrupt disable
+//D decimal mode
+//B break command
+//U unused
+//V overflow flag
+//N negative flag
+
+//special cpu related functions
+
+opcode get_opcode(uint8_t input) {
+    for (int i = 0; i < sizeof(opcode_matrix) / sizeof(opcode_matrix[0]); i++) {
+        if (opcode_matrix[i].name == input) {
+            return opcode_matrix[i];
+        }
+    }
+}
+
+void clock(cpu *nes_cpu)
 {
-    char *name;
-    uint8_t opcode;
-    uint8_t addressing_mode;
-    uint8_t cycle_count;
-} instruction;
+    if (nes_cpu->cycles == 0) {
+        nes_cpu->opcode = bus_read(nes_bus, nes_cpu->pc, false);
+        nes_cpu->pc++;
+        
+        
+        uint8_t additional_cycle1 = get_opcode(nes_cpu->opcode).addressing_mode();
+        
+        uint8_t additional_cycle2 = get_opcode(nes_cpu->opcode).opcode_function();
+
+        //add extra cycles if necessary
+        nes_cpu->cycles += (additional_cycle1 & additional_cycle2);
+
+    }
+    nes_cpu->cycles--;
+}
+
+void reset()
+{
+
+}
+
+void interrupt_request()
+{
+
+}
+
+void non_maskable_interrupt_request()
+{
+
+}
+
+void set_flag(cpu *nes_cpu, uint8_t flag, bool value)
+{
+    nes_cpu->p = value ? nes_cpu->p | (1 << flag) : nes_cpu->p & ~(1 << flag);
+}
+bool check_flag(cpu *nes_cpu, uint8_t flag)
+{
+    return (nes_cpu->p & (1 << flag)) > 0;
+}
 
 //initializes cpu
 void initialize_cpu(cpu *nes_cpu)
@@ -180,11 +169,13 @@ void initialize_bus(bus *nes_bus)
 int main(void)
 {
     //create cpu
-    cpu *nes_cpu = malloc(sizeof(cpu));
+    cpu nes_cpu;
+    initialize_cpu(&nes_cpu);
+
     //create bus
-    bus *nes_bus = malloc(sizeof(bus));
-    initialize_cpu(nes_cpu);
-    initialize_bus(nes_bus);
-    printf("%i", check_flag(nes_cpu, 0));
+    bus nes_bus;
+    initialize_bus(&nes_bus);
     return 0;
+
+    //TODO: test the functions already written and fix them up. make cpu and bus global, move everthing into header files, and then start working on the addressing modes and opcodes
 }

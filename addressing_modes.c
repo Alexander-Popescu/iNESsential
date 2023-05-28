@@ -1,7 +1,10 @@
 #include <stdint.h>
+#include "addressing_modes.h"
 
 uint8_t IMP()
 {
+    //implied, no data that comes with instruction
+    printf("test");
     return 0;
 }
 
