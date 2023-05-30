@@ -3,54 +3,170 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+//6502
+//A: Accumulator
+//X: Register
+//Y: Register
+//PC: Program Counter
+//SP: Stack Pointer
+//P: Status Register
+
+//cpu method:
+// 1 read byte at PC
+// 2 -> index array to find addressing mode and cycle count
+// 3 read any additional bytes
+// 4 execute instruction
+// 5 wait, count clock cycles, until complete
+
+
+
+//CPU 6502, globals ah!
+
+//Accumulator: A
+uint8_t accumulator = 0x00;
+
+//Registers: X, Y
+uint8_t x_register = 0x00;
+uint8_t y_register = 0x00;
+
+//Program Counter: PC
+uint16_t program_counter = 0x0000;
+
+//Stack Pointer: SP
+uint8_t stack_pointer = 0x00;
+
+//Status Register: P
+uint8_t status_register = 0x00;
+
+//Flags:
+C_flag = (1 << 0);//C carry bit flag
+Z_flag = (1 << 1);//Z zero flag
+I_flag = (1 << 2);//I interrupt disable
+D_flag = (1 << 3);//D decimal mode
+B_flag = (1 << 4);//B break command
+U_flag = (1 << 5);//U unused
+V_flag = (1 << 6);//V overflow flag
+N_flag = (1 << 7);//N negative flag
+
+//related variables
+uint8_t current_opcode = 0x00;
+uint8_t cycles = 0x00;
+
+//variable to link the addressing modes with the opcodes
+uint8_t data_at_absolute = 0x00;
+
+uint16_t absolute_address = 0x0000;
+uint16_t relative_address = 0x0000;
+
+//memory
+uint8_t ram[64 * 1024];
+
+
+//memory IO
+void mem_write(uint16_t address, uint8_t data)
+{
+    //check if valid memory request
+    if ((address >= 0x0000) && (address <= 0xFFFF))
+    {
+        ram[address] = data;
+    }
+}
+
+uint8_t mem_read(uint16_t address, bool ReadOnly)
+{
+    //check if valid memory request
+    if ((address >= 0x0000) && (address <= 0xFFFF))
+    {
+        return ram[address];
+    }
+}
+
+
 //addressing modes
 uint8_t IMP()
 {
     //implied
-    printf("test");
+    data_at_absolute = accumulator;
     return 0;
 }
 
 uint8_t IMM()
 {
     //immediate
+    absolute_address = program_counter + 1;
     return 0;
 }
 
 uint8_t ZP0()
 {
     //zero page
+    absolute_address = mem_read(program_counter, false) || 0x0000;
+    program_counter++;
     return 0;
 }
 
 uint8_t ZPX()
 {
-    //zero page with offset
+    //zero page with offset from X register
+    absolute_address = (mem_read(program_counter, false) + x_register) && 0x00FF;
+    program_counter++;
     return 0;
 }
 
 uint8_t ZPY()
 {
-    //zero page with offset
+    //zero page with offset from Y register
+    absolute_address = (mem_read(program_counter, false) + y_register) && 0x00FF;
+    program_counter++;
     return 0;
 }
 
 uint8_t REL()
 {
-    //relative for branching
+    //relative for branching instructions
+    relative_address = mem_read(program_counter, false);
+    program_counter++;
+
+    //check if negative
+    if (relative_address & 0x80)
+    {
+        relative_address |= 0xFF00;
+    }
     return 0;
 }
 
 uint8_t ABS()
 {
     //absolute
+    //read first byte
+    uint16_t low = mem_read(program_counter, false);
+    program_counter++;
+    //second
+    uint16_t high = mem_read(program_counter, false) << 8;
+    program_counter++;
+
+    absolute_address = high | low;
     return 0;
 }
 
 uint8_t ABX()
 {
-    //absolute with offset
-    return 0;
+    //absolute with offset, offsets by X register after bytes are read
+
+    //read first byte
+    uint16_t low = mem_read(program_counter, false);
+    program_counter++;
+    //second
+    uint16_t high = mem_read(program_counter, false) << 8;
+    program_counter++;
+
+    absolute_address = high | low;
+    absolute_address += x_register;
+
+    //this is one where if the memory page changes we need more cycles
+    uint8_t first_byte = absolute_address & 0xFF00;
+
+    return (first_byte != high) ? 1 : 0;
 }
 
 uint8_t ABY()
@@ -61,20 +177,72 @@ uint8_t ABY()
 
 uint8_t IND()
 {
-    //indirect
+    //indirect, data at the given address is the actual address we want to use
+
+    //first
+    uint16_t low_input = mem_read(program_counter, false);
+    program_counter++;
+    //second
+    uint16_t high_input = mem_read(program_counter, false) << 8;
+    program_counter++;
+
+    //combine input
+    uint16_t input = high_input | low_input;
+
+    //first
+    uint16_t low_output = mem_read(input, false);
+    program_counter++;
+    //second
+    uint16_t high_output = mem_read(input, false) << 8;
+    program_counter++;
+
+    //data at "pointer"
+    absolute_address = high_output | low_output;
+
     return 0;
 }
 
 uint8_t IZX()
 {
-    //indexed indirect
+    //indexed indirect, 1 byte reference to 2 byte address in zero page with x register offset
+    uint8_t input = mem_read(program_counter, false);
+    program_counter++;
+
+    //first
+    uint16_t low = mem_read((uint16_t)(input + x_register), false);
+    //second
+    uint16_t high = mem_read((uint16_t)(input + x_register + 1), false) << 8;
+
+    absolute_address = high | low;
+
     return 0;
 }
 
 uint8_t IZY()
 {
     //indirect indexed
-    return 0;
+    uint8_t input = mem_read(program_counter, false);
+    program_counter++;
+
+    //get actual address and offset final by y, but also check for page change
+
+    uint16_t low = mem_read(input, false);
+    uint16_t high = mem_read(input + 1, false) << 8;
+
+    absolute_address = high | low;
+
+    absolute_address += y_register;
+
+    //check for page change
+    uint8_t first_byte = absolute_address & 0xFF00;
+    return (first_byte != high) ? 1 : 0;
+}
+
+//helper function to avoid writing !IMP for every memory address
+uint8_t update_absolute_data()
+{
+    data_at_absolute = mem_read(absolute_address, false);
+    return data_at_absolute;
 }
 
 uint8_t ACC()
@@ -91,7 +259,18 @@ uint8_t ADC()
 
 uint8_t AND()
 {
-    return 0;
+    //get new data
+    update_absolute_data();
+
+    //perform opcode
+    accumulator = accumulator & data_at_absolute;
+
+    //update flags
+    set_flag(Z_flag, accumulator == 0x00);
+    set_flag(N_flag, accumulator & 0x80);
+
+    //return 1 if extra clock cycle is possible, it will check with addressing mode function
+    return 1;
 }
 
 uint8_t ASL()
@@ -106,6 +285,20 @@ uint8_t BCC()
 
 uint8_t BCS()
 {
+    if(check_flag(C_flag) == 1)
+    {
+        //branch
+        cycles++;
+        absolute_address = program_counter + relative_address;
+
+        //check if address changed page
+        if ((absolute_address & 0xFF00) != (program_counter & 0xFF00))
+        {
+            cycles++;
+        }
+        //update program counter since we just moved 
+        program_counter = absolute_address;
+    }
     return 0;
 }
 
@@ -366,6 +559,7 @@ uint8_t TYA()
 
 uint8_t XXX()
 {
+    printf("\nINVALID OPCODE\n");
     return 0;
 }
 
@@ -400,78 +594,6 @@ opcode opcode_matrix[16][16] = {
     {{ "BEQ", BEQ, REL, 2, 2 },{"SBC", SBC, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"SBC", SBC, ZPX, 2, 4 },{"INC", INC, ZPX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"SED", SED, IMP, 1, 2 },{"SBC", SBC, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"SBC", SBC, ABX, 3, 4 },{"INC", INC, ABX, 3, 7 },{"???", XXX, IMP, 0, 2 }},
 };
 
-//6502
-//A: Accumulator
-//X: Register
-//Y: Register
-//PC: Program Counter
-//SP: Stack Pointer
-//P: Status Register
-
-//cpu method:
-// 1 read byte at PC
-// 2 -> index array to find addressing mode and cycle count
-// 3 read any additional bytes
-// 4 execute instruction
-// 5 wait, count clock cycles, until complete
-
-
-
-//CPU 6502, globals ah!
-
-//Accumulator: A
-uint8_t accumulator = 0x00;
-
-//Registers: X, Y
-uint8_t x_register = 0x00;
-uint8_t y_register = 0x00;
-
-//Program Counter: PC
-uint16_t program_counter = 0x0000;
-
-//Stack Pointer: SP
-uint8_t stack_pointer = 0x00;
-
-//Status Register: P
-uint8_t status_register = 0x00;
-
-//Flags:
-//C carry bit flag
-//Z zero flag
-//I interrupt disable
-//D decimal mode
-//B break command
-//U unused
-//V overflow flag
-//N negative flag
-
-//related variables
-uint8_t current_opcode = 0x00;
-uint8_t cycles = 0x00;
-
-//memory
-uint8_t ram[64 * 1024];
-
-
-//memory IO
-void mem_write(uint16_t address, uint8_t data)
-{
-    //check if valid memory request
-    if ((address >= 0x0000) && (address <= 0xFFFF))
-    {
-        ram[address] = data;
-    }
-}
-
-uint8_t mem_read(uint16_t address, bool ReadOnly)
-{
-    //check if valid memory request
-    if ((address >= 0x0000) && (address <= 0xFFFF))
-    {
-        return ram[address];
-    }
-}
-
 opcode get_opcode(uint8_t input) {
     //split into nibble halfs
     uint8_t opcode_first_half = input >> 4;
@@ -498,8 +620,8 @@ void clock()
         cycles = op_to_execute.cycle_count;
 
         //execute the instruction, keep track if return 1 as that means add cycle
-        uint8_t extra_cycle_opcode = op_to_execute.opcode();
         uint8_t extra_cycle_addressingMode = op_to_execute.addressing_mode();
+        uint8_t extra_cycle_opcode = op_to_execute.opcode();
 
         //add any necessary cycles
         if ((extra_cycle_opcode == 1) && (extra_cycle_addressingMode == 1))
@@ -562,7 +684,7 @@ int main(void)
 {
     //cpu and ram
     initialize_cpu();
-    (get_opcode(0x0000).addressing_mode)();
+    (get_opcode(0x0001).addressing_mode)();
     return 0;
 
     //TODO: test the functions already written and fix them up. make cpu and bus global, move everthing into header files, and then start working on the addressing modes and opcodes, and write unit tests?
