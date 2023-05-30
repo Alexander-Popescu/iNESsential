@@ -4,3 +4,9 @@ DAY 1: Research and stuff
 -opcodes and addressing modes definitions
 -opcode table
 -
+
+Day 2:
+-merged files to prvent stupid errors (my fault)
+-refactored more code
+-got opcode matrix to work correctly
+-fixed get_opcode function
