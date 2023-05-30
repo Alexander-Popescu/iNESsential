@@ -492,12 +492,20 @@ void clock()
         //increment program counter of course
         program_counter++;
 
-        opcode opcode_object = get_opcode(current_opcode);
+        //cycles
 
+        opcode op_to_execute = get_opcode(current_opcode);
+        cycles = op_to_execute.cycle_count;
 
-        //check if more cycles need to be added
-        
+        //execute the instruction, keep track if return 1 as that means add cycle
+        uint8_t extra_cycle_opcode = op_to_execute.opcode();
+        uint8_t extra_cycle_addressingMode = op_to_execute.addressing_mode();
 
+        //add any necessary cycles
+        if ((extra_cycle_opcode == 1) && (extra_cycle_addressingMode == 1))
+        {
+            cycles++;
+        }
     }
     //decrement a cycle every clock cycle, we dont have to calculate every cycle as long as the clock is synced in the main function
     cycles--;
