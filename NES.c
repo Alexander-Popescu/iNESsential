@@ -18,6 +18,8 @@
 // 4 execute instruction
 // 5 wait, count clock cycles, until complete
 
+bool check_flag(uint8_t flag);
+void set_flag(uint8_t flag, bool value);
 
 
 //CPU 6502, globals ah!
@@ -32,21 +34,21 @@ uint8_t y_register = 0x00;
 //Program Counter: PC
 uint16_t program_counter = 0x0000;
 
-//Stack Pointer: SP
-uint8_t stack_pointer = 0x00;
+//Stack Pointer: SP, descending stack
+uint8_t stack_pointer = 0xFD;
 
 //Status Register: P
 uint8_t status_register = 0x00;
 
 //Flags:
-C_flag = (1 << 0);//C carry bit flag
-Z_flag = (1 << 1);//Z zero flag
-I_flag = (1 << 2);//I interrupt disable
-D_flag = (1 << 3);//D decimal mode
-B_flag = (1 << 4);//B break command
-U_flag = (1 << 5);//U unused
-V_flag = (1 << 6);//V overflow flag
-N_flag = (1 << 7);//N negative flag
+static uint8_t C_flag = 0b00000001; // C carry bit flag
+static uint8_t Z_flag = 0b00000010; // Z zero flag
+static uint8_t I_flag = 0b00000100; // I interrupt disable
+static uint8_t D_flag = 0b00001000; // D decimal mode
+static uint8_t B_flag = 0b00010000; // B break command
+static uint8_t U_flag = 0b00100000; // U unused
+static uint8_t V_flag = 0b01000000; // V overflow flag
+static uint8_t N_flag = 0b10000000; // N negative flag
 
 //related variables
 uint8_t current_opcode = 0x00;
@@ -72,7 +74,7 @@ void mem_write(uint16_t address, uint8_t data)
     }
 }
 
-uint8_t mem_read(uint16_t address, bool ReadOnly)
+uint8_t mem_read(uint16_t address)
 {
     //check if valid memory request
     if ((address >= 0x0000) && (address <= 0xFFFF))
@@ -100,7 +102,7 @@ uint8_t IMM()
 uint8_t ZP0()
 {
     //zero page
-    absolute_address = mem_read(program_counter, false) || 0x0000;
+    absolute_address = mem_read(program_counter) || 0x0000;
     program_counter++;
     return 0;
 }
@@ -108,7 +110,7 @@ uint8_t ZP0()
 uint8_t ZPX()
 {
     //zero page with offset from X register
-    absolute_address = (mem_read(program_counter, false) + x_register) && 0x00FF;
+    absolute_address = (mem_read(program_counter) + x_register) && 0x00FF;
     program_counter++;
     return 0;
 }
@@ -116,7 +118,7 @@ uint8_t ZPX()
 uint8_t ZPY()
 {
     //zero page with offset from Y register
-    absolute_address = (mem_read(program_counter, false) + y_register) && 0x00FF;
+    absolute_address = (mem_read(program_counter) + y_register) && 0x00FF;
     program_counter++;
     return 0;
 }
@@ -124,7 +126,7 @@ uint8_t ZPY()
 uint8_t REL()
 {
     //relative for branching instructions
-    relative_address = mem_read(program_counter, false);
+    relative_address = mem_read(program_counter);
     program_counter++;
 
     //check if negative
@@ -139,10 +141,10 @@ uint8_t ABS()
 {
     //absolute
     //read first byte
-    uint16_t low = mem_read(program_counter, false);
+    uint16_t low = mem_read(program_counter);
     program_counter++;
     //second
-    uint16_t high = mem_read(program_counter, false) << 8;
+    uint16_t high = mem_read(program_counter) << 8;
     program_counter++;
 
     absolute_address = high | low;
@@ -154,17 +156,17 @@ uint8_t ABX()
     //absolute with offset, offsets by X register after bytes are read
 
     //read first byte
-    uint16_t low = mem_read(program_counter, false);
+    uint16_t low = mem_read(program_counter);
     program_counter++;
     //second
-    uint16_t high = mem_read(program_counter, false) << 8;
+    uint16_t high = mem_read(program_counter) << 8;
     program_counter++;
 
     absolute_address = high | low;
     absolute_address += x_register;
 
     //this is one where if the memory page changes we need more cycles
-    uint8_t first_byte = absolute_address & 0xFF00;
+    uint16_t first_byte = absolute_address & 0xFF00;
 
     return (first_byte != high) ? 1 : 0;
 }
@@ -180,20 +182,20 @@ uint8_t IND()
     //indirect, data at the given address is the actual address we want to use
 
     //first
-    uint16_t low_input = mem_read(program_counter, false);
+    uint16_t low_input = mem_read(program_counter);
     program_counter++;
     //second
-    uint16_t high_input = mem_read(program_counter, false) << 8;
+    uint16_t high_input = mem_read(program_counter) << 8;
     program_counter++;
 
     //combine input
     uint16_t input = high_input | low_input;
 
     //first
-    uint16_t low_output = mem_read(input, false);
+    uint16_t low_output = mem_read(input);
     program_counter++;
     //second
-    uint16_t high_output = mem_read(input, false) << 8;
+    uint16_t high_output = mem_read(input) << 8;
     program_counter++;
 
     //data at "pointer"
@@ -205,13 +207,13 @@ uint8_t IND()
 uint8_t IZX()
 {
     //indexed indirect, 1 byte reference to 2 byte address in zero page with x register offset
-    uint8_t input = mem_read(program_counter, false);
+    uint8_t input = mem_read(program_counter);
     program_counter++;
 
     //first
-    uint16_t low = mem_read((uint16_t)(input + x_register), false);
+    uint16_t low = mem_read((uint16_t)(input + x_register));
     //second
-    uint16_t high = mem_read((uint16_t)(input + x_register + 1), false) << 8;
+    uint16_t high = mem_read((uint16_t)(input + x_register + 1)) << 8;
 
     absolute_address = high | low;
 
@@ -221,27 +223,27 @@ uint8_t IZX()
 uint8_t IZY()
 {
     //indirect indexed
-    uint8_t input = mem_read(program_counter, false);
+    uint8_t input = mem_read(program_counter);
     program_counter++;
 
     //get actual address and offset final by y, but also check for page change
 
-    uint16_t low = mem_read(input, false);
-    uint16_t high = mem_read(input + 1, false) << 8;
+    uint16_t low = mem_read(input);
+    uint16_t high = mem_read(input + 1) << 8;
 
     absolute_address = high | low;
 
     absolute_address += y_register;
 
     //check for page change
-    uint8_t first_byte = absolute_address & 0xFF00;
+    uint16_t first_byte = absolute_address & 0xFF00;
     return (first_byte != high) ? 1 : 0;
 }
 
 //helper function to avoid writing !IMP for every memory address
 uint8_t update_absolute_data()
 {
-    data_at_absolute = mem_read(absolute_address, false);
+    data_at_absolute = mem_read(absolute_address);
     return data_at_absolute;
 }
 
@@ -254,7 +256,18 @@ uint8_t ACC()
 //opcode functions
 uint8_t ADC()
 {
-    return 0;
+    //addition
+    update_absolute_data();
+
+    uint8_t tmp = accumulator + data_at_absolute + check_flag(C_flag);
+    tmp = (uint16_t)tmp;
+    set_flag(C_flag, (tmp > 255));
+    set_flag(Z_flag, (tmp & 0x00FF) == 0);
+    set_flag(N_flag, tmp & 0x80);
+    set_flag(V_flag, (~(accumulator ^ data_at_absolute) & (accumulator ^ tmp)) & 0x0080);
+    accumulator = tmp & 0x00FF;
+
+    return 1;
 }
 
 uint8_t AND()
@@ -275,12 +288,48 @@ uint8_t AND()
 
 uint8_t ASL()
 {
+    accumulator << 1;
+
+    //save bit 7 to carry flag
+    set_flag(C_flag, accumulator & 0x80);
+
+    //set 0 bit to 0
+    accumulator = accumulator & 0xFE;
+
+    //flags
+
+    if (accumulator == 0x00)
+    {
+        set_flag(Z_flag, 1);
+    }
+
+    if (accumulator & 0x80)
+    {
+        set_flag(N_flag, 1);
+    }
+
+
+
     return 0;
 }
 
 uint8_t BCC()
 {
-    return 0;
+    if(check_flag(C_flag) == 0)
+    {
+        //branch
+        cycles++;
+        absolute_address = program_counter + relative_address;
+
+        //check if address changed page
+        if ((absolute_address & 0xFF00) != (program_counter & 0xFF00))
+        {
+            cycles++;
+        }
+        //update program counter since we just moved 
+        program_counter = absolute_address;
+    }
+    return 1;
 }
 
 uint8_t BCS()
@@ -304,91 +353,294 @@ uint8_t BCS()
 
 uint8_t BEQ()
 {
-    return 0;
+    if(check_flag(Z_flag) == 1)
+    {
+        //branch
+        cycles++;
+        absolute_address = program_counter + relative_address;
+
+        //check if address changed page
+        if ((absolute_address & 0xFF00) != (program_counter & 0xFF00))
+        {
+            cycles++;
+        }
+        //update program counter since we just moved 
+        program_counter = absolute_address;
+    }
+    return 1;
 }
 
 uint8_t BIT()
 {
+    //get new data
+    update_absolute_data();
+
+    //perform opcode
+    uint8_t tmp = accumulator & data_at_absolute;
+
+    //update flags
+    set_flag(Z_flag, tmp == 0x00);
+
+    //set to data from memory locations
+    set_flag(N_flag, data_at_absolute & 0x80);
+    set_flag(V_flag, data_at_absolute & 0x40);
+
     return 0;
 }
 
 uint8_t BMI()
 {
-    return 0;
+    if(check_flag(N_flag) == 1)
+    {
+        //branch
+        cycles++;
+        absolute_address = program_counter + relative_address;
+
+        //check if address changed page
+        if ((absolute_address & 0xFF00) != (program_counter & 0xFF00))
+        {
+            cycles++;
+        }
+        //update program counter since we just moved 
+        program_counter = absolute_address;
+    }
+    return 1;
 }
 
 uint8_t BNE()
 {
-    return 0;
+    if(check_flag(Z_flag) == 0)
+    {
+        //branch
+        cycles++;
+        absolute_address = program_counter + relative_address;
+
+        //check if address changed page
+        if ((absolute_address & 0xFF00) != (program_counter & 0xFF00))
+        {
+            cycles++;
+        }
+        //update program counter since we just moved 
+        program_counter = absolute_address;
+    }
+    return 1;
 }
 
 uint8_t BPL()
 {
-    return 0;
+    if(check_flag(N_flag) == 0)
+    {
+        //branch
+        cycles++;
+        absolute_address = program_counter + relative_address;
+
+        //check if address changed page
+        if ((absolute_address & 0xFF00) != (program_counter & 0xFF00))
+        {
+            cycles++;
+        }
+        //update program counter since we just moved 
+        program_counter = absolute_address;
+    }
+    return 1;
 }
 
 uint8_t BRK()
 {
+    //break
+    interrupt_request();
+
+    //set break flag
+    set_flag(B_flag, 1);
+
     return 0;
 }
 
 uint8_t BVC()
 {
-    return 0;
+    if(check_flag(V_flag) == 0)
+    {
+        //branch
+        cycles++;
+        absolute_address = program_counter + relative_address;
+
+        //check if address changed page
+        if ((absolute_address & 0xFF00) != (program_counter & 0xFF00))
+        {
+            cycles++;
+        }
+        //update program counter since we just moved 
+        program_counter = absolute_address;
+    }
+    return 1;
 }
 
 uint8_t BVS()
 {
-    return 0;
+    if(check_flag(V_flag) == 1)
+    {
+        //branch
+        cycles++;
+        absolute_address = program_counter + relative_address;
+
+        //check if address changed page
+        if ((absolute_address & 0xFF00) != (program_counter & 0xFF00))
+        {
+            cycles++;
+        }
+        //update program counter since we just moved 
+        program_counter = absolute_address;
+    }
+    return 1;
 }
 
 uint8_t CLC()
 {
+    set_flag(C_flag, 0);
     return 0;
 }
 
 uint8_t CLD()
 {
+    set_flag(D_flag, 0);
     return 0;
 }
 
 uint8_t CLI()
 {
+    set_flag(I_flag, 0);
     return 0;
 }
 
 uint8_t CLV()
 {
+    set_flag(V_flag, 0);
     return 0;
 }
 
 uint8_t CMP()
 {
-    return 0;
+    //get new data
+    update_absolute_data();
+
+    if (accumulator >= data_at_absolute)
+    {
+        set_flag(C_flag, 1);
+    }
+
+    if (accumulator == data_at_absolute)
+    {
+        set_flag(Z_flag, 1);
+    }
+
+    if ((accumulator - data_at_absolute) & 0x80)
+    {
+        set_flag(N_flag, 1);
+    }
+
+    return 1;
 }
 
 uint8_t CPX()
 {
+    //get new data
+    update_absolute_data();
+
+    if (x_register >= data_at_absolute)
+    {
+        set_flag(C_flag, 1);
+    }
+
+    if (x_register == data_at_absolute)
+    {
+        set_flag(Z_flag, 1);
+    }
+
+    if ((x_register - data_at_absolute) & 0x80)
+    {
+        set_flag(N_flag, 1);
+    }
+
     return 0;
 }
 
 uint8_t CPY()
 {
+    //get new data
+    update_absolute_data();
+
+    if (y_register >= data_at_absolute)
+    {
+        set_flag(C_flag, 1);
+    }
+
+    if (y_register == data_at_absolute)
+    {
+        set_flag(Z_flag, 1);
+    }
+
+    if ((y_register - data_at_absolute) & 0x80)
+    {
+        set_flag(N_flag, 1);
+    }
+
     return 0;
 }
 
 uint8_t DEC()
 {
+    //update
+    update_absolute_data();
+
+    data_at_absolute--;
+
+    //set flags
+    if (data_at_absolute == 0x00)
+    {
+        set_flag(Z_flag, 1);
+    }
+
+    if (data_at_absolute & 0x80)
+    {
+        set_flag(N_flag, 1);
+    }
+
     return 0;
 }
 
 uint8_t DEX()
 {
+    x_register--;
+
+    //set flags
+    if (x_register == 0x00)
+    {
+        set_flag(Z_flag, 1);
+    }
+
+    if (x_register & 0x80)
+    {
+        set_flag(N_flag, 1);
+    } 
+
     return 0;
 }
 
 uint8_t DEY()
 {
+    y_register--;
+
+    //set flags
+    if (y_register == 0x00)
+    {
+        set_flag(Z_flag, 1);
+    }
+
+    if (y_register & 0x80)
+    {
+        set_flag(N_flag, 1);
+    }
+    
     return 0;
 }
 
@@ -454,6 +706,9 @@ uint8_t ORA()
 
 uint8_t PHA()
 {
+    //stack is descending and fills the 1 page
+    mem_write(0x0100 + stack_pointer, accumulator);
+    stack_pointer--;
     return 0;
 }
 
@@ -464,6 +719,10 @@ uint8_t PHP()
 
 uint8_t PLA()
 {
+    stack_pointer++;
+    accumulator = mem_read(0x0100 + stack_pointer);
+    set_flag(Z_flag, accumulator == 0x00);
+    set_flag(N_flag, accumulator & 0x80);
     return 0;
 }
 
@@ -484,6 +743,16 @@ uint8_t ROR()
 
 uint8_t RTI()
 {
+    //returns from an inturrupt
+
+    //read status
+    stack_pointer++;
+    status_register = mem_read(0x0100 + stack_pointer);
+
+    stack_pointer++;
+    program_counter = mem_read(0x0100 + stack_pointer);
+    program_counter = (program_counter << 8) | mem_read(0x0100 + stack_pointer + 1);
+    stack_pointer++;
     return 0;
 }
 
@@ -494,6 +763,19 @@ uint8_t RTS()
 
 uint8_t SBC()
 {
+    //subtraction
+    update_absolute_data();
+
+    uint16_t value = (uint16_t)data_at_absolute ^ 0x00FF;
+
+    uint16_t tmp = (uint16_t)accumulator + value + (uint16_t)check_flag(C_flag);
+
+    set_flag(C_flag, (tmp > 255));
+    set_flag(Z_flag, (tmp & 0x00FF) == 0);
+    set_flag(N_flag, tmp & 0x80);
+    set_flag(V_flag, (~(accumulator ^ data_at_absolute) & (accumulator ^ tmp)) & 0x0080);
+    accumulator = tmp & 0x00FF;
+
     return 0;
 }
 
@@ -610,7 +892,7 @@ void clock()
     //needs to be run at the propor clock cycle to be accurate
     if (cycles == 0) {
         //get next opcode
-        current_opcode = mem_read(program_counter, false);
+        current_opcode = mem_read(program_counter);
         //increment program counter of course
         program_counter++;
 
@@ -635,17 +917,83 @@ void clock()
 
 void reset()
 {
+    accumulator = 0x00;
+    x_register = 0x00;
+    y_register = 0x00;
+    stack_pointer = 0xFD;
+    status_register = 0x00 | (1 << 5);
+
+    //hard coded location
+    absolute_address = 0xFFFC;
+    uint8_t low = mem_read(absolute_address);
+    uint8_t high = mem_read(absolute_address + 1) << 8;
+
+    //combine
+    program_counter = high | low;
+
+    data_at_absolute = 0x00;
+    absolute_address = 0x0000;
+    relative_address = 0x00;
+    cycles = 8;
 
 }
 
 void interrupt_request()
 {
+    if (check_flag(I_flag) != 1)
+    {
+        //pc to stack
+        mem_write(0x0100 + stack_pointer, (program_counter >> 8) & 0x00FF);
+        stack_pointer--;
+        mem_write(0x0100 + stack_pointer, program_counter & 0x00FF);
+        stack_pointer--;
 
+        //set flags
+        set_flag(B_flag, false);
+        set_flag(U_flag, true);
+        set_flag(I_flag, true);
+
+        //save flags to stack
+        mem_write(0x0100 + stack_pointer, status_register);
+
+        //new pc hard coded
+        absolute_address = 0xFFFE;
+        uint8_t low = mem_read(absolute_address);
+        uint8_t high = mem_read(absolute_address + 1) << 8;
+
+        //combine
+        program_counter = high | low;
+
+        cycles = 7;
+
+    }
 }
 
 void non_maskable_interrupt_request()
 {
+    //pc to stack
+    mem_write(0x0100 + stack_pointer, (program_counter >> 8) & 0x00FF);
+    stack_pointer--;
+    mem_write(0x0100 + stack_pointer, program_counter & 0x00FF);
+    stack_pointer--;
 
+    //set flags
+    set_flag(B_flag, false);
+    set_flag(U_flag, true);
+    set_flag(I_flag, true);
+
+    //save flags to stack
+    mem_write(0x0100 + stack_pointer, status_register);
+
+    //new pc hard coded
+    absolute_address = 0xFFFE;
+    uint8_t low = mem_read(absolute_address);
+    uint8_t high = mem_read(absolute_address + 1) << 8;
+
+    //combine
+    program_counter = high | low;
+
+    cycles = 7;
 }
 
 void set_flag(uint8_t flag, bool value)
@@ -666,7 +1014,7 @@ void initialize_cpu()
     uint8_t y_register = 0x00;
 
     uint16_t program_counter = 0x0000;
-    uint8_t stack_pointer = 0x00;
+    uint8_t stack_pointer = 0xFD;
     uint8_t status_register = 0x00;
 
     uint8_t current_opcode = 0x00;
@@ -684,7 +1032,7 @@ int main(void)
 {
     //cpu and ram
     initialize_cpu();
-    (get_opcode(0x0001).addressing_mode)();
+
     return 0;
 
     //TODO: test the functions already written and fix them up. make cpu and bus global, move everthing into header files, and then start working on the addressing modes and opcodes, and write unit tests?

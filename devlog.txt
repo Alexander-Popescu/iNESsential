@@ -11,3 +11,4 @@ Day 2:
 -got opcode matrix to work correctly
 -fixed get_opcode function
 -began opcodes and addressing modes
+-cpu interrupt functions
