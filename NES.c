@@ -18,7 +18,7 @@
 // 4 execute instruction
 // 5 wait, count clock cycles, until complete
 
-bool check_flag(uint8_t flag);
+uint8_t check_flag(uint8_t flag);
 void set_flag(uint8_t flag, bool value);
 void interrupt_request();
 
@@ -57,6 +57,8 @@ uint8_t cycles = 0x00;
 
 //variable to link the addressing modes with the opcodes
 uint8_t data_at_absolute = 0x00;
+
+bool accumulator_mode = false;
 
 uint16_t absolute_address = 0x0000;
 uint16_t relative_address = 0x0000;
@@ -256,6 +258,11 @@ uint8_t IZY()
 //helper function to avoid writing !IMP for every memory address
 uint8_t update_absolute_data()
 {
+    if (accumulator_mode == true)
+    {
+        data_at_absolute = accumulator;
+        return data_at_absolute;
+    }
     data_at_absolute = mem_read(absolute_address);
     return data_at_absolute;
 }
@@ -797,37 +804,131 @@ uint8_t JSR()
 uint8_t LDA()
 {
     printf("\nOP-LDA\n");
-    return 0;
+
+    update_absolute_data();
+    accumulator = data_at_absolute;
+
+    //set flags
+    if (accumulator == 0x00)
+    {
+        set_flag(Z_flag, 1);
+    }
+
+    if (accumulator & 0x80)
+    {
+        set_flag(N_flag, 1);
+    }
+
+    return 1;
 }
 
 uint8_t LDX()
 {
     printf("\nOP-LDX\n");
-    return 0;
+
+    update_absolute_data();
+    x_register = data_at_absolute;
+
+    //set flags
+    if (x_register == 0x00)
+    {
+        set_flag(Z_flag, 1);
+    }
+
+    if (x_register & 0x80)
+    {
+        set_flag(N_flag, 1);
+    }
+
+    return 1;
 }
 
 uint8_t LDY()
 {
     printf("\nOP-LDY\n");
-    return 0;
+
+    update_absolute_data();
+    y_register = data_at_absolute;
+
+    //set flags
+    if (y_register == 0x00)
+    {
+        set_flag(Z_flag, 1);
+    }
+
+    if (y_register & 0x80)
+    {
+        set_flag(N_flag, 1);
+    }
+
+    return 1;
 }
 
 uint8_t LSR()
 {
     printf("\nOP-LSR\n");
+
+    if (accumulator_mode == true)
+    {
+        accumulator = accumulator >> 1;
+
+        //set flags
+        if (accumulator == 0x00)
+        {
+            set_flag(Z_flag, 1);
+        }
+
+        if (accumulator & 0x80)
+        {
+            set_flag(N_flag, 1);
+        }
+        accumulator_mode = false;
+    }
+    else
+    {
+        ram[absolute_address] = ram[absolute_address] >> 1;
+
+        //set flags
+        if (ram[absolute_address] == 0x00)
+        {
+            set_flag(Z_flag, 1);
+        }
+
+        if (ram[absolute_address] & 0x80)
+        {
+            set_flag(N_flag, 1);
+        }
+    }
+
     return 0;
 }
 
 uint8_t NOP()
 {
     printf("\nOP-NOP\n");
+
     return 0;
 }
 
 uint8_t ORA()
 {
     printf("\nOP-ORA\n");
-    return 0;
+
+    update_absolute_data();
+    accumulator = accumulator | data_at_absolute;
+
+    //set flags
+    if (accumulator == 0x00)
+    {
+        set_flag(Z_flag, 1);
+    }
+
+    if (accumulator & 0x80)
+    {
+        set_flag(N_flag, 1);
+    }
+
+    return 1;
 }
 
 uint8_t PHA()
@@ -842,6 +943,10 @@ uint8_t PHA()
 uint8_t PHP()
 {
     printf("\nOP-PHP\n");
+
+    mem_write(0x0100 + stack_pointer, status_register);
+    stack_pointer--;
+
     return 0;
 }
 
@@ -858,18 +963,100 @@ uint8_t PLA()
 uint8_t PLP()
 {
     printf("\nOP-PLP\n");
+
+    stack_pointer++;
+    status_register = mem_read(0x0100 + stack_pointer);
+
     return 0;
 }
 
 uint8_t ROL()
 {
     printf("\nOP-ROL\n");
+
+    if (accumulator_mode == true)
+    {
+        uint8_t old = accumulator;
+        accumulator = accumulator << 1;
+        accumulator = accumulator | check_flag(C_flag);
+
+        //set flags
+        set_flag(C_flag, old & 0x80);
+        if (accumulator == 0x00)
+        {
+            set_flag(Z_flag, 1);
+        }
+
+        if (accumulator & 0x80)
+        {
+            set_flag(N_flag, 1);
+        }
+        accumulator_mode = false;
+    }
+    else
+    {
+        uint8_t old = ram[absolute_address];
+        ram[absolute_address] = ram[absolute_address] << 1;
+        ram[absolute_address] = ram[absolute_address] | (check_flag(C_flag) << 7);
+
+        //set flags
+        set_flag(C_flag, old & 0x80);
+        if (ram[absolute_address] == 0x00)
+        {
+            set_flag(Z_flag, 1);
+        }
+
+        if (ram[absolute_address] & 0x80)
+        {
+            set_flag(N_flag, 1);
+        }
+    }
+
     return 0;
 }
 
 uint8_t ROR()
 {
     printf("\nOP-ROR\n");
+
+    if (accumulator_mode == true)
+    {
+        uint8_t old = accumulator;
+        accumulator = accumulator >> 1;
+        accumulator = accumulator | (check_flag(C_flag) << 7);
+
+        //set flags
+        set_flag(C_flag, old & 0x01);
+        if (accumulator == 0x00)
+        {
+            set_flag(Z_flag, 1);
+        }
+
+        if (accumulator & 0x80)
+        {
+            set_flag(N_flag, 1);
+        }
+        accumulator_mode = false;
+    }
+    else
+    {
+        uint8_t old = ram[absolute_address];
+        ram[absolute_address] = ram[absolute_address] >> 1;
+        ram[absolute_address] = ram[absolute_address] | (check_flag(C_flag) << 7);
+
+        //set flags
+        set_flag(C_flag, old & 0x01);
+        if (ram[absolute_address] == 0x00)
+        {
+            set_flag(Z_flag, 1);
+        }
+
+        if (ram[absolute_address] & 0x80)
+        {
+            set_flag(N_flag, 1);
+        }
+    }
+
     return 0;
 }
 
@@ -892,6 +1079,10 @@ uint8_t RTI()
 uint8_t RTS()
 {
     printf("\nOP-RTS\n");
+
+    stack_pointer++;
+    program_counter = mem_read(0x0100 + stack_pointer);
+
     return 0;
 }
 
@@ -917,72 +1108,102 @@ uint8_t SBC()
 uint8_t SEC()
 {
     printf("\nOP-SEC\n");
+    set_flag(C_flag, 1);
     return 0;
 }
 
 uint8_t SED()
 {
     printf("\nOP-SED\n");
+    set_flag(D_flag, 1);
     return 0;
 }
 
 uint8_t SEI()
 {
     printf("\nOP-SEI\n");
+    set_flag(I_flag, 1);
     return 0;
 }
 
 uint8_t STA()
 {
     printf("\nOP-STA\n");
+    update_absolute_data();
+    ram[absolute_address] = accumulator;
     return 0;
 }
 
 uint8_t STX()
 {
     printf("\nOP-STX\n");
+    ram[absolute_address] = x_register;
     return 0;
 }
 
 uint8_t STY()
 {
     printf("\nOP-STY\n");
+    ram[absolute_address] = y_register;
     return 0;
 }
 
 uint8_t TAX()
 {
     printf("\nOP-TAX\n");
+    x_register = accumulator;
+
+    set_flag(Z_flag, x_register == 0x00);
+    set_flag(N_flag, x_register & 0x80);
     return 0;
 }
 
 uint8_t TAY()
 {
     printf("\nOP-TAY\n");
+    y_register = accumulator;
+
+    set_flag(Z_flag, y_register == 0x00);
+    set_flag(N_flag, y_register & 0x80);
     return 0;
 }
 
 uint8_t TSX()
 {
     printf("\nOP-TSX\n");
+    x_register = stack_pointer;
+
+    set_flag(Z_flag, x_register == 0x00);
+    set_flag(N_flag, x_register & 0x80);
+
     return 0;
 }
 
 uint8_t TXA()
 {
     printf("\nOP-TXA\n");
+    accumulator = x_register;
+
+    set_flag(Z_flag, accumulator == 0x00);
+    set_flag(N_flag, accumulator & 0x80);
+
     return 0;
 }
 
 uint8_t TXS()
 {
     printf("\nOP-TXS\n");
+    stack_pointer = x_register;
     return 0;
 }
 
 uint8_t TYA()
 {
     printf("\nOP-TYA\n");
+    accumulator = y_register;
+
+    set_flag(Z_flag, accumulator == 0x00);
+    set_flag(N_flag, accumulator & 0x80);
     return 0;
 }
 
@@ -1147,9 +1368,9 @@ void set_flag(uint8_t flag, bool value)
 {
     status_register = value ? status_register | (1 << flag) : status_register & ~(1 << flag);
 }
-bool check_flag(uint8_t flag)
+uint8_t check_flag(uint8_t flag)
 {
-    return (status_register & (1 << flag)) > 0;
+    return (status_register & (1 << flag)) ? 1 : 0;
 }
 
 //initializes cpu
