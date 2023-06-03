@@ -12,3 +12,6 @@ Day 2:
 -fixed get_opcode function
 -began opcodes and addressing modes
 -cpu interrupt functions
+
+Day 3:
+-finished up opcode implementations and began testing

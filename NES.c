@@ -33,7 +33,7 @@ uint8_t x_register = 0x00;
 uint8_t y_register = 0x00;
 
 //Program Counter: PC
-uint16_t program_counter = 0x0000;
+uint16_t program_counter = 0x8000;
 
 //Stack Pointer: SP, descending stack
 uint8_t stack_pointer = 0xFD;
@@ -186,6 +186,22 @@ uint8_t ABY()
 {
     printf("\nAM-ABY\n");
     //absolute with offset
+
+    //read first byte
+    uint16_t low = mem_read(program_counter);
+    program_counter++;
+    //second
+    uint16_t high = mem_read(program_counter) << 8;
+    program_counter++;
+
+    absolute_address = high | low;
+    absolute_address += y_register;
+
+    //this is one where if the memory page changes we need more cycles
+    uint16_t first_byte = absolute_address & 0xFF00;
+
+    return (first_byte != high) ? 1 : 0;
+
     return 0;
 }
 
@@ -271,6 +287,7 @@ uint8_t ACC()
 {
     printf("\nOP-ACC\n");
     //accumulator
+    accumulator_mode = true;
     return 0;
 }
 
@@ -1262,7 +1279,6 @@ void clock()
         //get next opcode
         current_opcode = mem_read(program_counter);
         //increment program counter of course
-        program_counter++;
 
         //cycles
 
@@ -1273,6 +1289,7 @@ void clock()
         uint8_t extra_cycle_addressingMode = op_to_execute.addressing_mode();
         uint8_t extra_cycle_opcode = op_to_execute.opcode();
 
+        program_counter++;
         //add any necessary cycles
         if ((extra_cycle_opcode == 1) && (extra_cycle_addressingMode == 1))
         {
@@ -1381,7 +1398,7 @@ void initialize_cpu()
     uint8_t x_register = 0x00;
     uint8_t y_register = 0x00;
 
-    uint16_t program_counter = 0x0000;
+    uint16_t program_counter = 0x8000;
     uint8_t stack_pointer = 0xFD;
     uint8_t status_register = 0x00;
 
@@ -1400,7 +1417,10 @@ int main(void)
 {
     //cpu and ram
     initialize_cpu();
-
+    ram[0x8000] = 0xA9;
+    ram[0x8001] = 0x01;
+    clock();
+    printf("accumulator: %d\n", accumulator);
     return 0;
 
     //TODO: test the functions already written and fix them up. make cpu and bus global, move everthing into header files, and then start working on the addressing modes and opcodes, and write unit tests?
