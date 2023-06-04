@@ -14,4 +14,4 @@ Day 2:
 -cpu interrupt functions
 
 Day 3:
--finished up opcode implementations and began testing
+-finished up opcode implementations, addressing modes, and began testing

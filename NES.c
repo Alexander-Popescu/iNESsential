@@ -75,6 +75,10 @@ void mem_write(uint16_t address, uint8_t data)
     {
         ram[address] = data;
     }
+    else
+    {
+        printf("Invalid memory address: %d", address);
+    }
 }
 
 uint8_t mem_read(uint16_t address)
@@ -1413,14 +1417,61 @@ void initialize_cpu()
 
 }
 
+void load_rom(char* filename)
+{
+    FILE* file = fopen(filename, "rb");
+    if (file == NULL)
+    {
+        printf("Error: Could not open file %s\n", filename);
+        exit(1);
+    }
+
+    // get file size
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    rewind(file);
+    printf("File size: %ld\n", file_size);
+
+    // read file into RAM starting at 0x8000
+    for (int i = 0x8000; i < 0x8000 + file_size ; i++)
+    {
+        unsigned char byte;
+        fread(&byte, sizeof(unsigned char), 1, file);
+        mem_write(i, byte);
+    }
+
+    fclose(file);
+}
+
+void print_cpu_state()
+{
+    printf("accumulator: %d\n", accumulator);
+    printf("x_register: %d\n", x_register);
+    printf("y_register: %d\n", y_register);
+    printf("stack_pointer: %d\n", stack_pointer);
+    printf("status_register: %d\n", status_register);
+    printf("program_counter: %d\n", program_counter);
+}
+
+void print_ram_state(int depth, int start_position)
+{
+    depth = depth + start_position;
+    for (int i = start_position; i < depth; i++)
+    {
+        printf("ram[0x%x]: 0x%x\n", i, ram[i]);
+    }
+}
+
+
 int main(void)
 {
     //cpu and ram
     initialize_cpu();
-    ram[0x8000] = 0xA9;
-    ram[0x8001] = 0x01;
-    clock();
-    printf("accumulator: %d\n", accumulator);
+    //load rom at 0x8000, default location
+    load_rom("nestest.nes");
+    print_ram_state(10, 0x8000);
+    //clock();
+    //print_cpu_state();
     return 0;
 
     //TODO: test the functions already written and fix them up. make cpu and bus global, move everthing into header files, and then start working on the addressing modes and opcodes, and write unit tests?
