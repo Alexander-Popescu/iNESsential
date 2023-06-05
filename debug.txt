@@ -1,0 +1,4 @@
+PC:0xc5f5 A:0 X:0 Y:0 P:0 SP:fd PPU:0, 21 CYC:3
+PC:0xc5f7 A:0 X:0 Y:0 P:4 SP:fd PPU:0, 21 CYC:2
+PC:0xc5f9 A:0 X:0 Y:0 P:4 SP:fd PPU:0, 21 CYC:3
+PC:0xc5fb A:0 X:0 Y:0 P:4 SP:fd PPU:0, 21 CYC:3

@@ -104,7 +104,9 @@ uint8_t IMM()
 {
     printf("\nAM-IMM\n");
     //immediate
-    absolute_address = program_counter + 1;
+    program_counter++;
+    absolute_address = program_counter;
+    program_counter++;
     return 0;
 }
 
@@ -112,6 +114,7 @@ uint8_t ZP0()
 {
     printf("\nAM-ZP0\n");
     //zero page
+    program_counter++;
     absolute_address = mem_read(program_counter) || 0x0000;
     program_counter++;
     return 0;
@@ -121,6 +124,7 @@ uint8_t ZPX()
 {
     printf("\nAM-ZPX\n");
     //zero page with offset from X register
+    program_counter++;
     absolute_address = (mem_read(program_counter) + x_register) && 0x00FF;
     program_counter++;
     return 0;
@@ -130,6 +134,7 @@ uint8_t ZPY()
 {
     printf("\nAM-ZPY\n");
     //zero page with offset from Y register
+    program_counter++;
     absolute_address = (mem_read(program_counter) + y_register) && 0x00FF;
     program_counter++;
     return 0;
@@ -787,12 +792,11 @@ uint8_t INY()
 uint8_t JMP()
 {
     printf("\nOP-JMP\n");
+    uint16_t second_half = mem_read(program_counter - 1);
     uint16_t first_half = mem_read(program_counter) << 8;
-    program_counter++;
-    uint16_t second_half = mem_read(program_counter);
-    program_counter++;
 
     uint16_t jump_address = first_half | second_half;
+    printf("jump address: %x\n", jump_address);
 
     program_counter = jump_address;
 
@@ -1282,23 +1286,25 @@ void clock()
     if (cycles == 0) {
         //get next opcode
         current_opcode = mem_read(program_counter);
+        printf("\ncurrent pc: 0x%x\n", program_counter);
+        printf("current opcode: 0x%x\n", current_opcode);
         //increment program counter of course
 
         //cycles
 
         opcode op_to_execute = get_opcode(current_opcode);
         cycles = op_to_execute.cycle_count;
+        printf("opcode: %s\n", op_to_execute.name);
 
         //execute the instruction, keep track if return 1 as that means add cycle
         uint8_t extra_cycle_addressingMode = op_to_execute.addressing_mode();
         uint8_t extra_cycle_opcode = op_to_execute.opcode();
-
-        program_counter++;
         //add any necessary cycles
         if ((extra_cycle_opcode == 1) && (extra_cycle_addressingMode == 1))
         {
             cycles++;
         }
+        print_cpu_state();
     }
     //decrement a cycle every clock cycle, we dont have to calculate every cycle as long as the clock is synced in the main function
     cycles--;
@@ -1445,22 +1451,20 @@ void load_rom(char* filename)
     // load program ROM data into memory starting at 0x8000
     for (int i = 0; i < prg_rom_size; i++)
     {
-        mem_write(0x8000 + i, prg_rom[i]);
+        mem_write(0xC000 + i, prg_rom[i]);
     }
 
     free(prg_rom);
     fclose(file);
 }
 
+FILE* fp;
+
 void print_cpu_state()
 {
-    printf("CPU STATE:\n");
-    printf("accumulator: %d\n", accumulator);
-    printf("x_register: %d\n", x_register);
-    printf("y_register: %d\n", y_register);
-    printf("stack_pointer: %d\n", stack_pointer);
-    printf("status_register: %d\n", status_register);
-    printf("program_counter: %d\n", program_counter);
+    printf("PC:0x%x A:%x X:%x Y:%x P:%x SP:%x PPU:%d, %d CYC:%d\n", program_counter, accumulator, x_register, y_register, status_register, stack_pointer, 0, 21, cycles);
+    //add line to debug.txt
+    fprintf(fp, "PC:0x%x A:%x X:%x Y:%x P:%x SP:%x PPU:%d, %d CYC:%d\n", program_counter, accumulator, x_register, y_register, status_register, stack_pointer, 0, 21, cycles);
 }
 
 void print_ram_state(int depth, int start_position)
@@ -1472,19 +1476,27 @@ void print_ram_state(int depth, int start_position)
     }
 }
 
-
 int main(void)
 {
+    //open file for debug
+    fp = fopen("debug.txt", "w");
+    if (fp == NULL)
+    {
+        printf("Error opening file!\n");
+        exit(1);
+    }
+
+
     //cpu and ram
     initialize_cpu();
     //load rom at 0x8000, default location
-    load_rom("mario.nes");
-    print_ram_state(10, 0x8000);
+    load_rom("nestest.nes");
+    print_ram_state(10, 0xC000);
+    program_counter = 0xC000;
     for (int i = 0; i < 10; i++)
     {
         clock();
     }
-    print_cpu_state();
     return 0;
 
     //TODO: test the functions already written and fix them up. make cpu and bus global, move everthing into header files, and then start working on the addressing modes and opcodes, and write unit tests?
