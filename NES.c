@@ -653,7 +653,7 @@ uint8_t DEC()
 {
     printf("\nOP-DEC\n");
     //update
-    ram[absolute_address]--;
+    mem_write(absolute_address, ram[absolute_address]--);
     update_absolute_data();
 
     //set flags
@@ -730,15 +730,15 @@ uint8_t EOR()
 uint8_t INC()
 {
     printf("\nOP-INC\n");
-    ram[absolute_address]++;
+    mem_write(absolute_address, ram[absolute_address] + 1);
 
     //set flags
-    if (ram[absolute_address] == 0x00)
+    if (mem_read(absolute_address) == 0x00)
     {
         set_flag(Z_flag, 1);
     }
 
-    if (ram[absolute_address] & 0x80)
+    if (mem_read(absolute_address) & 0x80)
     {
         set_flag(N_flag, 1);
     }
@@ -907,15 +907,15 @@ uint8_t LSR()
     }
     else
     {
-        ram[absolute_address] = ram[absolute_address] >> 1;
+        mem_write(absolute_address, ram[absolute_address] >> 1);
 
         //set flags
-        if (ram[absolute_address] == 0x00)
+        if (mem_read(absolute_address) == 0x00)
         {
             set_flag(Z_flag, 1);
         }
 
-        if (ram[absolute_address] & 0x80)
+        if (mem_read(absolute_address) & 0x80)
         {
             set_flag(N_flag, 1);
         }
@@ -1016,18 +1016,18 @@ uint8_t ROL()
     }
     else
     {
-        uint8_t old = ram[absolute_address];
-        ram[absolute_address] = ram[absolute_address] << 1;
-        ram[absolute_address] = ram[absolute_address] | (check_flag(C_flag) << 7);
+        uint8_t old = mem_read(absolute_address);
+        mem_write(absolute_address, ram[absolute_address] << 1);
+        mem_write(absolute_address, ram[absolute_address] | (check_flag(C_flag) << 7));
 
         //set flags
         set_flag(C_flag, old & 0x80);
-        if (ram[absolute_address] == 0x00)
+        if (mem_read(absolute_address) == 0x00)
         {
             set_flag(Z_flag, 1);
         }
 
-        if (ram[absolute_address] & 0x80)
+        if (mem_read(absolute_address) & 0x80)
         {
             set_flag(N_flag, 1);
         }
@@ -1062,17 +1062,17 @@ uint8_t ROR()
     else
     {
         uint8_t old = ram[absolute_address];
-        ram[absolute_address] = ram[absolute_address] >> 1;
-        ram[absolute_address] = ram[absolute_address] | (check_flag(C_flag) << 7);
+        mem_write(absolute_address, ram[absolute_address] >> 1);
+        mem_write(absolute_address, ram[absolute_address] | (check_flag(C_flag) << 7));
 
         //set flags
         set_flag(C_flag, old & 0x01);
-        if (ram[absolute_address] == 0x00)
+        if (mem_read(absolute_address) == 0x00)
         {
             set_flag(Z_flag, 1);
         }
 
-        if (ram[absolute_address] & 0x80)
+        if (mem_read(absolute_address) & 0x80)
         {
             set_flag(N_flag, 1);
         }
@@ -1151,21 +1151,21 @@ uint8_t STA()
 {
     printf("\nOP-STA\n");
     update_absolute_data();
-    ram[absolute_address] = accumulator;
+    mem_write(absolute_address, accumulator);
     return 0;
 }
 
 uint8_t STX()
 {
     printf("\nOP-STX\n");
-    ram[absolute_address] = x_register;
+    mem_write(absolute_address, x_register);
     return 0;
 }
 
 uint8_t STY()
 {
     printf("\nOP-STY\n");
-    ram[absolute_address] = y_register;
+    mem_write(absolute_address, y_register);
     return 0;
 }
 
