@@ -1426,25 +1426,35 @@ void load_rom(char* filename)
         exit(1);
     }
 
-    // get file size
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    rewind(file);
-    printf("File size: %ld\n", file_size);
+    // read iNES header
+    unsigned char header[16];
+    fread(header, sizeof(unsigned char), 16, file);
 
-    // read file into RAM starting at 0x8000
-    for (int i = 0x8000; i < 0x8000 + file_size ; i++)
+    // check for valid iNES header
+    if (header[0] != 'N' || header[1] != 'E' || header[2] != 'S' || header[3] != 0x1A)
     {
-        unsigned char byte;
-        fread(&byte, sizeof(unsigned char), 1, file);
-        mem_write(i, byte);
+        printf("Error: Invalid iNES header\n");
+        exit(1);
     }
 
+    // extract program ROM data
+    int prg_rom_size = header[4] * 16384;
+    unsigned char* prg_rom = malloc(prg_rom_size);
+    fread(prg_rom, sizeof(unsigned char), prg_rom_size, file);
+
+    // load program ROM data into memory starting at 0x8000
+    for (int i = 0; i < prg_rom_size; i++)
+    {
+        mem_write(0x8000 + i, prg_rom[i]);
+    }
+
+    free(prg_rom);
     fclose(file);
 }
 
 void print_cpu_state()
 {
+    printf("CPU STATE:\n");
     printf("accumulator: %d\n", accumulator);
     printf("x_register: %d\n", x_register);
     printf("y_register: %d\n", y_register);
@@ -1468,10 +1478,13 @@ int main(void)
     //cpu and ram
     initialize_cpu();
     //load rom at 0x8000, default location
-    load_rom("nestest.nes");
+    load_rom("mario.nes");
     print_ram_state(10, 0x8000);
-    //clock();
-    //print_cpu_state();
+    for (int i = 0; i < 10; i++)
+    {
+        clock();
+    }
+    print_cpu_state();
     return 0;
 
     //TODO: test the functions already written and fix them up. make cpu and bus global, move everthing into header files, and then start working on the addressing modes and opcodes, and write unit tests?
