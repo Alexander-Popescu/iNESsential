@@ -66,6 +66,11 @@ uint16_t relative_address = 0x0000;
 //memory
 uint8_t ram[64 * 1024];
 
+//for debug output
+FILE* fp;
+
+//total cycles elapsed
+uint64_t total_cycles = 0;
 
 //memory IO
 void mem_write(uint16_t address, uint8_t data)
@@ -1308,6 +1313,7 @@ void clock()
     }
     //decrement a cycle every clock cycle, we dont have to calculate every cycle as long as the clock is synced in the main function
     cycles--;
+    total_cycles++;
 }
 
 void reset()
@@ -1458,13 +1464,12 @@ void load_rom(char* filename)
     fclose(file);
 }
 
-FILE* fp;
 
 void print_cpu_state()
 {
-    printf("PC:0x%x A:%x X:%x Y:%x P:%x SP:%x PPU:%d, %d CYC:%d\n", program_counter, accumulator, x_register, y_register, status_register, stack_pointer, 0, 21, cycles);
-    //add line to debug.txt
-    fprintf(fp, "PC:0x%x A:%x X:%x Y:%x P:%x SP:%x PPU:%d, %d CYC:%d\n", program_counter, accumulator, x_register, y_register, status_register, stack_pointer, 0, 21, cycles);
+    //print and add line to debug.txt in format C000  4C F5 C5  JMP $C5F5                       A:00 X:00 Y:00 P:24 SP:FD PPU:  0, 21 CYC:7
+    fprintf(fp, "%X  %X %X %X  %s                       A:%X X:%X Y:%X P:%X SP:%X PPU:%X, %X CYC:%i\n", program_counter, ram[program_counter], ram[program_counter + 1], ram[program_counter + 2], get_opcode(ram[program_counter]).name, accumulator, x_register, y_register, status_register, stack_pointer, 0, 0, total_cycles);
+    printf("%X  %X %X %X  %s                       A:%X X:%X Y:%X P:%X SP:%X PPU:%X, %X CYC:%i\n", program_counter, ram[program_counter], ram[program_counter + 1], ram[program_counter + 2], get_opcode(ram[program_counter]).name, accumulator, x_register, y_register, status_register, stack_pointer, 0, 0, total_cycles);
 }
 
 void print_ram_state(int depth, int start_position)
@@ -1493,11 +1498,12 @@ int main(void)
     load_rom("nestest.nes");
     print_ram_state(10, 0xC000);
     program_counter = 0xC000;
-    for (int i = 0; i < 10; i++)
+    print_cpu_state();
+    for (int i = 0; i < 100; i++)
     {
         clock();
     }
     return 0;
 
-    //TODO: test the functions already written and fix them up. make cpu and bus global, move everthing into header files, and then start working on the addressing modes and opcodes, and write unit tests?
+    //TODO: get debug output formatted right and check all opcodes, and fix warnings
 }

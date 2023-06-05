@@ -1,4 +1,46 @@
-PC:0xc5f5 A:0 X:0 Y:0 P:0 SP:fd PPU:0, 21 CYC:3
-PC:0xc5f7 A:0 X:0 Y:0 P:4 SP:fd PPU:0, 21 CYC:2
-PC:0xc5f9 A:0 X:0 Y:0 P:4 SP:fd PPU:0, 21 CYC:3
-PC:0xc5fb A:0 X:0 Y:0 P:4 SP:fd PPU:0, 21 CYC:3
+C000  4C F5 C5  JMP                       A:0 X:0 Y:0 P:0 SP:FD PPU:0, 0 CYC:0
+C5F5  A2 0 86  LDX                       A:0 X:0 Y:0 P:0 SP:FD PPU:0, 0 CYC:0
+C5F7  86 0 86  STX                       A:0 X:0 Y:0 P:4 SP:FD PPU:0, 0 CYC:3
+C5F9  86 10 86  STX                       A:0 X:0 Y:0 P:4 SP:FD PPU:0, 0 CYC:5
+C5FB  86 11 20  STX                       A:0 X:0 Y:0 P:4 SP:FD PPU:0, 0 CYC:8
+C5FD  20 2D C7  JSR                       A:0 X:0 Y:0 P:4 SP:FD PPU:0, 0 CYC:11
+C720  F0 6 C9  BEQ                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:14
+C711  C9 AA F0  CMP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:20
+C713  F0 6 68  BEQ                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:23
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:25
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:28
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:30
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:32
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:34
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:36
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:38
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:40
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:42
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:44
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:46
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:48
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:50
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:52
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:54
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:56
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:58
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:60
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:62
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:64
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:66
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:68
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:70
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:72
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:74
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:76
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:78
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:80
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:82
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:84
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:86
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:88
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:90
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:92
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:94
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:96
+C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:98
