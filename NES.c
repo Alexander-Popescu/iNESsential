@@ -420,7 +420,10 @@ uint8_t BEQ()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
+        program_counter++;
+        return 1;
     }
+    program_counter++;
     return 1;
 }
 
@@ -479,7 +482,10 @@ uint8_t BNE()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
+        program_counter++;
+        return 1;
     }
+    program_counter++;
     return 1;
 }
 
@@ -830,18 +836,32 @@ uint8_t LDA()
     printf("\nOP-LDA\n");
 
     update_absolute_data();
+    printf("data at absolute: %x\n", data_at_absolute);
     accumulator = data_at_absolute;
 
     //set flags
+    printf("accumulator: %x\n", accumulator);
+    printf("z_flag_before: %x\n", check_flag(Z_flag));
     if (accumulator == 0x00)
     {
         set_flag(Z_flag, 1);
     }
+    else
+    {
+        set_flag(Z_flag, 0);
+    }
+    printf("z_flag_after: %x\n", check_flag(Z_flag));
 
+    printf("n_flag_before: %x\n", check_flag(N_flag));
     if (accumulator & 0x80)
     {
         set_flag(N_flag, 1);
     }
+    else
+    {
+        set_flag(N_flag, 0);
+    }
+    printf("n_flag_after: %x\n", check_flag(N_flag));
 
     return 1;
 }
@@ -1486,8 +1506,8 @@ void load_rom(char* filename)
 void print_cpu_state()
 {
     //FORMAT: C000  JMP                    A:00 X:00 Y:00 P:24 SP:FD CYC:7
-    fprintf(fp, "%X  %s                    A:%02x X:%02x Y:%02x P:%X SP:%X CYC:%d\n", program_counter, get_opcode(current_opcode).name, accumulator, x_register, y_register, status_register, stack_pointer, total_cycles);
-    printf("%X  %s                    A:%x X:%x Y:%x P:%x SP:%x CYC:%d\n", program_counter, get_opcode(current_opcode).name, accumulator, x_register, y_register, status_register, stack_pointer, total_cycles);
+    fprintf(fp, "%X  %s                    A:%02X X:%02X Y:%02X P:%X SP:%X CYC:%d\n", program_counter, get_opcode(current_opcode).name, accumulator, x_register, y_register, status_register, stack_pointer, total_cycles);
+    printf("%X  %s                    A:%X X:%X Y:%X P:%X SP:%X CYC:%d\n", program_counter, get_opcode(current_opcode).name, accumulator, x_register, y_register, status_register, stack_pointer, total_cycles);
 }
 
 void print_ram_state(int depth, int start_position)
@@ -1517,7 +1537,7 @@ int main(void)
     load_rom("nestest.nes");
     print_ram_state(10, 0xC5FD);
     program_counter = 0xC000;
-    for (int i = 0; i < 100; i++)
+    for (int i = 0; i < 1000; i++)
     {
         clock();
     }
