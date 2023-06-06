@@ -109,7 +109,6 @@ uint8_t IMM()
 {
     printf("\nAM-IMM\n");
     //immediate
-    program_counter++;
     absolute_address = program_counter;
     program_counter++;
     return 0;
@@ -121,7 +120,6 @@ uint8_t ZP0()
     //zero page
     program_counter++;
     absolute_address = mem_read(program_counter) || 0x0000;
-    program_counter++;
     return 0;
 }
 
@@ -131,7 +129,6 @@ uint8_t ZPX()
     //zero page with offset from X register
     program_counter++;
     absolute_address = (mem_read(program_counter) + x_register) && 0x00FF;
-    program_counter++;
     return 0;
 }
 
@@ -141,7 +138,6 @@ uint8_t ZPY()
     //zero page with offset from Y register
     program_counter++;
     absolute_address = (mem_read(program_counter) + y_register) && 0x00FF;
-    program_counter++;
     return 0;
 }
 
@@ -150,7 +146,6 @@ uint8_t REL()
     printf("\nAM-REL\n");
     //relative for branching instructions
     relative_address = mem_read(program_counter);
-    program_counter++;
 
     //check if negative
     if (relative_address & 0x80)
@@ -169,7 +164,6 @@ uint8_t ABS()
     program_counter++;
     //second
     uint16_t high = mem_read(program_counter) << 8;
-    program_counter++;
 
     absolute_address = high | low;
     return 0;
@@ -185,7 +179,6 @@ uint8_t ABX()
     program_counter++;
     //second
     uint16_t high = mem_read(program_counter) << 8;
-    program_counter++;
 
     absolute_address = high | low;
     absolute_address += x_register;
@@ -206,7 +199,6 @@ uint8_t ABY()
     program_counter++;
     //second
     uint16_t high = mem_read(program_counter) << 8;
-    program_counter++;
 
     absolute_address = high | low;
     absolute_address += y_register;
@@ -229,17 +221,14 @@ uint8_t IND()
     program_counter++;
     //second
     uint16_t high_input = mem_read(program_counter) << 8;
-    program_counter++;
 
     //combine input
     uint16_t input = high_input | low_input;
 
     //first
     uint16_t low_output = mem_read(input);
-    program_counter++;
     //second
     uint16_t high_output = mem_read(input) << 8;
-    program_counter++;
 
     //data at "pointer"
     absolute_address = high_output | low_output;
@@ -384,14 +373,17 @@ uint8_t BCC()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
+        program_counter++;
+        return 1;
     }
+    program_counter++;
     return 1;
 }
 
 uint8_t BCS()
 {
     printf("\nOP-BCS\n");
-    if(check_flag(C_flag) == 1)
+    if(check_flag(C_flag) == true)
     {
         //branch
         cycles++;
@@ -404,8 +396,12 @@ uint8_t BCS()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
+        program_counter++;
+
+        return 1;
     }
-    return 0;
+    program_counter++;
+    return 1;
 }
 
 uint8_t BEQ()
@@ -812,10 +808,8 @@ uint8_t JSR()
 {
     printf("\nOP-JSR\n");
 
+    uint16_t second_half = mem_read(program_counter - 1);
     uint16_t first_half = mem_read(program_counter) << 8;
-    program_counter++;
-    uint16_t second_half = mem_read(program_counter);
-    program_counter++;
 
     uint16_t target = first_half | second_half;
 
@@ -1291,15 +1285,15 @@ void clock()
     if (cycles == 0) {
         //get next opcode
         current_opcode = mem_read(program_counter);
-        printf("\ncurrent pc: 0x%x\n", program_counter);
-        printf("current opcode: 0x%x\n", current_opcode);
         //increment program counter of course
 
         //cycles
 
         opcode op_to_execute = get_opcode(current_opcode);
         cycles = op_to_execute.cycle_count;
-        printf("opcode: %s\n", op_to_execute.name);
+        
+        print_cpu_state();
+        program_counter++;
 
         //execute the instruction, keep track if return 1 as that means add cycle
         uint8_t extra_cycle_addressingMode = op_to_execute.addressing_mode();
@@ -1309,7 +1303,7 @@ void clock()
         {
             cycles++;
         }
-        print_cpu_state();
+
     }
     //decrement a cycle every clock cycle, we dont have to calculate every cycle as long as the clock is synced in the main function
     cycles--;
@@ -1335,8 +1329,9 @@ void reset()
     data_at_absolute = 0x00;
     absolute_address = 0x0000;
     relative_address = 0x00;
-    cycles = 8;
-
+    cycles = 7;
+    //nestest specific
+    status_register = 0x24;
 }
 
 void interrupt_request()
@@ -1399,11 +1394,34 @@ void non_maskable_interrupt_request()
 
 void set_flag(uint8_t flag, bool value)
 {
-    status_register = value ? status_register | (1 << flag) : status_register & ~(1 << flag);
+    if (value == true)
+    {
+        if (check_flag(flag) == 0)
+        {
+            status_register += flag;
+        }
+    }
+    else
+    {
+        if (check_flag(flag) == 1)
+        {
+            status_register -= flag;
+        }
+    }
 }
 uint8_t check_flag(uint8_t flag)
 {
-    return (status_register & (1 << flag)) ? 1 : 0;
+    //0000 0000
+    //0000 0000
+    //NVUB DIZC
+    if ((status_register & flag) == flag)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 //initializes cpu
@@ -1467,9 +1485,9 @@ void load_rom(char* filename)
 
 void print_cpu_state()
 {
-    //print and add line to debug.txt in format C000  4C F5 C5  JMP $C5F5                       A:00 X:00 Y:00 P:24 SP:FD PPU:  0, 21 CYC:7
-    fprintf(fp, "%X  %X %X %X  %s                       A:%X X:%X Y:%X P:%X SP:%X PPU:%X, %X CYC:%i\n", program_counter, ram[program_counter], ram[program_counter + 1], ram[program_counter + 2], get_opcode(ram[program_counter]).name, accumulator, x_register, y_register, status_register, stack_pointer, 0, 0, total_cycles);
-    printf("%X  %X %X %X  %s                       A:%X X:%X Y:%X P:%X SP:%X PPU:%X, %X CYC:%i\n", program_counter, ram[program_counter], ram[program_counter + 1], ram[program_counter + 2], get_opcode(ram[program_counter]).name, accumulator, x_register, y_register, status_register, stack_pointer, 0, 0, total_cycles);
+    //FORMAT: C000  JMP                    A:00 X:00 Y:00 P:24 SP:FD CYC:7
+    fprintf(fp, "%X  %s                    A:%02x X:%02x Y:%02x P:%X SP:%X CYC:%d\n", program_counter, get_opcode(current_opcode).name, accumulator, x_register, y_register, status_register, stack_pointer, total_cycles);
+    printf("%X  %s                    A:%x X:%x Y:%x P:%x SP:%x CYC:%d\n", program_counter, get_opcode(current_opcode).name, accumulator, x_register, y_register, status_register, stack_pointer, total_cycles);
 }
 
 void print_ram_state(int depth, int start_position)
@@ -1494,11 +1512,11 @@ int main(void)
 
     //cpu and ram
     initialize_cpu();
+    reset();
     //load rom at 0x8000, default location
     load_rom("nestest.nes");
-    print_ram_state(10, 0xC000);
+    print_ram_state(10, 0xC5FD);
     program_counter = 0xC000;
-    print_cpu_state();
     for (int i = 0; i < 100; i++)
     {
         clock();

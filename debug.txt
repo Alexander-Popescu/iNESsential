@@ -1,46 +1,36 @@
-C000  4C F5 C5  JMP                       A:0 X:0 Y:0 P:0 SP:FD PPU:0, 0 CYC:0
-C5F5  A2 0 86  LDX                       A:0 X:0 Y:0 P:0 SP:FD PPU:0, 0 CYC:0
-C5F7  86 0 86  STX                       A:0 X:0 Y:0 P:4 SP:FD PPU:0, 0 CYC:3
-C5F9  86 10 86  STX                       A:0 X:0 Y:0 P:4 SP:FD PPU:0, 0 CYC:5
-C5FB  86 11 20  STX                       A:0 X:0 Y:0 P:4 SP:FD PPU:0, 0 CYC:8
-C5FD  20 2D C7  JSR                       A:0 X:0 Y:0 P:4 SP:FD PPU:0, 0 CYC:11
-C720  F0 6 C9  BEQ                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:14
-C711  C9 AA F0  CMP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:20
-C713  F0 6 68  BEQ                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:23
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:25
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:28
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:30
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:32
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:34
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:36
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:38
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:40
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:42
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:44
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:46
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:48
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:50
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:52
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:54
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:56
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:58
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:60
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:62
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:64
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:66
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:68
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:70
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:72
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:74
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:76
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:78
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:80
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:82
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:84
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:86
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:88
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:90
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:92
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:94
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:96
-C704  EA EA EA  NOP                       A:0 X:0 Y:0 P:4 SP:FB PPU:0, 0 CYC:98
+C000  JMP                    A:00 X:00 Y:00 P:24 SP:FD CYC:7
+C5F5  LDX                    A:00 X:00 Y:00 P:24 SP:FD CYC:10
+C5F7  STX                    A:00 X:00 Y:00 P:26 SP:FD CYC:12
+C5F9  STX                    A:00 X:00 Y:00 P:26 SP:FD CYC:15
+C5FB  STX                    A:00 X:00 Y:00 P:26 SP:FD CYC:18
+C5FD  JSR                    A:00 X:00 Y:00 P:26 SP:FD CYC:21
+C72D  NOP                    A:00 X:00 Y:00 P:26 SP:FB CYC:27
+C72E  SEC                    A:00 X:00 Y:00 P:26 SP:FB CYC:29
+C72F  BCS                    A:00 X:00 Y:00 P:27 SP:FB CYC:31
+C735  NOP                    A:00 X:00 Y:00 P:27 SP:FB CYC:34
+C736  CLC                    A:00 X:00 Y:00 P:27 SP:FB CYC:36
+C737  BCS                    A:00 X:00 Y:00 P:26 SP:FB CYC:38
+C739  JMP                    A:00 X:00 Y:00 P:26 SP:FB CYC:40
+C740  NOP                    A:00 X:00 Y:00 P:26 SP:FB CYC:43
+C741  SEC                    A:00 X:00 Y:00 P:26 SP:FB CYC:45
+C742  BCC                    A:00 X:00 Y:00 P:27 SP:FB CYC:47
+C744  JMP                    A:00 X:00 Y:00 P:27 SP:FB CYC:49
+C74B  NOP                    A:00 X:00 Y:00 P:27 SP:FB CYC:52
+C74C  CLC                    A:00 X:00 Y:00 P:27 SP:FB CYC:54
+C74D  BCC                    A:00 X:00 Y:00 P:26 SP:FB CYC:56
+C753  NOP                    A:00 X:00 Y:00 P:26 SP:FB CYC:59
+C754  LDA                    A:00 X:00 Y:00 P:26 SP:FB CYC:61
+C756  BEQ                    A:00 X:00 Y:00 P:26 SP:FB CYC:63
+C75B  BRK                    A:00 X:00 Y:00 P:26 SP:FB CYC:66
+C75C  NOP                    A:00 X:00 Y:00 P:36 SP:FB CYC:73
+C75D  LDA                    A:00 X:00 Y:00 P:36 SP:FB CYC:75
+C75F  BEQ                    A:40 X:00 Y:00 P:36 SP:FB CYC:77
+C763  ???                    A:40 X:00 Y:00 P:36 SP:FB CYC:80
+C764  LDX                    A:40 X:00 Y:00 P:36 SP:FB CYC:82
+C766  STX                    A:40 X:06 Y:00 P:36 SP:FB CYC:84
+C768  NOP                    A:40 X:06 Y:00 P:36 SP:FB CYC:87
+C769  LDA                    A:40 X:06 Y:00 P:36 SP:FB CYC:89
+C76B  BNE                    A:40 X:06 Y:00 P:36 SP:FB CYC:91
+C76C  ???                    A:40 X:06 Y:00 P:36 SP:FB CYC:93
+C76D  LDX                    A:40 X:06 Y:00 P:36 SP:FB CYC:95
+C76F  STX                    A:40 X:07 Y:00 P:36 SP:FB CYC:97
