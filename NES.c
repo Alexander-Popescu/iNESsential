@@ -99,7 +99,6 @@ uint8_t mem_read(uint16_t address)
 //addressing modes
 uint8_t IMP()
 {
-    printf("\nAM-IMP\n");
     //implied
     data_at_absolute = accumulator;
     return 0;
@@ -107,7 +106,6 @@ uint8_t IMP()
 
 uint8_t IMM()
 {
-    printf("\nAM-IMM\n");
     //immediate
     absolute_address = program_counter;
     program_counter++;
@@ -116,7 +114,6 @@ uint8_t IMM()
 
 uint8_t ZP0()
 {
-    printf("\nAM-ZP0\n");
     //zero page
     program_counter++;
     absolute_address = mem_read(program_counter) || 0x0000;
@@ -125,7 +122,6 @@ uint8_t ZP0()
 
 uint8_t ZPX()
 {
-    printf("\nAM-ZPX\n");
     //zero page with offset from X register
     program_counter++;
     absolute_address = (mem_read(program_counter) + x_register) && 0x00FF;
@@ -134,7 +130,6 @@ uint8_t ZPX()
 
 uint8_t ZPY()
 {
-    printf("\nAM-ZPY\n");
     //zero page with offset from Y register
     program_counter++;
     absolute_address = (mem_read(program_counter) + y_register) && 0x00FF;
@@ -143,7 +138,6 @@ uint8_t ZPY()
 
 uint8_t REL()
 {
-    printf("\nAM-REL\n");
     //relative for branching instructions
     relative_address = mem_read(program_counter);
 
@@ -157,7 +151,6 @@ uint8_t REL()
 
 uint8_t ABS()
 {
-    printf("\nAM-ABS\n");
     //absolute
     //read first byte
     uint16_t low = mem_read(program_counter);
@@ -171,7 +164,6 @@ uint8_t ABS()
 
 uint8_t ABX()
 {
-    printf("\nAM-ABX\n");
     //absolute with offset, offsets by X register after bytes are read
 
     //read first byte
@@ -191,7 +183,6 @@ uint8_t ABX()
 
 uint8_t ABY()
 {
-    printf("\nAM-ABY\n");
     //absolute with offset
 
     //read first byte
@@ -213,7 +204,6 @@ uint8_t ABY()
 
 uint8_t IND()
 {
-    printf("\nAM-IND\n");
     //indirect, data at the given address is the actual address we want to use
 
     //first
@@ -238,7 +228,6 @@ uint8_t IND()
 
 uint8_t IZX()
 {
-    printf("\nAM-IZX\n");
     //indexed indirect, 1 byte reference to 2 byte address in zero page with x register offset
     uint8_t input = mem_read(program_counter);
     program_counter++;
@@ -255,7 +244,6 @@ uint8_t IZX()
 
 uint8_t IZY()
 {
-    printf("\nAM-IZY\n");
     //indirect indexed
     uint8_t input = mem_read(program_counter);
     program_counter++;
@@ -288,7 +276,6 @@ uint8_t update_absolute_data()
 
 uint8_t ACC()
 {
-    printf("\nOP-ACC\n");
     //accumulator
     accumulator_mode = true;
     return 0;
@@ -297,7 +284,6 @@ uint8_t ACC()
 //opcode functions
 uint8_t ADC()
 {
-    printf("\nOP-ADC\n");
     //addition
     update_absolute_data();
 
@@ -314,7 +300,6 @@ uint8_t ADC()
 
 uint8_t AND()
 {
-    printf("\nOP-AND\n");
     //get new data
     update_absolute_data();
 
@@ -331,7 +316,6 @@ uint8_t AND()
 
 uint8_t ASL()
 {
-    printf("\nOP-ASL\n");
     accumulator = (accumulator << 1);
 
     //save bit 7 to carry flag
@@ -359,7 +343,6 @@ uint8_t ASL()
 
 uint8_t BCC()
 {
-    printf("\nOP-BCC\n");
     if(check_flag(C_flag) == 0)
     {
         //branch
@@ -382,7 +365,6 @@ uint8_t BCC()
 
 uint8_t BCS()
 {
-    printf("\nOP-BCS\n");
     if(check_flag(C_flag) == true)
     {
         //branch
@@ -406,7 +388,6 @@ uint8_t BCS()
 
 uint8_t BEQ()
 {
-    printf("\nOP-BEQ\n");
     if(check_flag(Z_flag) == 1)
     {
         //branch
@@ -429,7 +410,6 @@ uint8_t BEQ()
 
 uint8_t BIT()
 {
-    printf("\nOP-BIT\n");
     //get new data
     update_absolute_data();
 
@@ -448,7 +428,6 @@ uint8_t BIT()
 
 uint8_t BMI()
 {
-    printf("\nOP-BMI\n");
     if(check_flag(N_flag) == 1)
     {
         //branch
@@ -468,7 +447,6 @@ uint8_t BMI()
 
 uint8_t BNE()
 {
-    printf("\nOP-BNE\n");
     if(check_flag(Z_flag) == 0)
     {
         //branch
@@ -491,7 +469,6 @@ uint8_t BNE()
 
 uint8_t BPL()
 {
-    printf("\nOP-BPL\n");
     if(check_flag(N_flag) == 0)
     {
         //branch
@@ -505,13 +482,15 @@ uint8_t BPL()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
+        program_counter++;
+        return 1;
     }
+    program_counter++;
     return 1;
 }
 
 uint8_t BRK()
 {
-    printf("\nOP-BRK\n");
     //break
     interrupt_request();
 
@@ -523,7 +502,6 @@ uint8_t BRK()
 
 uint8_t BVC()
 {
-    printf("\nOP-BVC\n");
     if(check_flag(V_flag) == 0)
     {
         //branch
@@ -537,13 +515,15 @@ uint8_t BVC()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
+        program_counter++;
+        return 1;
     }
+    program_counter++;
     return 1;
 }
 
 uint8_t BVS()
 {
-    printf("\nOP-BVS\n");
     if(check_flag(V_flag) == 1)
     {
         //branch
@@ -557,41 +537,39 @@ uint8_t BVS()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
+        program_counter++;
+        return 1;
     }
+    program_counter++;
     return 1;
 }
 
 uint8_t CLC()
 {
-    printf("\nOP-CLC\n");
     set_flag(C_flag, 0);
     return 0;
 }
 
 uint8_t CLD()
 {
-    printf("\nOP-CLD\n");
     set_flag(D_flag, 0);
     return 0;
 }
 
 uint8_t CLI()
 {
-    printf("\nOP-CLI\n");
     set_flag(I_flag, 0);
     return 0;
 }
 
 uint8_t CLV()
 {
-    printf("\nOP-CLV\n");
     set_flag(V_flag, 0);
     return 0;
 }
 
 uint8_t CMP()
 {
-    printf("\nOP-CMP\n");
     //get new data
     update_absolute_data();
 
@@ -615,7 +593,6 @@ uint8_t CMP()
 
 uint8_t CPX()
 {
-    printf("\nOP-CPX\n");
     //get new data
     update_absolute_data();
 
@@ -639,7 +616,6 @@ uint8_t CPX()
 
 uint8_t CPY()
 {
-    printf("\nOP-CPY\n");
     //get new data
     update_absolute_data();
 
@@ -663,7 +639,6 @@ uint8_t CPY()
 
 uint8_t DEC()
 {
-    printf("\nOP-DEC\n");
     //update
     mem_write(absolute_address, ram[absolute_address]--);
     update_absolute_data();
@@ -684,7 +659,6 @@ uint8_t DEC()
 
 uint8_t DEX()
 {
-    printf("\nOP-DEX\n");
     x_register--;
 
     //set flags
@@ -703,7 +677,6 @@ uint8_t DEX()
 
 uint8_t DEY()
 {
-    printf("\nOP-DEY\n");
     y_register--;
 
     //set flags
@@ -722,7 +695,6 @@ uint8_t DEY()
 
 uint8_t EOR()
 {
-    printf("\nOP-EOR\n");
     uint8_t EOR = accumulator ^ data_at_absolute;
 
     //set flags
@@ -741,7 +713,6 @@ uint8_t EOR()
 
 uint8_t INC()
 {
-    printf("\nOP-INC\n");
     mem_write(absolute_address, ram[absolute_address] + 1);
 
     //set flags
@@ -760,7 +731,6 @@ uint8_t INC()
 
 uint8_t INX()
 {
-    printf("\nOP-INX\n");
     x_register++;
 
     //set flags
@@ -779,7 +749,6 @@ uint8_t INX()
 
 uint8_t INY()
 {
-    printf("\nOP-INY\n");
     y_register++;
 
     //set flags
@@ -798,12 +767,10 @@ uint8_t INY()
 
 uint8_t JMP()
 {
-    printf("\nOP-JMP\n");
     uint16_t second_half = mem_read(program_counter - 1);
     uint16_t first_half = mem_read(program_counter) << 8;
 
     uint16_t jump_address = first_half | second_half;
-    printf("jump address: %x\n", jump_address);
 
     program_counter = jump_address;
 
@@ -812,7 +779,6 @@ uint8_t JMP()
 
 uint8_t JSR()
 {
-    printf("\nOP-JSR\n");
 
     uint16_t second_half = mem_read(program_counter - 1);
     uint16_t first_half = mem_read(program_counter) << 8;
@@ -833,15 +799,11 @@ uint8_t JSR()
 
 uint8_t LDA()
 {
-    printf("\nOP-LDA\n");
 
     update_absolute_data();
-    printf("data at absolute: %x\n", data_at_absolute);
     accumulator = data_at_absolute;
 
     //set flags
-    printf("accumulator: %x\n", accumulator);
-    printf("z_flag_before: %x\n", check_flag(Z_flag));
     if (accumulator == 0x00)
     {
         set_flag(Z_flag, 1);
@@ -850,9 +812,7 @@ uint8_t LDA()
     {
         set_flag(Z_flag, 0);
     }
-    printf("z_flag_after: %x\n", check_flag(Z_flag));
 
-    printf("n_flag_before: %x\n", check_flag(N_flag));
     if (accumulator & 0x80)
     {
         set_flag(N_flag, 1);
@@ -861,14 +821,12 @@ uint8_t LDA()
     {
         set_flag(N_flag, 0);
     }
-    printf("n_flag_after: %x\n", check_flag(N_flag));
 
     return 1;
 }
 
 uint8_t LDX()
 {
-    printf("\nOP-LDX\n");
 
     update_absolute_data();
     x_register = data_at_absolute;
@@ -889,7 +847,6 @@ uint8_t LDX()
 
 uint8_t LDY()
 {
-    printf("\nOP-LDY\n");
 
     update_absolute_data();
     y_register = data_at_absolute;
@@ -910,7 +867,6 @@ uint8_t LDY()
 
 uint8_t LSR()
 {
-    printf("\nOP-LSR\n");
 
     if (accumulator_mode == true)
     {
@@ -949,14 +905,11 @@ uint8_t LSR()
 
 uint8_t NOP()
 {
-    printf("\nOP-NOP\n");
-
     return 0;
 }
 
 uint8_t ORA()
 {
-    printf("\nOP-ORA\n");
 
     update_absolute_data();
     accumulator = accumulator | data_at_absolute;
@@ -977,7 +930,6 @@ uint8_t ORA()
 
 uint8_t PHA()
 {
-    printf("\nOP-PHA\n");
     //stack is descending and fills the 1 page
     mem_write(0x0100 + stack_pointer, accumulator);
     stack_pointer--;
@@ -986,9 +938,7 @@ uint8_t PHA()
 
 uint8_t PHP()
 {
-    printf("\nOP-PHP\n");
-
-    mem_write(0x0100 + stack_pointer, status_register);
+    mem_write(mem_read(0x0100 + stack_pointer), status_register);
     stack_pointer--;
 
     return 0;
@@ -996,7 +946,6 @@ uint8_t PHP()
 
 uint8_t PLA()
 {
-    printf("\nOP-PLA\n");
     stack_pointer++;
     accumulator = mem_read(0x0100 + stack_pointer);
     set_flag(Z_flag, accumulator == 0x00);
@@ -1006,8 +955,7 @@ uint8_t PLA()
 
 uint8_t PLP()
 {
-    printf("\nOP-PLP\n");
-
+    
     stack_pointer++;
     status_register = mem_read(0x0100 + stack_pointer);
 
@@ -1016,7 +964,6 @@ uint8_t PLP()
 
 uint8_t ROL()
 {
-    printf("\nOP-ROL\n");
 
     if (accumulator_mode == true)
     {
@@ -1061,7 +1008,6 @@ uint8_t ROL()
 
 uint8_t ROR()
 {
-    printf("\nOP-ROR\n");
 
     if (accumulator_mode == true)
     {
@@ -1106,7 +1052,6 @@ uint8_t ROR()
 
 uint8_t RTI()
 {
-    printf("\nOP-RTI\n");
     //returns from an inturrupt
 
     //read status
@@ -1122,17 +1067,21 @@ uint8_t RTI()
 
 uint8_t RTS()
 {
-    printf("\nOP-RTS\n");
 
     stack_pointer++;
     program_counter = mem_read(0x0100 + stack_pointer);
+    stack_pointer++;
+    program_counter = program_counter | (mem_read(0x0100 + stack_pointer) << 8);
+    //pc minus 1 was pushed to the stack, fix here
+    program_counter++;
+    //go to next instruction
+    program_counter++;
 
     return 0;
 }
 
 uint8_t SBC()
 {
-    printf("\nOP-SBC\n");
     //subtraction
     update_absolute_data();
 
@@ -1151,28 +1100,24 @@ uint8_t SBC()
 
 uint8_t SEC()
 {
-    printf("\nOP-SEC\n");
     set_flag(C_flag, 1);
     return 0;
 }
 
 uint8_t SED()
 {
-    printf("\nOP-SED\n");
     set_flag(D_flag, 1);
     return 0;
 }
 
 uint8_t SEI()
 {
-    printf("\nOP-SEI\n");
     set_flag(I_flag, 1);
     return 0;
 }
 
 uint8_t STA()
 {
-    printf("\nOP-STA\n");
     update_absolute_data();
     mem_write(absolute_address, accumulator);
     return 0;
@@ -1180,21 +1125,18 @@ uint8_t STA()
 
 uint8_t STX()
 {
-    printf("\nOP-STX\n");
     mem_write(absolute_address, x_register);
     return 0;
 }
 
 uint8_t STY()
 {
-    printf("\nOP-STY\n");
     mem_write(absolute_address, y_register);
     return 0;
 }
 
 uint8_t TAX()
 {
-    printf("\nOP-TAX\n");
     x_register = accumulator;
 
     set_flag(Z_flag, x_register == 0x00);
@@ -1204,7 +1146,6 @@ uint8_t TAX()
 
 uint8_t TAY()
 {
-    printf("\nOP-TAY\n");
     y_register = accumulator;
 
     set_flag(Z_flag, y_register == 0x00);
@@ -1214,7 +1155,6 @@ uint8_t TAY()
 
 uint8_t TSX()
 {
-    printf("\nOP-TSX\n");
     x_register = stack_pointer;
 
     set_flag(Z_flag, x_register == 0x00);
@@ -1225,7 +1165,6 @@ uint8_t TSX()
 
 uint8_t TXA()
 {
-    printf("\nOP-TXA\n");
     accumulator = x_register;
 
     set_flag(Z_flag, accumulator == 0x00);
@@ -1236,14 +1175,12 @@ uint8_t TXA()
 
 uint8_t TXS()
 {
-    printf("\nOP-TXS\n");
     stack_pointer = x_register;
     return 0;
 }
 
 uint8_t TYA()
 {
-    printf("\nOP-TYA\n");
     accumulator = y_register;
 
     set_flag(Z_flag, accumulator == 0x00);
@@ -1507,7 +1444,6 @@ void print_cpu_state()
 {
     //FORMAT: C000  JMP                    A:00 X:00 Y:00 P:24 SP:FD CYC:7
     fprintf(fp, "%X  %s                    A:%02X X:%02X Y:%02X P:%X SP:%X CYC:%d\n", program_counter, get_opcode(current_opcode).name, accumulator, x_register, y_register, status_register, stack_pointer, total_cycles);
-    printf("%X  %s                    A:%X X:%X Y:%X P:%X SP:%X CYC:%d\n", program_counter, get_opcode(current_opcode).name, accumulator, x_register, y_register, status_register, stack_pointer, total_cycles);
 }
 
 void print_ram_state(int depth, int start_position)
