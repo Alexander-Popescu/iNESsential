@@ -447,7 +447,9 @@ uint8_t BMI()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
+        program_counter++;
     }
+    program_counter++;
     return 1;
 }
 
@@ -583,15 +585,27 @@ uint8_t CMP()
     {
         set_flag(C_flag, 1);
     }
+    else
+    {
+        set_flag(C_flag, 0);
+    }
 
     if (accumulator == data_at_absolute)
     {
         set_flag(Z_flag, 1);
     }
+    else
+    {
+        set_flag(Z_flag, 0);
+    }
 
     if ((accumulator - data_at_absolute) & 0x80)
     {
         set_flag(N_flag, 1);
+    }
+    else
+    {
+        set_flag(N_flag, 0);
     }
 
     return 1;
@@ -960,7 +974,11 @@ uint8_t PHA()
 
 uint8_t PHP()
 {
-    mem_write(0x0100 + stack_pointer, status_register);
+    //flags must be set before push
+    set_flag(B_flag, 1);
+    mem_write(0x0100 + stack_pointer, status_register); 
+    set_flag(B_flag, 0);
+    set_flag(U_flag, 1);
     stack_pointer--;
 
     return 0;
@@ -969,10 +987,7 @@ uint8_t PHP()
 uint8_t PLA()
 {
     stack_pointer++;
-    printf("status register: %x\n", status_register);
-    printf("new accumulator: %x\n", mem_read(0x0100 + stack_pointer));
-    //only sets acc properly when adding 0x10, not sure why
-    accumulator = mem_read(0x0100 + stack_pointer) + 0x10;
+    accumulator = mem_read(0x0100 + stack_pointer);
     if (accumulator == 0x00)
     {
         set_flag(Z_flag, 1);
@@ -998,7 +1013,8 @@ uint8_t PLP()
     
     stack_pointer++;
     status_register = mem_read(0x0100 + stack_pointer);
-
+    set_flag(U_flag, 1);
+    set_flag(B_flag, 0);
     return 0;
 }
 
