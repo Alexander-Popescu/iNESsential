@@ -287,12 +287,14 @@ uint8_t ADC()
     //addition
     update_absolute_data();
 
-    uint8_t tmp = accumulator + data_at_absolute + check_flag(C_flag);
-    tmp = (uint16_t)tmp;
-    set_flag(C_flag, (tmp > 255));
+    uint16_t tmp = (uint16_t)accumulator + (uint16_t)data_at_absolute + (uint16_t)check_flag(C_flag);
+
+    //conditions for flags to be set
+    set_flag(C_flag, tmp > 255);
     set_flag(Z_flag, (tmp & 0x00FF) == 0);
     set_flag(N_flag, tmp & 0x80);
     set_flag(V_flag, (~(accumulator ^ data_at_absolute) & (accumulator ^ tmp)) & 0x0080);
+
     accumulator = tmp & 0x00FF;
 
     return 1;
@@ -715,17 +717,26 @@ uint8_t DEY()
 
 uint8_t EOR()
 {
-    uint8_t EOR = accumulator ^ data_at_absolute;
+    update_absolute_data();
+    accumulator = accumulator ^ data_at_absolute;
 
     //set flags
-    if (EOR == 0x00)
+    if (accumulator == 0x00)
     {
         set_flag(Z_flag, 1);
     }
+    else
+    {
+        set_flag(Z_flag, 0);
+    }
 
-    if (EOR & 0x80)
+    if (accumulator & 0x80)
     {
         set_flag(N_flag, 1);
+    }
+    else
+    {
+        set_flag(N_flag, 0);
     }
 
     return 1;
