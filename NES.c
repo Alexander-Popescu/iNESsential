@@ -622,15 +622,27 @@ uint8_t CPX()
     {
         set_flag(C_flag, 1);
     }
+    else
+    {
+        set_flag(C_flag, 0);
+    }
 
     if (x_register == data_at_absolute)
     {
         set_flag(Z_flag, 1);
     }
+    else
+    {
+        set_flag(Z_flag, 0);
+    }
 
     if ((x_register - data_at_absolute) & 0x80)
     {
         set_flag(N_flag, 1);
+    }
+    else
+    {
+        set_flag(N_flag, 0);
     }
 
     return 0;
@@ -645,15 +657,27 @@ uint8_t CPY()
     {
         set_flag(C_flag, 1);
     }
+    else
+    {
+        set_flag(C_flag, 0);
+    }
 
     if (y_register == data_at_absolute)
     {
         set_flag(Z_flag, 1);
     }
+    else
+    {
+        set_flag(Z_flag, 0);
+    }
 
     if ((y_register - data_at_absolute) & 0x80)
     {
         set_flag(N_flag, 1);
+    }
+    else
+    {
+        set_flag(N_flag, 0);
     }
 
     return 0;
@@ -867,10 +891,18 @@ uint8_t LDX()
     {
         set_flag(Z_flag, 1);
     }
+    else
+    {
+        set_flag(Z_flag, 0);
+    }
 
     if (x_register & 0x80)
     {
         set_flag(N_flag, 1);
+    }
+    else
+    {
+        set_flag(N_flag, 0);
     }
 
     return 1;
@@ -887,10 +919,18 @@ uint8_t LDY()
     {
         set_flag(Z_flag, 1);
     }
+    else
+    {
+        set_flag(Z_flag, 0);
+    }
 
     if (y_register & 0x80)
     {
         set_flag(N_flag, 1);
+    }
+    else
+    {
+        set_flag(N_flag, 0);
     }
 
     return 1;
