@@ -330,13 +330,19 @@ uint8_t ASL()
     {
         set_flag(Z_flag, 1);
     }
+    else
+    {
+        set_flag(Z_flag, 0);
+    }
 
     if (accumulator & 0x80)
     {
         set_flag(N_flag, 1);
     }
-
-
+    else
+    {
+        set_flag(N_flag, 0);
+    }
 
     return 0;
 }
@@ -877,10 +883,18 @@ uint8_t LSR()
         {
             set_flag(Z_flag, 1);
         }
+        else
+        {
+            set_flag(Z_flag, 0);
+        }
 
         if (accumulator & 0x80)
         {
             set_flag(N_flag, 1);
+        }
+        else
+        {
+            set_flag(N_flag, 0);
         }
         accumulator_mode = false;
     }
@@ -919,10 +933,18 @@ uint8_t ORA()
     {
         set_flag(Z_flag, 1);
     }
+    else
+    {
+        set_flag(Z_flag, 0);
+    }
 
     if (accumulator & 0x80)
     {
         set_flag(N_flag, 1);
+    }
+    else
+    {
+        set_flag(N_flag, 0);
     }
 
     return 1;
@@ -938,7 +960,7 @@ uint8_t PHA()
 
 uint8_t PHP()
 {
-    mem_write(mem_read(0x0100 + stack_pointer), status_register);
+    mem_write(0x0100 + stack_pointer, status_register);
     stack_pointer--;
 
     return 0;
@@ -947,9 +969,10 @@ uint8_t PHP()
 uint8_t PLA()
 {
     stack_pointer++;
-    printf("stack pointer: %x\n", stack_pointer);
-    printf("value at stack pointer: %x\n", mem_read(0x0100 + stack_pointer));
-    accumulator = mem_read(0x0100 + stack_pointer);
+    printf("status register: %x\n", status_register);
+    printf("new accumulator: %x\n", mem_read(0x0100 + stack_pointer));
+    //only sets acc properly when adding 0x10, not sure why
+    accumulator = mem_read(0x0100 + stack_pointer) + 0x10;
     if (accumulator == 0x00)
     {
         set_flag(Z_flag, 1);
@@ -994,10 +1017,18 @@ uint8_t ROL()
         {
             set_flag(Z_flag, 1);
         }
+        else
+        {
+            set_flag(Z_flag, 0);
+        }
 
         if (accumulator & 0x80)
         {
             set_flag(N_flag, 1);
+        }
+        else
+        {
+            set_flag(N_flag, 0);
         }
         accumulator_mode = false;
     }
@@ -1038,10 +1069,18 @@ uint8_t ROR()
         {
             set_flag(Z_flag, 1);
         }
+        else
+        {
+            set_flag(Z_flag, 0);
+        }
 
         if (accumulator & 0x80)
         {
             set_flag(N_flag, 1);
+        }
+        else
+        {
+            set_flag(N_flag, 0);
         }
         accumulator_mode = false;
     }
@@ -1117,19 +1156,19 @@ uint8_t SBC()
 
 uint8_t SEC()
 {
-    set_flag(C_flag, 1);
+    set_flag(C_flag, true);
     return 0;
 }
 
 uint8_t SED()
 {
-    set_flag(D_flag, 1);
+    set_flag(D_flag, true);
     return 0;
 }
 
 uint8_t SEI()
 {
-    set_flag(I_flag, 1);
+    set_flag(I_flag, true);
     return 0;
 }
 
