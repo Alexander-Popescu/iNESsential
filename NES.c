@@ -947,9 +947,26 @@ uint8_t PHP()
 uint8_t PLA()
 {
     stack_pointer++;
+    printf("stack pointer: %x\n", stack_pointer);
+    printf("value at stack pointer: %x\n", mem_read(0x0100 + stack_pointer));
     accumulator = mem_read(0x0100 + stack_pointer);
-    set_flag(Z_flag, accumulator == 0x00);
-    set_flag(N_flag, accumulator & 0x80);
+    if (accumulator == 0x00)
+    {
+        set_flag(Z_flag, 1);
+    }
+    else
+    {
+        set_flag(Z_flag, 0);
+    }
+
+    if (accumulator & 0x80)
+    {
+        set_flag(N_flag, 1);
+    }
+    else
+    {
+        set_flag(N_flag, 0);
+    }
     return 0;
 }
 
