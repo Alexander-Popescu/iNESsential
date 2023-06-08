@@ -712,11 +712,19 @@ uint8_t DEX()
     {
         set_flag(Z_flag, 1);
     }
+    else
+    {
+        set_flag(Z_flag, 0);
+    }
 
     if (x_register & 0x80)
     {
         set_flag(N_flag, 1);
-    } 
+    }
+    else
+    {
+        set_flag(N_flag, 0);
+    }
 
     return 0;
 }
@@ -793,10 +801,18 @@ uint8_t INX()
     {
         set_flag(Z_flag, 1);
     }
+    else
+    {
+        set_flag(Z_flag, 0);
+    }
 
     if (x_register & 0x80)
     {
         set_flag(N_flag, 1);
+    }
+    else
+    {
+        set_flag(N_flag, 0);
     }
 
     return 0;
@@ -811,10 +827,18 @@ uint8_t INY()
     {
         set_flag(Z_flag, 1);
     }
+    else
+    {
+        set_flag(Z_flag, 0);
+    }
 
     if (y_register & 0x80)
     {
         set_flag(N_flag, 1);
+    }
+    else
+    {
+        set_flag(N_flag, 0);
     }
 
     return 0;
@@ -1205,20 +1229,19 @@ uint8_t RTS()
 
 uint8_t SBC()
 {
-    //subtraction
+    //16bit because of overflow
     update_absolute_data();
 
-    uint16_t value = (uint16_t)data_at_absolute ^ 0x00FF;
+    uint16_t tmp = (uint16_t)accumulator + ((uint16_t)data_at_absolute ^ 0x00FF) + (uint16_t)check_flag(C_flag);
 
-    uint16_t tmp = (uint16_t)accumulator + value + (uint16_t)check_flag(C_flag);
-
-    set_flag(C_flag, (tmp > 255));
+    set_flag(C_flag, tmp & 0xFF00);
     set_flag(Z_flag, (tmp & 0x00FF) == 0);
     set_flag(N_flag, tmp & 0x80);
-    set_flag(V_flag, (~(accumulator ^ data_at_absolute) & (accumulator ^ tmp)) & 0x0080);
+    set_flag(V_flag, (tmp ^ (uint16_t)accumulator) & (tmp ^ ((uint16_t)data_at_absolute ^ 0x00FF)) & 0x0080);
+
     accumulator = tmp & 0x00FF;
 
-    return 0;
+    return 1;
 }
 
 uint8_t SEC()
@@ -1596,7 +1619,7 @@ int main(void)
     load_rom("nestest.nes");
     print_ram_state(10, 0xC5FD);
     program_counter = 0xC000;
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < 5000; i++)
     {
         clock();
     }
