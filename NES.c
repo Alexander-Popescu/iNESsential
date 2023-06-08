@@ -724,7 +724,7 @@ uint8_t DEX()
     else
     {
         set_flag(N_flag, 0);
-    }
+    } 
 
     return 0;
 }
@@ -738,10 +738,18 @@ uint8_t DEY()
     {
         set_flag(Z_flag, 1);
     }
+    else
+    {
+        set_flag(Z_flag, 0);
+    }
 
     if (y_register & 0x80)
     {
         set_flag(N_flag, 1);
+    }
+    else
+    {
+        set_flag(N_flag, 0);
     }
     
     return 0;
@@ -901,6 +909,11 @@ uint8_t LDA()
         set_flag(N_flag, 0);
     }
 
+    if (current_opcode == 0xAD)
+    {
+        program_counter++;
+    }
+
     return 1;
 }
 
@@ -927,6 +940,12 @@ uint8_t LDX()
     else
     {
         set_flag(N_flag, 0);
+    }
+
+    //absolute addressing
+    if (current_opcode == 0xAE)
+    {
+        program_counter++;
     }
 
     return 1;
@@ -1272,6 +1291,11 @@ uint8_t STA()
 uint8_t STX()
 {
     mem_write(absolute_address, x_register);
+    //absolute addressing
+    if (current_opcode == 0x8E)
+    {
+        program_counter++;
+    }
     return 0;
 }
 
@@ -1337,6 +1361,7 @@ uint8_t TYA()
 uint8_t XXX()
 {
     printf("\nINVALID OPCODE\n");
+    printf("opcode: %02X\n", current_opcode);
     return 0;
 }
 
@@ -1610,7 +1635,6 @@ int main(void)
         printf("Error opening file!\n");
         exit(1);
     }
-
 
     //cpu and ram
     initialize_cpu();
