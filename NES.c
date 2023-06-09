@@ -318,34 +318,7 @@ uint8_t AND()
 
 uint8_t ASL()
 {
-    accumulator = (accumulator << 1);
-
-    //save bit 7 to carry flag
-    set_flag(C_flag, accumulator & 0x80);
-
-    //set 0 bit to 0
-    accumulator = accumulator & 0xFE;
-
-    //flags
-
-    if (accumulator == 0x00)
-    {
-        set_flag(Z_flag, 1);
-    }
-    else
-    {
-        set_flag(Z_flag, 0);
-    }
-
-    if (accumulator & 0x80)
-    {
-        set_flag(N_flag, 1);
-    }
-    else
-    {
-        set_flag(N_flag, 0);
-    }
-
+    //TODO
     return 0;
 }
 
@@ -865,7 +838,6 @@ uint8_t JSR()
 
 uint8_t LDA()
 {
-
     update_absolute_data();
     accumulator = data_at_absolute;
 
@@ -960,46 +932,17 @@ uint8_t LDY()
 
 uint8_t LSR()
 {
+    update_absolute_data();
 
-    if (accumulator_mode == true)
-    {
-        accumulator = accumulator >> 1;
+    uint8_t temp = data_at_absolute >> 1;
 
-        //set flags
-        if (accumulator == 0x00)
-        {
-            set_flag(Z_flag, 1);
-        }
-        else
-        {
-            set_flag(Z_flag, 0);
-        }
+    //set flags
+    set_flag(C_flag, data_at_absolute & 0x01);
+    set_flag(Z_flag, temp == 0x00);
+    set_flag(N_flag, temp & 0x80);
 
-        if (accumulator & 0x80)
-        {
-            set_flag(N_flag, 1);
-        }
-        else
-        {
-            set_flag(N_flag, 0);
-        }
-        accumulator_mode = false;
-    }
-    else
-    {
-        mem_write(absolute_address, ram[absolute_address] >> 1);
-
-        //set flags
-        if (mem_read(absolute_address) == 0x00)
-        {
-            set_flag(Z_flag, 1);
-        }
-
-        if (mem_read(absolute_address) & 0x80)
-        {
-            set_flag(N_flag, 1);
-        }
-    }
+    accumulator_mode ? accumulator = temp : mem_write(absolute_address, temp);
+    accumulator_mode = false;
 
     return 0;
 }
@@ -1202,11 +1145,15 @@ uint8_t RTI()
     //read status
     stack_pointer++;
     status_register = mem_read(0x0100 + stack_pointer);
+    set_flag(U_flag, 1);
+    set_flag(B_flag, 0);
 
     stack_pointer++;
-    program_counter = mem_read(0x0100 + stack_pointer);
-    program_counter = (program_counter << 8) | mem_read(0x0100 + stack_pointer + 1);
+    uint16_t second_half = (uint16_t)mem_read(0x0100 + stack_pointer);
     stack_pointer++;
+    uint16_t first_half = mem_read(0x0100 + stack_pointer) << 8;
+
+    program_counter = first_half | second_half;
     return 0;
 }
 
