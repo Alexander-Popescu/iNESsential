@@ -583,32 +583,11 @@ uint8_t CMP()
     //get new data
     update_absolute_data();
 
-    if (accumulator >= data_at_absolute)
-    {
-        set_flag(C_flag, 1);
-    }
-    else
-    {
-        set_flag(C_flag, 0);
-    }
+    uint16_t temp = (uint16_t)accumulator - (uint16_t)data_at_absolute;
 
-    if (accumulator == data_at_absolute)
-    {
-        set_flag(Z_flag, 1);
-    }
-    else
-    {
-        set_flag(Z_flag, 0);
-    }
-
-    if ((accumulator - data_at_absolute) & 0x80)
-    {
-        set_flag(N_flag, 1);
-    }
-    else
-    {
-        set_flag(N_flag, 0);
-    }
+    set_flag(C_flag, accumulator >= data_at_absolute);
+    set_flag(Z_flag, (temp & 0x00FF) == 0x0000);
+    set_flag(N_flag, temp & 0x0080);
 
     return 1;
 }
@@ -873,9 +852,9 @@ uint8_t JSR()
     uint16_t target = first_half | second_half;
 
     //push program counter to stack
-    mem_write(0x0100 + stack_pointer, (program_counter >> 8) & 0xFF);
+    mem_write(0x0100 + stack_pointer, program_counter >> 8);
     stack_pointer--;
-    mem_write(0x0100 + stack_pointer, (program_counter - 1) & 0xFF);
+    mem_write(0x0100 + stack_pointer, program_counter & 0x00FF);
     stack_pointer--;
 
     //set program counter
@@ -1237,9 +1216,7 @@ uint8_t RTS()
     stack_pointer++;
     program_counter = mem_read(0x0100 + stack_pointer);
     stack_pointer++;
-    program_counter = program_counter | (mem_read(0x0100 + stack_pointer) << 8);
-    //pc minus 1 was pushed to the stack, fix here
-    program_counter++;
+    program_counter = program_counter | ((uint16_t)mem_read(0x0100 + stack_pointer) << 8);
     //go to next instruction
     program_counter++;
 
