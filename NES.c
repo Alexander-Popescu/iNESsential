@@ -856,19 +856,6 @@ uint8_t JSR()
 uint8_t LDA()
 {
     update_absolute_data();
-    if (program_counter == 0xCFA4)
-    {
-        printf("absolute address: %x\n", absolute_address);
-        printf("data: %x\n", data_at_absolute);
-        printf("ram at 0xCFA2 %x\n", ram[0xCFA2]);
-        printf("ram at 0xCFA3 %x\n", ram[0xCFA3]);
-        printf("ram at 0xCFA4 %x\n", ram[0xCFA4]);
-        printf("ram at 0xCFA5 %x\n", ram[0xCFA5]);
-        printf("ram at 0xCFA6 %x\n", ram[0xCFA6]);
-        printf("ram at 0xCFA7 %x\n", ram[0xCFA7]);
-        printf("ram at 0xCFA8 %x\n", ram[0xCFA8]);
-        printf("addressing mode string: %s\n", get_opcode(0xA5).name);
-    }
     accumulator = data_at_absolute;
 
     //set flags
