@@ -318,7 +318,23 @@ uint8_t AND()
 
 uint8_t ASL()
 {
-    //TODO
+    update_absolute_data();
+
+    uint16_t tmp = (uint16_t)data_at_absolute << 1;
+
+    set_flag(C_flag, (tmp & 0xFF00) > 0);
+    set_flag(Z_flag, (tmp & 0x00FF) == 0x00);
+    set_flag(N_flag, tmp & 0x80);
+
+    if (accumulator_mode == true)
+    {
+        accumulator = tmp & 0x00FF;
+    }
+    else
+    {
+        mem_write(absolute_address, tmp & 0x00FF);
+    }
+
     return 0;
 }
 
