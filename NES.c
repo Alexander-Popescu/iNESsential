@@ -856,6 +856,19 @@ uint8_t JSR()
 uint8_t LDA()
 {
     update_absolute_data();
+    if (program_counter == 0xCFA4)
+    {
+        printf("absolute address: %x\n", absolute_address);
+        printf("data: %x\n", data_at_absolute);
+        printf("ram at 0xCFA2 %x\n", ram[0xCFA2]);
+        printf("ram at 0xCFA3 %x\n", ram[0xCFA3]);
+        printf("ram at 0xCFA4 %x\n", ram[0xCFA4]);
+        printf("ram at 0xCFA5 %x\n", ram[0xCFA5]);
+        printf("ram at 0xCFA6 %x\n", ram[0xCFA6]);
+        printf("ram at 0xCFA7 %x\n", ram[0xCFA7]);
+        printf("ram at 0xCFA8 %x\n", ram[0xCFA8]);
+        printf("addressing mode string: %s\n", get_opcode(0xA5).name);
+    }
     accumulator = data_at_absolute;
 
     //set flags
@@ -1039,104 +1052,51 @@ uint8_t PLP()
 
 uint8_t ROL()
 {
+    update_absolute_data();
+
+    uint16_t tmp = (uint16_t)(data_at_absolute << 1) | check_flag(C_flag);
+
+    //set flags
+    set_flag(C_flag, tmp & 0xFF00);
+    set_flag(Z_flag, (tmp & 0x00FF) == 0x0000);
+    set_flag(N_flag, tmp & 0x0080);
 
     if (accumulator_mode == true)
     {
-        uint8_t old = accumulator;
-        accumulator = accumulator << 1;
-        accumulator = accumulator | check_flag(C_flag);
-
-        //set flags
-        set_flag(C_flag, old & 0x80);
-        if (accumulator == 0x00)
-        {
-            set_flag(Z_flag, 1);
-        }
-        else
-        {
-            set_flag(Z_flag, 0);
-        }
-
-        if (accumulator & 0x80)
-        {
-            set_flag(N_flag, 1);
-        }
-        else
-        {
-            set_flag(N_flag, 0);
-        }
-        accumulator_mode = false;
+        accumulator = tmp & 0x00FF;
     }
     else
     {
-        uint8_t old = mem_read(absolute_address);
-        mem_write(absolute_address, ram[absolute_address] << 1);
-        mem_write(absolute_address, ram[absolute_address] | (check_flag(C_flag) << 7));
-
-        //set flags
-        set_flag(C_flag, old & 0x80);
-        if (mem_read(absolute_address) == 0x00)
-        {
-            set_flag(Z_flag, 1);
-        }
-
-        if (mem_read(absolute_address) & 0x80)
-        {
-            set_flag(N_flag, 1);
-        }
+        mem_write(absolute_address, tmp & 0x00FF);
     }
 
+    accumulator_mode = false;
+    
     return 0;
 }
 
 uint8_t ROR()
 {
 
+    update_absolute_data();
+
+    uint16_t tmp = (uint16_t)(data_at_absolute >> 1) | (check_flag(C_flag) << 7);
+
+    //set flags
+    set_flag(C_flag, data_at_absolute & 0x01);
+    set_flag(Z_flag, tmp == 0x00);
+    set_flag(N_flag, tmp & 0x80);
+
     if (accumulator_mode == true)
     {
-        uint8_t old = accumulator;
-        accumulator = accumulator >> 1;
-        accumulator = accumulator | (check_flag(C_flag) << 7);
-
-        //set flags
-        set_flag(C_flag, old & 0x01);
-        if (accumulator == 0x00)
-        {
-            set_flag(Z_flag, 1);
-        }
-        else
-        {
-            set_flag(Z_flag, 0);
-        }
-
-        if (accumulator & 0x80)
-        {
-            set_flag(N_flag, 1);
-        }
-        else
-        {
-            set_flag(N_flag, 0);
-        }
-        accumulator_mode = false;
+        accumulator = tmp & 0x00FF;
     }
     else
     {
-        uint8_t old = ram[absolute_address];
-        mem_write(absolute_address, ram[absolute_address] >> 1);
-        mem_write(absolute_address, ram[absolute_address] | (check_flag(C_flag) << 7));
-
-        //set flags
-        set_flag(C_flag, old & 0x01);
-        if (mem_read(absolute_address) == 0x00)
-        {
-            set_flag(Z_flag, 1);
-        }
-
-        if (mem_read(absolute_address) & 0x80)
-        {
-            set_flag(N_flag, 1);
-        }
+        mem_write(absolute_address, tmp & 0x00FF);
     }
+
+    accumulator_mode = false;
 
     return 0;
 }
@@ -1211,7 +1171,15 @@ uint8_t SEI()
 uint8_t STA()
 {
     update_absolute_data();
+    
+
     mem_write(absolute_address, accumulator);
+    //absolute addressing
+    if (current_opcode == 0x8D)
+    {
+        program_counter++;
+    }
+
     return 0;
 }
 
