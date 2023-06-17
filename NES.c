@@ -334,6 +334,7 @@ uint8_t ASL()
     {
         mem_write(absolute_address, tmp & 0x00FF);
     }
+    accumulator_mode = false;
 
     return 0;
 }
@@ -858,23 +859,9 @@ uint8_t LDA()
     accumulator = data_at_absolute;
 
     //set flags
-    if (accumulator == 0x00)
-    {
-        set_flag(Z_flag, 1);
-    }
-    else
-    {
-        set_flag(Z_flag, 0);
-    }
+    set_flag(Z_flag, accumulator == 0x00);
+    set_flag(N_flag, accumulator & 0x80);
 
-    if (accumulator & 0x80)
-    {
-        set_flag(N_flag, 1);
-    }
-    else
-    {
-        set_flag(N_flag, 0);
-    }
 
     if (current_opcode == 0xAD)
     {
