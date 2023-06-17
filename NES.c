@@ -117,6 +117,7 @@ uint8_t ZP0()
     //zero page
     absolute_address = mem_read(program_counter) || 0x0000;
     program_counter++;
+    absolute_address &= 0x00FF;
     return 0;
 }
 
@@ -140,6 +141,7 @@ uint8_t REL()
 {
     //relative for branching instructions
     relative_address = mem_read(program_counter);
+    program_counter++;
 
     //check if negative
     if (relative_address & 0x80)
@@ -157,6 +159,7 @@ uint8_t ABS()
     program_counter++;
     //second
     uint16_t high = mem_read(program_counter) << 8;
+    program_counter++;
 
     absolute_address = high | low;
     return 0;
@@ -171,6 +174,7 @@ uint8_t ABX()
     program_counter++;
     //second
     uint16_t high = mem_read(program_counter) << 8;
+    program_counter++;
 
     absolute_address = high | low;
     absolute_address += x_register;
@@ -190,6 +194,7 @@ uint8_t ABY()
     program_counter++;
     //second
     uint16_t high = mem_read(program_counter) << 8;
+    program_counter++;
 
     absolute_address = high | low;
     absolute_address += y_register;
@@ -211,6 +216,7 @@ uint8_t IND()
     program_counter++;
     //second
     uint16_t high_input = mem_read(program_counter) << 8;
+    program_counter++;
 
     //combine input
     uint16_t input = high_input | low_input;
@@ -229,13 +235,13 @@ uint8_t IND()
 uint8_t IZX()
 {
     //indexed indirect, 1 byte reference to 2 byte address in zero page with x register offset
-    uint8_t input = mem_read(program_counter);
+    uint16_t input = mem_read(program_counter);
     program_counter++;
 
     //first
-    uint16_t low = mem_read((uint16_t)(input + x_register));
+    uint16_t low = mem_read((uint16_t)(input + (uint16_t)x_register) & 0x00FF);
     //second
-    uint16_t high = mem_read((uint16_t)(input + x_register + 1)) << 8;
+    uint16_t high = mem_read((uint16_t)(input + (uint16_t)x_register + 1) & 0x00FF) << 8;
 
     absolute_address = high | low;
 
@@ -354,10 +360,8 @@ uint8_t BCC()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
-        program_counter++;
         return 1;
     }
-    program_counter++;
     return 1;
 }
 
@@ -376,11 +380,9 @@ uint8_t BCS()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
-        program_counter++;
 
         return 1;
     }
-    program_counter++;
     return 1;
 }
 
@@ -399,10 +401,8 @@ uint8_t BEQ()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
-        program_counter++;
         return 1;
     }
-    program_counter++;
     return 1;
 }
 
@@ -439,9 +439,7 @@ uint8_t BMI()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
-        program_counter++;
     }
-    program_counter++;
     return 1;
 }
 
@@ -460,10 +458,8 @@ uint8_t BNE()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
-        program_counter++;
         return 1;
     }
-    program_counter++;
     return 1;
 }
 
@@ -482,10 +478,8 @@ uint8_t BPL()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
-        program_counter++;
         return 1;
     }
-    program_counter++;
     return 1;
 }
 
@@ -515,10 +509,8 @@ uint8_t BVC()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
-        program_counter++;
         return 1;
     }
-    program_counter++;
     return 1;
 }
 
@@ -537,10 +529,8 @@ uint8_t BVS()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
-        program_counter++;
         return 1;
     }
-    program_counter++;
     return 1;
 }
 
@@ -823,12 +813,7 @@ uint8_t INY()
 
 uint8_t JMP()
 {
-    uint16_t second_half = mem_read(program_counter - 1);
-    uint16_t first_half = mem_read(program_counter) << 8;
-
-    uint16_t jump_address = first_half | second_half;
-
-    program_counter = jump_address;
+    program_counter = absolute_address;
 
     return 0;
 }
@@ -836,6 +821,7 @@ uint8_t JMP()
 uint8_t JSR()
 {
 
+    program_counter--;
     uint16_t second_half = mem_read(program_counter - 1);
     uint16_t first_half = mem_read(program_counter) << 8;
 
@@ -861,12 +847,6 @@ uint8_t LDA()
     //set flags
     set_flag(Z_flag, accumulator == 0x00);
     set_flag(N_flag, accumulator & 0x80);
-
-
-    if (current_opcode == 0xAD)
-    {
-        program_counter++;
-    }
 
     return 1;
 }
@@ -894,12 +874,6 @@ uint8_t LDX()
     else
     {
         set_flag(N_flag, 0);
-    }
-
-    //absolute addressing
-    if (current_opcode == 0xAE)
-    {
-        program_counter++;
     }
 
     return 1;
@@ -1161,11 +1135,6 @@ uint8_t STA()
     
 
     mem_write(absolute_address, accumulator);
-    //absolute addressing
-    if (current_opcode == 0x8D)
-    {
-        program_counter++;
-    }
 
     return 0;
 }
@@ -1174,10 +1143,6 @@ uint8_t STX()
 {
     mem_write(absolute_address, x_register);
     //absolute addressing
-    if (current_opcode == 0x8E)
-    {
-        program_counter++;
-    }
     return 0;
 }
 
