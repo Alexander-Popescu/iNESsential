@@ -21,6 +21,7 @@
 uint8_t check_flag(uint8_t flag);
 void set_flag(uint8_t flag, bool value);
 void interrupt_request();
+void print_cpu_state();
 
 
 //CPU 6502, globals ah!
@@ -107,32 +108,31 @@ uint8_t IMP()
 uint8_t IMM()
 {
     //immediate
-    absolute_address = program_counter;
-    program_counter++;
+    absolute_address = program_counter++;
     return 0;
 }
 
 uint8_t ZP0()
 {
     //zero page
-    program_counter++;
     absolute_address = mem_read(program_counter) || 0x0000;
+    program_counter++;
     return 0;
 }
 
 uint8_t ZPX()
 {
     //zero page with offset from X register
-    program_counter++;
     absolute_address = (mem_read(program_counter) + x_register) && 0x00FF;
+    program_counter++;
     return 0;
 }
 
 uint8_t ZPY()
 {
     //zero page with offset from Y register
-    program_counter++;
     absolute_address = (mem_read(program_counter) + y_register) && 0x00FF;
+    program_counter++;
     return 0;
 }
 
@@ -1295,15 +1295,21 @@ void clock()
     if (cycles == 0) {
         //get next opcode
         current_opcode = mem_read(program_counter);
-        //increment program counter of course
+
+        //print cpu state
+        print_cpu_state();
+        
+        //flag set thing
+        set_flag(U_flag, 1);
+
+        //increment program counter
+        program_counter++;
 
         //cycles
 
         opcode op_to_execute = get_opcode(current_opcode);
         cycles = op_to_execute.cycle_count;
-        
-        print_cpu_state();
-        program_counter++;
+
 
         //execute the instruction, keep track if return 1 as that means add cycle
         uint8_t extra_cycle_addressingMode = op_to_execute.addressing_mode();
@@ -1313,6 +1319,9 @@ void clock()
         {
             cycles++;
         }
+
+        //flag set thing
+        set_flag(U_flag, 1);
 
     }
     //decrement a cycle every clock cycle, we dont have to calculate every cycle as long as the clock is synced in the main function
