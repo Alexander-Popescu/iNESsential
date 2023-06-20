@@ -23,6 +23,7 @@ void set_flag(uint8_t flag, bool value);
 void interrupt_request();
 void print_cpu_state();
 
+uint16_t instruction_count = 0;
 
 //CPU 6502, globals ah!
 
@@ -115,7 +116,7 @@ uint8_t IMM()
 uint8_t ZP0()
 {
     //zero page
-    absolute_address = mem_read(program_counter) || 0x0000;
+    absolute_address = mem_read(program_counter);
     program_counter++;
     absolute_address &= 0x00FF;
     return 0;
@@ -234,14 +235,14 @@ uint8_t IND()
 
 uint8_t IZX()
 {
-    //indexed indirect, 1 byte reference to 2 byte address in zero page with x register offset
-    uint16_t input = mem_read(program_counter);
+
+    uint16_t argument = mem_read(program_counter);
     program_counter++;
 
-    //first
-    uint16_t low = mem_read((uint16_t)(input + (uint16_t)x_register) & 0x00FF);
-    //second
-    uint16_t high = mem_read((uint16_t)(input + (uint16_t)x_register + 1) & 0x00FF) << 8;
+    uint16_t zero_address = (argument + x_register) & 0x00FF;
+
+    uint16_t low = mem_read(zero_address);
+    uint16_t high = mem_read(zero_address + 1) << 8;
 
     absolute_address = high | low;
 
@@ -1258,6 +1259,7 @@ void clock()
 {
     //needs to be run at the propor clock cycle to be accurate
     if (cycles == 0) {
+        instruction_count++;
         //get next opcode
         current_opcode = mem_read(program_counter);
 
