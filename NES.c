@@ -222,11 +222,10 @@ uint8_t IND()
     //first
     uint16_t low_output = mem_read(input);
     //second
-    uint16_t high_output = mem_read(input) << 8;
+    uint16_t high_output = mem_read(input + 1) << 8;
 
     //data at "pointer"
     absolute_address = high_output | low_output;
-
     return 0;
 }
 
