@@ -210,14 +210,11 @@ uint8_t ABY()
 
 uint8_t IND()
 {
-    //indirect, data at the given address is the actual address we want to use
-
     //first
     uint16_t low_input = mem_read(program_counter);
     program_counter++;
     //second
     uint16_t high_input = mem_read(program_counter) << 8;
-    program_counter++;
 
     //combine input
     uint16_t input = high_input | low_input;
@@ -1224,7 +1221,7 @@ typedef struct opcode
 
 opcode opcode_matrix[16][16] = {
 //   0                         1                         2                         3                         4                         5                         6                         7                         8                         9                         A                         B                         C                         D                         E                         F
-    {{ "BRK", BRK, IMP, 1, 7 },{"ORA", ORA, IND, 2, 6 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"ORA", ORA, ZP0, 2, 3 },{"ASL", ASL, ZP0, 2, 5 },{"???", XXX, IMP, 0, 2 },{"PHP", PHP, IMP, 1, 3 },{"ORA", ORA, IMM, 2, 2 },{"ASL", ASL, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"ORA", ORA, ABS, 3, 4 },{"ASL", ASL, ABS, 3, 6 },{"???", XXX, IMP, 0, 2 }},
+    {{ "BRK", BRK, IMP, 1, 7 },{"ORA", ORA, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"ORA", ORA, ZP0, 2, 3 },{"ASL", ASL, ZP0, 2, 5 },{"???", XXX, IMP, 0, 2 },{"PHP", PHP, IMP, 1, 3 },{"ORA", ORA, IMM, 2, 2 },{"ASL", ASL, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"ORA", ORA, ABS, 3, 4 },{"ASL", ASL, ABS, 3, 6 },{"???", XXX, IMP, 0, 2 }},
     {{ "BPL", BPL, REL, 2, 2 },{"ORA", ORA, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"ORA", ORA, ZPX, 2, 4 },{"ASL", ASL, ZPX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"CLC", CLC, IMP, 1, 2 },{"ORA", ORA, ABY, 3, 4 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"ORA", ORA, ABX, 3, 4 },{"ASL", ASL, ABX, 3, 7 },{"???", XXX, IMP, 0, 2 }},
     {{ "JSR", JSR, ABS, 3, 6 },{"AND", AND, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"BIT", BIT, ZP0, 2, 3 },{"AND", AND, ZP0, 2, 3 },{"ROL", ROL, ZP0, 2, 5 },{"???", XXX, IMP, 0, 2 },{"PLP", PLP, IMP, 1, 4 },{"AND", AND, IMM, 2, 2 },{"ROL", ROL, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"BIT", BIT, ABS, 3, 4 },{"AND", AND, ABS, 3, 4 },{"ROL", ROL, ABS, 3, 6 },{"???", XXX, IMP, 0, 2 }},
     {{ "BMI", BMI, REL, 2, 2 },{"AND", AND, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"AND", AND, ZPX, 2, 4 },{"ROL", ROL, ZPX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"SEC", SEC, IMP, 1, 2 },{"AND", AND, ABY, 3, 4 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"AND", AND, ABX, 3, 4 },{"ROL", ROL, ABX, 3, 7 },{"???", XXX, IMP, 0, 2 }},
@@ -1499,7 +1496,7 @@ int main(void)
     load_rom("nestest.nes");
     print_ram_state(10, 0xC5FD);
     program_counter = 0xC000;
-    for (int i = 0; i < 5000; i++)
+    for (int i = 0; i < 7500; i++)
     {
         clock();
     }
