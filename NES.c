@@ -239,12 +239,10 @@ uint8_t IZX()
     uint16_t argument = mem_read(program_counter);
     program_counter++;
 
-    uint16_t zero_address = (argument + x_register) & 0x00FF;
+    uint16_t low = mem_read(((uint16_t)(argument + (uint16_t)x_register)) & 0x00FF);
+    uint16_t high = mem_read(((uint16_t)(argument + (uint16_t)x_register + 1)) & 0x00FF);
 
-    uint16_t low = mem_read(zero_address);
-    uint16_t high = mem_read(zero_address + 1) << 8;
-
-    absolute_address = high | low;
+    absolute_address = (high << 8) | low;
 
     return 0;
 }
