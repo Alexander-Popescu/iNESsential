@@ -86,6 +86,11 @@ void mem_write(uint16_t address, uint8_t data)
     {
         printf("Invalid memory address: %d", address);
     }
+    if (address == 0x0300)
+    {
+        printf("instruction: %d\n", instruction_count);
+        printf("data: %X\n", data);
+    }
 }
 
 uint8_t mem_read(uint16_t address)
@@ -210,22 +215,24 @@ uint8_t ABY()
 
 uint8_t IND()
 {
-    //first
-    uint16_t low_input = mem_read(program_counter);
+    uint16_t low = mem_read(program_counter);
     program_counter++;
-    //second
-    uint16_t high_input = mem_read(program_counter) << 8;
+    uint16_t high = mem_read(program_counter);
+    program_counter++;
 
-    //combine input
-    uint16_t input = high_input | low_input;
+    uint16_t address = (high << 8) | low;
 
-    //first
-    uint16_t low_output = mem_read(input);
-    //second
-    uint16_t high_output = mem_read(input + 1) << 8;
+    if (low == 0x00FF)
+    {
+        //page crossing
+        absolute_address = (mem_read(address & 0xFF00) << 8) | mem_read(address);
+    }
+    else
+    {
+        //normal case
+        absolute_address = (mem_read(address + 1) << 8) | mem_read(address);
+    }
 
-    //data at "pointer"
-    absolute_address = high_output | low_output;
     return 0;
 }
 
@@ -795,7 +802,6 @@ uint8_t INY()
 uint8_t JMP()
 {
     program_counter = absolute_address;
-
     return 0;
 }
 
@@ -1452,7 +1458,7 @@ void load_rom(char* filename)
 void print_cpu_state()
 {
     //FORMAT: C000  JMP                    A:00 X:00 Y:00 P:24 SP:FD CYC:7
-    fprintf(fp, "%X  %s                    A:%02X X:%02X Y:%02X P:%X SP:%X CYC:%d\n", program_counter, get_opcode(current_opcode).name, accumulator, x_register, y_register, status_register, stack_pointer, total_cycles);
+    fprintf(fp, "%04X  %s                    A:%02X X:%02X Y:%02X P:%X SP:%X CYC:%d\n", program_counter, get_opcode(current_opcode).name, accumulator, x_register, y_register, status_register, stack_pointer, total_cycles);
 }
 
 void print_ram_state(int depth, int start_position)
