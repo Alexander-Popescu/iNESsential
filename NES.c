@@ -247,21 +247,21 @@ uint8_t IZX()
 uint8_t IZY()
 {
     //indirect indexed
-    uint8_t input = mem_read(program_counter);
+    uint16_t input = mem_read(program_counter);
     program_counter++;
 
     //get actual address and offset final by y, but also check for page change
 
-    uint16_t low = mem_read(input);
-    uint16_t high = mem_read(input + 1) << 8;
+    uint16_t low = mem_read(input & 0x00FF);
+    uint16_t high = mem_read((input + 1) & 0x00FF) << 8;
 
     absolute_address = high | low;
-
     absolute_address += y_register;
 
     //check for page change
     uint16_t first_byte = absolute_address & 0xFF00;
-    return (first_byte != high) ? 1 : 0;
+    
+    return first_byte != high ? 1 : 0;
 }
 
 //helper function to avoid writing !IMP for every memory address
