@@ -739,18 +739,12 @@ uint8_t EOR()
 
 uint8_t INC()
 {
-    mem_write(absolute_address, ram[absolute_address] + 1);
+    update_absolute_data();
+    mem_write(absolute_address, data_at_absolute + 1);
+    update_absolute_data();
 
-    //set flags
-    if (mem_read(absolute_address) == 0x00)
-    {
-        set_flag(Z_flag, 1);
-    }
-
-    if (mem_read(absolute_address) & 0x80)
-    {
-        set_flag(N_flag, 1);
-    }
+    set_flag(Z_flag, data_at_absolute == 0x00);
+    set_flag(N_flag, data_at_absolute & 0x80);
 
     return 0;
 }
