@@ -1203,6 +1203,67 @@ uint8_t XXX()
     return 0;
 }
 
+//illegal opcodes
+
+uint8_t LAX()
+{
+    LDA();
+    LDX();
+    if ((current_opcode == 0xB3 || (current_opcode == 0xB7)))
+    {
+        return 1;
+    }
+    return 0;
+}
+
+uint8_t SAX()
+{
+    mem_write(absolute_address, accumulator & x_register);
+    return 0;
+}
+
+uint8_t DCP()
+{
+    DEC();
+    CMP();
+    return 0;
+}
+
+uint8_t ISB()
+{
+    INC();
+    SBC();
+    return 0;
+}
+
+uint8_t SLO()
+{
+    ASL();
+    ORA();
+    return 0;
+}
+
+uint8_t RLA()
+{
+    ROL();
+    AND();
+    return 0;
+}
+
+uint8_t SRE()
+{
+    LSR();
+    EOR();
+    return 0;
+}
+
+uint8_t RRA()
+{
+    ROR();
+    ADC();
+    return 0;
+}
+
 //opcode matrix stuff
 
 typedef struct opcode
@@ -1216,22 +1277,22 @@ typedef struct opcode
 
 opcode opcode_matrix[16][16] = {
 //   0                         1                         2                         3                         4                         5                         6                         7                         8                         9                         A                         B                         C                         D                         E                         F
-    {{ "BRK", BRK, IMP, 1, 7 },{"ORA", ORA, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ZP0, 0, 3 },{"ORA", ORA, ZP0, 2, 3 },{"ASL", ASL, ZP0, 2, 5 },{"???", XXX, IMP, 0, 2 },{"PHP", PHP, IMP, 1, 3 },{"ORA", ORA, IMM, 2, 2 },{"ASL", ASL, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ABS, 3, 4 },{"ORA", ORA, ABS, 3, 4 },{"ASL", ASL, ABS, 3, 6 },{"???", XXX, IMP, 0, 2 }},
-    {{ "BPL", BPL, REL, 2, 2 },{"ORA", ORA, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ZPX, 2, 4 },{"ORA", ORA, ZPX, 2, 4 },{"ASL", ASL, ZPX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"CLC", CLC, IMP, 1, 2 },{"ORA", ORA, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ABX, 3, 4 },{"ORA", ORA, ABX, 3, 4 },{"ASL", ASL, ABX, 3, 7 },{"???", XXX, IMP, 0, 2 }},
-    {{ "JSR", JSR, ABS, 3, 6 },{"AND", AND, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"BIT", BIT, ZP0, 2, 3 },{"AND", AND, ZP0, 2, 3 },{"ROL", ROL, ZP0, 2, 5 },{"???", XXX, IMP, 0, 2 },{"PLP", PLP, IMP, 1, 4 },{"AND", AND, IMM, 2, 2 },{"ROL", ROL, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"BIT", BIT, ABS, 3, 4 },{"AND", AND, ABS, 3, 4 },{"ROL", ROL, ABS, 3, 6 },{"???", XXX, IMP, 0, 2 }},
-    {{ "BMI", BMI, REL, 2, 2 },{"AND", AND, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ZPX, 2, 4 },{"AND", AND, ZPX, 2, 4 },{"ROL", ROL, ZPX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"SEC", SEC, IMP, 1, 2 },{"AND", AND, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ABX, 3, 4 },{"AND", AND, ABX, 3, 4 },{"ROL", ROL, ABX, 3, 7 },{"???", XXX, IMP, 0, 2 }},
-    {{ "RTI", RTI, IMP, 1, 6 },{"EOR", EOR, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ZP0, 2, 3 },{"EOR", EOR, ZP0, 2, 3 },{"LSR", LSR, ZP0, 2, 5 },{"???", XXX, IMP, 0, 2 },{"PHA", PHA, IMP, 1, 3 },{"EOR", EOR, IMM, 2, 2 },{"LSR", LSR, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"JMP", JMP, ABS, 3, 3 },{"EOR", EOR, ABS, 3, 4 },{"LSR", LSR, ABS, 3, 6 },{"???", XXX, IMP, 0, 2 }},
-    {{ "BVC", BVC, REL, 2, 2 },{"EOR", EOR, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ZPX, 2, 4 },{"EOR", EOR, ZPX, 2, 4 },{"LSR", LSR, ZPX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"CLI", CLI, IMP, 1, 2 },{"EOR", EOR, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ABX, 3, 4 },{"EOR", EOR, ABX, 3, 4 },{"LSR", LSR, ABX, 3, 7 },{"???", XXX, IMP, 0, 2 }},
-    {{ "RTS", RTS, IMP, 1, 6 },{"ADC", ADC, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ZP0, 2, 3 },{"ADC", ADC, ZP0, 2, 3 },{"ROR", ROR, ZP0, 2, 5 },{"???", XXX, IMP, 0, 2 },{"PLA", PLA, IMP, 1, 4 },{"ADC", ADC, IMM, 2, 2 },{"ROR", ROR, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"JMP", JMP, IND, 3, 5 },{"ADC", ADC, ABS, 3, 4 },{"ROR", ROR, ABS, 3, 6 },{"???", XXX, IMP, 0, 2 }},
-    {{ "BVS", BVS, REL, 2, 2 },{"ADC", ADC, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ZPX, 2, 4 },{"ADC", ADC, ZPX, 2, 4 },{"ROR", ROR, ZPX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"SEI", SEI, IMP, 1, 2 },{"ADC", ADC, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ABX, 3, 4 },{"ADC", ADC, ABX, 3, 4 },{"ROR", ROR, ABX, 3, 7 },{"???", XXX, IMP, 0, 2 }},
-    {{ "NOP", NOP, IMM, 2, 2 },{"STA", STA, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"STY", STY, ZP0, 2, 3 },{"STA", STA, ZP0, 2, 3 },{"STX", STX, ZP0, 2, 3 },{"???", XXX, IMP, 0, 2 },{"DEY", DEY, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"TXA", TXA, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"STY", STY, ABS, 3, 4 },{"STA", STA, ABS, 3, 4 },{"STX", STX, ABS, 3, 4 },{"???", XXX, IMP, 0, 2 }},
-    {{ "BCC", BCC, REL, 2, 2 },{"STA", STA, IZY, 2, 6 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"STY", STY, ZPX, 2, 4 },{"STA", STA, ZPX, 2, 4 },{"STX", STX, ZPY, 2, 4 },{"???", XXX, IMP, 0, 2 },{"TYA", TYA, IMP, 1, 2 },{"STA", STA, ABY, 3, 5 },{"TXS", TXS, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"STA", STA, ABX, 3, 5 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 }},
-    {{ "LDY", LDY, IMM, 2, 2 },{"LDA", LDA, IZX, 2, 6 },{"LDX", LDX, IMM, 2, 2 },{"LAX", LAX, IZX, 2, 6 },{"LDY", LDY, ZP0, 2, 3 },{"LDA", LDA, ZP0, 2, 3 },{"LDX", LDX, ZP0, 2, 3 },{"???", XXX, IMP, 0, 2 },{"TAY", TAY, IMP, 1, 2 },{"LDA", LDA, IMM, 2, 2 },{"TAX", TAX, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"LDY", LDY, ABS, 3, 4 },{"LDA", LDA, ABS, 3, 4 },{"LDX", LDX, ABS, 3, 4 },{"???", XXX, IMP, 0, 2 }},
-    {{ "BCS", BCS, REL, 2, 2 },{"LDA", LDA, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"LDY", LDY, ZPX, 2, 4 },{"LDA", LDA, ZPX, 2, 4 },{"LDX", LDX, ZPY, 2, 4 },{"???", XXX, IMP, 0, 2 },{"CLV", CLV, IMP, 1, 2 },{"LDA", LDA, ABY, 3, 4 },{"TSX", TSX, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"LDY", LDY, ABX, 3, 4 },{"LDA", LDA, ABX, 3, 4 },{"LDX", LDX, ABY, 3, 4 },{"???", XXX, IMP, 0, 2 }},
-    {{ "CPY", CPY, IMM, 2, 2 },{"CMP", CMP, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"CPY", CPY, ZP0, 2, 3 },{"CMP", CMP, ZP0, 2, 3 },{"DEC", DEC, ZP0, 2, 5 },{"???", XXX, IMP, 0, 2 },{"INY", INY, IMP, 1, 2 },{"CMP", CMP, IMM, 2, 2 },{"DEX", DEX, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"CPY", CPY, ABS, 3, 4 },{"CMP", CMP, ABS, 3, 4 },{"DEC", DEC, ABS, 3, 6 },{"???", XXX, IMP, 0, 2 }},
-    {{ "BNE", BNE, REL, 2, 2 },{"CMP", CMP, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ZPX, 2, 4 },{"CMP", CMP, ZPX, 2, 4 },{"DEC", DEC, ZPX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"CLD", CLD, IMP, 1, 2 },{"CMP", CMP, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ABX, 3, 4 },{"CMP", CMP, ABX, 3, 4 },{"DEC", DEC, ABX, 3, 7 },{"???", XXX, IMP, 0, 2 }},
-    {{ "CPX", CPX, IMM, 2, 2 },{"SBC", SBC, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"CPX", CPX, ZP0, 2, 3 },{"SBC", SBC, ZP0, 2, 3 },{"INC", INC, ZP0, 2, 5 },{"???", XXX, IMP, 0, 2 },{"INX", INX, IMP, 1, 2 },{"SBC", SBC, IMM, 2, 2 },{"NOP", NOP, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"CPX", CPX, ABS, 3, 4 },{"SBC", SBC, ABS, 3, 4 },{"INC", INC, ABS, 3, 6 },{"???", XXX, IMP, 0, 2 }},
-    {{ "BEQ", BEQ, REL, 2, 2 },{"SBC", SBC, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ZPX, 2, 4 },{"SBC", SBC, ZPX, 2, 4 },{"INC", INC, ZPX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"SED", SED, IMP, 1, 2 },{"SBC", SBC, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ABX, 3, 4 },{"SBC", SBC, ABX, 3, 4 },{"INC", INC, ABX, 3, 7 },{"???", XXX, IMP, 0, 2 }},
+    {{ "BRK", BRK, IMP, 1, 7 },{"ORA", ORA, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"SLO", SLO, IZX, 2, 8 },{"NOP", NOP, ZP0, 0, 3 },{"ORA", ORA, ZP0, 2, 3 },{"ASL", ASL, ZP0, 2, 5 },{"SLO", SLO, ZP0, 2, 5 },{"PHP", PHP, IMP, 1, 3 },{"ORA", ORA, IMM, 2, 2 },{"ASL", ASL, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ABS, 3, 4 },{"ORA", ORA, ABS, 3, 4 },{"ASL", ASL, ABS, 3, 6 },{"SLO", SLO, ABS, 3, 6 }},
+    {{ "BPL", BPL, REL, 2, 2 },{"ORA", ORA, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"SLO", SLO, IZY, 2, 8 },{"NOP", NOP, ZPX, 2, 4 },{"ORA", ORA, ZPX, 2, 4 },{"ASL", ASL, ZPX, 2, 6 },{"SLO", SLO, ZPX, 2, 6 },{"CLC", CLC, IMP, 1, 2 },{"ORA", ORA, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"SLO", SLO, ABY, 3, 7 },{"NOP", NOP, ABX, 3, 4 },{"ORA", ORA, ABX, 3, 4 },{"ASL", ASL, ABX, 3, 7 },{"SLO", SLO, ABX, 3, 7 }},
+    {{ "JSR", JSR, ABS, 3, 6 },{"AND", AND, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"RLA", RLA, IZX, 2, 8 },{"BIT", BIT, ZP0, 2, 3 },{"AND", AND, ZP0, 2, 3 },{"ROL", ROL, ZP0, 2, 5 },{"RLA", RLA, ZP0, 2, 5 },{"PLP", PLP, IMP, 1, 4 },{"AND", AND, IMM, 2, 2 },{"ROL", ROL, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"BIT", BIT, ABS, 3, 4 },{"AND", AND, ABS, 3, 4 },{"ROL", ROL, ABS, 3, 6 },{"RLA", RLA, ABS, 3, 6 }},
+    {{ "BMI", BMI, REL, 2, 2 },{"AND", AND, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"RLA", RLA, IZY, 2, 8 },{"NOP", NOP, ZPX, 2, 4 },{"AND", AND, ZPX, 2, 4 },{"ROL", ROL, ZPX, 2, 6 },{"RLA", RLA, ZPX, 2, 6 },{"SEC", SEC, IMP, 1, 2 },{"AND", AND, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"RLA", RLA, ABY, 3, 7 },{"NOP", NOP, ABX, 3, 4 },{"AND", AND, ABX, 3, 4 },{"ROL", ROL, ABX, 3, 7 },{"RLA", RLA, ABX, 3, 7 }},
+    {{ "RTI", RTI, IMP, 1, 6 },{"EOR", EOR, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"SRE", SRE, IZX, 2, 8 },{"NOP", NOP, ZP0, 2, 3 },{"EOR", EOR, ZP0, 2, 3 },{"LSR", LSR, ZP0, 2, 5 },{"SRE", SRE, ZP0, 2, 5 },{"PHA", PHA, IMP, 1, 3 },{"EOR", EOR, IMM, 2, 2 },{"LSR", LSR, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"JMP", JMP, ABS, 3, 3 },{"EOR", EOR, ABS, 3, 4 },{"LSR", LSR, ABS, 3, 6 },{"SRE", SRE, ABS, 3, 6 }},
+    {{ "BVC", BVC, REL, 2, 2 },{"EOR", EOR, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"SRE", SRE, IZY, 2, 8 },{"NOP", NOP, ZPX, 2, 4 },{"EOR", EOR, ZPX, 2, 4 },{"LSR", LSR, ZPX, 2, 6 },{"SRE", SRE, ZPX, 2, 6 },{"CLI", CLI, IMP, 1, 2 },{"EOR", EOR, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"SRE", SRE, ABY, 3, 7 },{"NOP", NOP, ABX, 3, 4 },{"EOR", EOR, ABX, 3, 4 },{"LSR", LSR, ABX, 3, 7 },{"SRE", SRE, ABX, 3, 7 }},
+    {{ "RTS", RTS, IMP, 1, 6 },{"ADC", ADC, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"RRA", RRA, IZX, 2, 8 },{"NOP", NOP, ZP0, 2, 3 },{"ADC", ADC, ZP0, 2, 3 },{"ROR", ROR, ZP0, 2, 5 },{"RRA", RRA, ZP0, 2, 5 },{"PLA", PLA, IMP, 1, 4 },{"ADC", ADC, IMM, 2, 2 },{"ROR", ROR, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"JMP", JMP, IND, 3, 5 },{"ADC", ADC, ABS, 3, 4 },{"ROR", ROR, ABS, 3, 6 },{"RRA", RRA, ABS, 3, 6 }},
+    {{ "BVS", BVS, REL, 2, 2 },{"ADC", ADC, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"RRA", RRA, IZY, 2, 8 },{"NOP", NOP, ZPX, 2, 4 },{"ADC", ADC, ZPX, 2, 4 },{"ROR", ROR, ZPX, 2, 6 },{"RRA", RRA, ZPX, 2, 6 },{"SEI", SEI, IMP, 1, 2 },{"ADC", ADC, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"RRA", RRA, ABY, 3, 7 },{"NOP", NOP, ABX, 3, 4 },{"ADC", ADC, ABX, 3, 4 },{"ROR", ROR, ABX, 3, 7 },{"RRA", RRA, ABX, 3, 7 }},
+    {{ "NOP", NOP, IMM, 2, 2 },{"STA", STA, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"SAX", SAX, IZX, 2, 6 },{"STY", STY, ZP0, 2, 3 },{"STA", STA, ZP0, 2, 3 },{"STX", STX, ZP0, 2, 3 },{"SAX", SAX, ZP0, 2, 3 },{"DEY", DEY, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"TXA", TXA, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"STY", STY, ABS, 3, 4 },{"STA", STA, ABS, 3, 4 },{"STX", STX, ABS, 3, 4 },{"SAX", SAX, ABS, 3, 4 }},
+    {{ "BCC", BCC, REL, 2, 2 },{"STA", STA, IZY, 2, 6 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"STY", STY, ZPX, 2, 4 },{"STA", STA, ZPX, 2, 4 },{"STX", STX, ZPY, 2, 4 },{"SAX", SAX, ZPY, 2, 4 },{"TYA", TYA, IMP, 1, 2 },{"STA", STA, ABY, 3, 5 },{"TXS", TXS, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 },{"STA", STA, ABX, 3, 5 },{"???", XXX, IMP, 0, 2 },{"???", XXX, IMP, 0, 2 }},
+    {{ "LDY", LDY, IMM, 2, 2 },{"LDA", LDA, IZX, 2, 6 },{"LDX", LDX, IMM, 2, 2 },{"LAX", LAX, IZX, 2, 6 },{"LDY", LDY, ZP0, 2, 3 },{"LDA", LDA, ZP0, 2, 3 },{"LDX", LDX, ZP0, 2, 3 },{"LAX", LAX, ZP0, 2, 3 },{"TAY", TAY, IMP, 1, 2 },{"LDA", LDA, IMM, 2, 2 },{"TAX", TAX, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"LDY", LDY, ABS, 3, 4 },{"LDA", LDA, ABS, 3, 4 },{"LDX", LDX, ABS, 3, 4 },{"LAX", LAX, ABS, 3, 4 }},
+    {{ "BCS", BCS, REL, 2, 2 },{"LDA", LDA, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"LAX", LAX, IZY, 2, 5 },{"LDY", LDY, ZPX, 2, 4 },{"LDA", LDA, ZPX, 2, 4 },{"LDX", LDX, ZPY, 2, 4 },{"LAX", LAX, ZPY, 2, 4 },{"CLV", CLV, IMP, 1, 2 },{"LDA", LDA, ABY, 3, 4 },{"TSX", TSX, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"LDY", LDY, ABX, 3, 4 },{"LDA", LDA, ABX, 3, 4 },{"LDX", LDX, ABY, 3, 4 },{"LAX", LAX, ABY, 3, 4 }},
+    {{ "CPY", CPY, IMM, 2, 2 },{"CMP", CMP, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"DCP", DCP, IZX, 2, 8 },{"CPY", CPY, ZP0, 2, 3 },{"CMP", CMP, ZP0, 2, 3 },{"DEC", DEC, ZP0, 2, 5 },{"DCP", DCP, ZP0, 2, 5 },{"INY", INY, IMP, 1, 2 },{"CMP", CMP, IMM, 2, 2 },{"DEX", DEX, IMP, 1, 2 },{"???", XXX, IMP, 0, 2 },{"CPY", CPY, ABS, 3, 4 },{"CMP", CMP, ABS, 3, 4 },{"DEC", DEC, ABS, 3, 6 },{"DCP", DCP, ABS, 3, 6 }},
+    {{ "BNE", BNE, REL, 2, 2 },{"CMP", CMP, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"DCP", DCP, IZY, 2, 8 },{"NOP", NOP, ZPX, 2, 4 },{"CMP", CMP, ZPX, 2, 4 },{"DEC", DEC, ZPX, 2, 6 },{"DCP", DCP, ZPX, 2, 6 },{"CLD", CLD, IMP, 1, 2 },{"CMP", CMP, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"DCP", DCP, ABY, 3, 7 },{"NOP", NOP, ABX, 3, 4 },{"CMP", CMP, ABX, 3, 4 },{"DEC", DEC, ABX, 3, 7 },{"DCP", DCP, ABX, 3, 7 }},
+    {{ "CPX", CPX, IMM, 2, 2 },{"SBC", SBC, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"ISB", ISB, IZX, 2, 8 },{"CPX", CPX, ZP0, 2, 3 },{"SBC", SBC, ZP0, 2, 3 },{"INC", INC, ZP0, 2, 5 },{"ISB", ISB, ZP0, 2, 5 },{"INX", INX, IMP, 1, 2 },{"SBC", SBC, IMM, 2, 2 },{"NOP", NOP, IMP, 1, 2 },{"SBC", SBC, IMM, 2, 2 },{"CPX", CPX, ABS, 3, 4 },{"SBC", SBC, ABS, 3, 4 },{"INC", INC, ABS, 3, 6 },{"ISB", ISB, ABS, 3, 6 }},
+    {{ "BEQ", BEQ, REL, 2, 2 },{"SBC", SBC, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"ISB", ISB, IZY, 2, 8 },{"NOP", NOP, ZPX, 2, 4 },{"SBC", SBC, ZPX, 2, 4 },{"INC", INC, ZPX, 2, 6 },{"ISB", ISB, ZPX, 2, 6 },{"SED", SED, IMP, 1, 2 },{"SBC", SBC, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"ISB", ISB, ABY, 3, 7 },{"NOP", NOP, ABX, 3, 4 },{"SBC", SBC, ABX, 3, 4 },{"INC", INC, ABX, 3, 7 },{"ISB", ISB, ABX, 3, 7 }},
 };
 
 opcode get_opcode(uint8_t input) {
@@ -1491,7 +1552,7 @@ int main(void)
     load_rom("nestest.nes");
     print_ram_state(10, 0xC5FD);
     program_counter = 0xC000;
-    for (int i = 0; i < 25000; i++)
+    for (int i = 0; i < 26555; i++)
     {
         clock();
     }
