@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <SDL2/SDL.h>
 
 //6502
 //A: Accumulator
@@ -1535,7 +1536,7 @@ void print_ram_state(int depth, int start_position)
     }
 }
 
-int main(void)
+int main(int argc, char* argv[])
 {
     //open file for debug
     fp = fopen("debug.txt", "w");
@@ -1556,7 +1557,19 @@ int main(void)
     {
         clock();
     }
-    return 0;
+    
 
-    //TODO: get debug output formatted right and check all opcodes, and fix warnings
+    //basic SDL boilerplate
+    SDL_Init(SDL_INIT_VIDEO);
+    SDL_Window* window = SDL_CreateWindow("NES Emulator", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, 0);
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderClear(renderer);
+    SDL_RenderPresent(renderer);
+    SDL_Delay(3000);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    printf("End");
+    return 0;
 }
