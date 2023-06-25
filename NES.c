@@ -1582,48 +1582,59 @@ int main(int argc, char* argv[])
 
    SDL_Init(SDL_INIT_VIDEO);
 
-    window = SDL_CreateWindow("Image Viewer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH * 3, HEIGHT * 3, SDL_WINDOW_SHOWN);
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+window = SDL_CreateWindow("Image Viewer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH * 3, HEIGHT * 3, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
-    // Fill RGB data with example values
-    for (int i = 0; i < WIDTH * HEIGHT; i++) {
-        r[i] = 100;
-        g[i] = 100;
-        b[i] = 100;
+// Fill RGB data with example values
+for (int i = 0; i < WIDTH * HEIGHT; i++) {
+    r[i] = 100;
+    g[i] = 100;
+    b[i] = 100;
+}
+
+// Create texture from RGB data
+texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
+SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+
+// Render initial frame
+updateFrame();
+
+// Main loop
+SDL_Event event;
+while (SDL_WaitEvent(&event)) {
+    if (event.type == SDL_QUIT) {
+        break;
     }
 
-    // Create texture from RGB data
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
-    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+    //maintain aspect ratio
 
-    // Render initial frame
-    updateFrame();
+    if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+        // Calculate new window size while maintaining aspect ratio
+        int newWidth = event.window.data1;
+        int newHeight = (newWidth * HEIGHT) / WIDTH;
+        SDL_SetWindowSize(window, newWidth, newHeight);
+    }
 
-    // Main loop
-    SDL_Event event;
-    while (SDL_WaitEvent(&event)) {
-        if (event.type == SDL_QUIT) {
-            break;
-        }
+    //detect keyboard input
 
-        if (event.type == SDL_KEYDOWN) {
-            if (event.key.keysym.sym == SDLK_SPACE) {
-                // Update RGB data
-                for (int i = 0; i < WIDTH * HEIGHT; i++) {
-                    r[i] = rand() % 255;
-                    g[i] = rand() % 255;
-                    b[i] = rand() % 255;
-                }
-                updateFrame();
+    if (event.type == SDL_KEYDOWN) {
+        if (event.key.keysym.sym == SDLK_SPACE) {
+            // Update RGB data to random values
+            for (int i = 0; i < WIDTH * HEIGHT; i++) {
+                r[i] = rand() % 255;
+                g[i] = rand() % 255;
+                b[i] = rand() % 255;
             }
+            updateFrame();
         }
     }
+}
 
-    // Clean up resources
-    SDL_DestroyTexture(texture);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+// Clean up resources
+SDL_DestroyTexture(texture);
+SDL_DestroyRenderer(renderer);
+SDL_DestroyWindow(window);
+SDL_Quit();
 
-    return 0;
+return 0;
 }
