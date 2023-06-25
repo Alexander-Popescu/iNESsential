@@ -75,6 +75,17 @@ FILE* fp;
 //total cycles elapsed
 uint64_t total_cycles = 0;
 
+//SDL globals
+#define WIDTH 256
+#define HEIGHT 240
+
+SDL_Window* window;
+SDL_Renderer* renderer;
+SDL_Texture* texture;
+uint8_t r[WIDTH * HEIGHT];
+uint8_t g[WIDTH * HEIGHT];
+uint8_t b[WIDTH * HEIGHT];
+
 //memory IO
 void mem_write(uint16_t address, uint8_t data)
 {
@@ -1536,6 +1547,17 @@ void print_ram_state(int depth, int start_position)
     }
 }
 
+void updateFrame() {
+    // Update texture with new RGB data
+    SDL_UpdateTexture(texture, NULL, (void*)r, WIDTH * sizeof(uint8_t));
+    SDL_UpdateTexture(texture, NULL, (void*)g, WIDTH * sizeof(uint8_t));
+    SDL_UpdateTexture(texture, NULL, (void*)b, WIDTH * sizeof(uint8_t));
+
+    // Render texture to screen
+    SDL_RenderCopy(renderer, texture, NULL, NULL);
+    SDL_RenderPresent(renderer);
+}
+
 int main(int argc, char* argv[])
 {
     //open file for debug
@@ -1557,19 +1579,51 @@ int main(int argc, char* argv[])
     {
         clock();
     }
-    
 
-    //basic SDL boilerplate
-    SDL_Init(SDL_INIT_VIDEO);
-    SDL_Window* window = SDL_CreateWindow("NES Emulator", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, 0);
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderClear(renderer);
-    SDL_RenderPresent(renderer);
-    SDL_Delay(3000);
+   SDL_Init(SDL_INIT_VIDEO);
+
+    window = SDL_CreateWindow("Image Viewer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH * 3, HEIGHT * 3, SDL_WINDOW_SHOWN);
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
+    // Fill RGB data with example values
+    for (int i = 0; i < WIDTH * HEIGHT; i++) {
+        r[i] = 100;
+        g[i] = 100;
+        b[i] = 100;
+    }
+
+    // Create texture from RGB data
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+
+    // Render initial frame
+    updateFrame();
+
+    // Main loop
+    SDL_Event event;
+    while (SDL_WaitEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            break;
+        }
+
+        if (event.type == SDL_KEYDOWN) {
+            if (event.key.keysym.sym == SDLK_SPACE) {
+                // Update RGB data
+                for (int i = 0; i < WIDTH * HEIGHT; i++) {
+                    r[i] = rand() % 255;
+                    g[i] = rand() % 255;
+                    b[i] = rand() % 255;
+                }
+                updateFrame();
+            }
+        }
+    }
+
+    // Clean up resources
+    SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
-    printf("End");
+
     return 0;
 }
