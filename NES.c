@@ -1672,7 +1672,7 @@ void updateFrame() {
         render_width = (int)(render_height * aspect_ratio);
     }
 
-    // position of rectangle to render RGB data
+    // Calculate position of rectangle to render RGB data
     int x = 0;
     int y = 0;
 
@@ -1684,6 +1684,25 @@ void updateFrame() {
     SDL_Rect border_rect = {x - 2, y - 2, render_width + 4, render_height + 4};
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderDrawRect(renderer, &border_rect);
+
+    // Calculate spacing between RGB data and rectangles
+    int spacing = (int)(window_height * 0.02);
+
+    // Calculate size of rectangles under the array data
+    int rect_width = render_width / 8;
+    int rect_height = (render_height - spacing) / 8;
+
+    // Calculate position of rectangles under the array data
+    int rect_x = x;
+    int rect_y = y + render_height + spacing;
+
+    // Render rectangles under the array data
+    for (int i = 0; i < 8; i++) {
+        SDL_Rect rect = {rect_x, rect_y, rect_width, rect_height};
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_RenderDrawRect(renderer, &rect);
+        rect_x += rect_width + spacing;
+    }
 
     // Render to screen
     SDL_RenderPresent(renderer);
@@ -1700,6 +1719,14 @@ void print_ppu_registers()
     printf("PPUADDR: 0x%x\n", ppu_addr);
     printf("PPUDATA: 0x%x\n", ppu_data);
     printf("OAMDMA: 0x%x\n", oam_dma);
+}
+
+void printPalettes() {
+    // Iterate over palette data in PPU memory
+    for (int i = 0; i < 32; i++) {
+        uint8_t value = ppu_read(0x3F00 + i);
+        printf("Palette[%d] = %02X\n", i, value);
+    }
 }
 
 int main(int argc, char* argv[])
@@ -1722,6 +1749,8 @@ int main(int argc, char* argv[])
     {
         clock();
     }
+
+    printPalettes();
 
    SDL_Init(SDL_INIT_VIDEO);
 
