@@ -1817,7 +1817,7 @@ void printPalettes() {
     // Iterate over palette data in PPU memory
     for (int i = 0; i < 32; i++) {
         uint8_t value = ppu_read(0x3F00 + i);
-        printf("Palette[%d] = %02X\n", i, value);
+        printf("Palette[%d], ppu_memory[%X] = %02X\n", i, 0x3F00 + i, value);
     }
 }
 
@@ -1903,4 +1903,5 @@ int main(int argc, char* argv[])
     SDL_Quit();
 
     return 0;
+    //TODO: fix pallettes and render the sprite tables
 }
