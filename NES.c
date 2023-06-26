@@ -1646,6 +1646,73 @@ void print_ram_state(int depth, int start_position)
     }
 }
 
+uint8_t palette_colors[64][3] = {
+    { 84, 84, 84 },
+    { 0, 30, 116 },
+    { 8, 16, 144 },
+    { 48, 0, 136 },
+    { 68, 0, 100 },
+    { 92, 0, 48 },
+    { 84, 4, 0 },
+    { 60, 24, 0 },
+    { 32, 42, 0 },
+    { 8, 58, 0 },
+    { 0, 64, 0 },
+    { 0, 60, 0 },
+    { 0, 50, 60 },
+    { 0, 0, 0 },
+    { 0, 0, 0 },
+    { 0, 0, 0 },
+    { 152, 150, 152 },
+    { 8, 76, 196 },
+    { 48, 50, 236 },
+    { 92, 30, 228 },
+    { 136, 20, 176 },
+    { 160, 20, 100 },
+    { 152, 34, 32 },
+    { 120, 60, 0 },
+    { 84, 90, 0 },
+    { 40, 114, 0 },
+    { 8, 124, 0 },
+    { 0, 118, 40 },
+    { 0, 102, 120 },
+    { 0, 0, 0 },
+    { 0, 0, 0 },
+    { 0, 0, 0 },
+    { 236, 238, 236 },
+    { 76, 154, 236 },
+    { 120, 124, 236 },
+    { 176, 98, 236 },
+    { 228, 84, 236 },
+    { 236, 88, 180 },
+    { 236, 106, 100 },
+    { 212, 136, 32 },
+    { 160, 170, 0 },
+    { 116, 196, 0 },
+    { 76, 208, 32 },
+    { 56, 204, 108 },
+    { 56, 180, 204 },
+    { 60, 60, 60 },
+    { 0, 0, 0 },
+    { 0, 0, 0 },
+    { 236, 238, 236 },
+    { 168, 204, 236 },
+    { 188, 188, 236 },
+    { 212, 178, 236 },
+    { 236, 174, 236 },
+    { 236, 174, 212 },
+    { 236, 180, 176 },
+    { 228, 196, 144 },
+    { 204, 210, 120 },
+    { 180, 222, 120 },
+    { 168, 226, 144 },
+    { 152, 226, 180 },
+    { 160, 214, 228 },
+    { 160, 162, 160 },
+    { 0, 0, 0 },
+    { 0, 0, 0 }
+};
+
 void updateFrame() {
     // Update texture with new RGB data
     SDL_UpdateTexture(texture, NULL, (void*)r, WIDTH * sizeof(uint8_t));
@@ -1698,9 +1765,34 @@ void updateFrame() {
 
     // Render rectangles under the array data
     for (int i = 0; i < 8; i++) {
+        // Calculate position of the first rectangle in the 2x2 grid
+        int grid_rect_width = rect_width / 2;
+        int grid_rect_height = rect_height / 2;
+        int grid_x = rect_x + rect_width / 4 - grid_rect_width / 2;
+        int grid_y = rect_y + rect_height / 4 - grid_rect_height / 2;
+
+        // Render 2x2 grid of rectangles with different colors
+        for (int j = 0; j < 2; j++) {
+            for (int k = 0; k < 2; k++) {
+                // Get the color index from the palette section of ppu_memory
+                uint8_t color_index = ppu_memory[0x3F00 + i * 4 + j * 2 + k];
+
+                // Get the RGB values from the palette_Colors array
+                uint8_t* color = palette_colors[color_index];
+
+                // Render the rectangle with the color
+                SDL_Rect grid_rect = {grid_x + k * grid_rect_width, grid_y + j * grid_rect_height, grid_rect_width, grid_rect_height};
+                SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
+                SDL_RenderFillRect(renderer, &grid_rect);
+            }
+        }
+
+        // Draw border around the 2x2 grid
         SDL_Rect rect = {rect_x, rect_y, rect_width, rect_height};
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderDrawRect(renderer, &rect);
+
+        // Move to the next rectangle position
         rect_x += rect_width + spacing;
     }
 
