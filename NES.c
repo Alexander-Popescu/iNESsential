@@ -75,6 +75,28 @@ FILE* fp;
 //total cycles elapsed
 uint64_t total_cycles = 0;
 
+// PPU arrays
+uint8_t ppu_memory[0x4000] = {0};
+uint8_t ppu_palette[0x20] = {0};
+uint8_t ppu_oam[0x100] = {0};
+
+// PPU registers
+uint8_t ppu_ctrl = 0x00;
+uint8_t ppu_mask = 0x00;
+uint8_t ppu_status = 0x00;
+uint8_t oam_addr = 0x00;
+uint8_t oam_data = 0x00;
+uint8_t ppu_scroll = 0x00;
+uint8_t ppu_addr = 0x00;
+uint8_t ppu_data = 0x00;
+uint8_t oam_dma = 0x00;
+
+//PPU helpers
+uint8_t address_latch = 0x00;
+uint8_t ppu_data_buffer = 0x00;
+uint16_t ppu_temp_address = 0x0000;
+
+
 //SDL globals
 #define WIDTH 256
 #define HEIGHT 240
@@ -86,9 +108,44 @@ uint8_t r[WIDTH * HEIGHT];
 uint8_t g[WIDTH * HEIGHT];
 uint8_t b[WIDTH * HEIGHT];
 
+//PPU io
+
+//0x0000-0x0FFF: Pattern table 0
+//0x1000-0x1FFF: Pattern table 1
+//0x2000-0x23FF: Nametable 0
+//0x2400-0x27FF: Nametable 1
+//0x2800-0x2BFF: Nametable 2
+//0x2C00-0x2FFF: Nametable 3
+//0x3000-0x3EFF: Mirrors of 0x2000-0x2EFF
+//0x3F00-0x3F1F: Palette RAM indexes
+//0x3F20-0x3FFF: Mirrors of 0x3F00-0x3F1F
+
+void ppu_write(uint16_t address, uint8_t data)
+{
+    //check if valid memory request
+    if ((address >= 0x0000) && (address <= 0x3FFF))
+    {
+        ppu_memory[address] = data;
+    }
+    else
+    {
+        printf("Invalid memory address: %d", address);
+    }
+}
+
+uint8_t ppu_read(uint16_t address)
+{
+    //check if valid memory request
+    if ((address >= 0x0000) && (address <= 0x3FFF))
+    {
+        return ppu_memory[address];
+    }
+}
+
 //memory IO
 void mem_write(uint16_t address, uint8_t data)
 {
+
     //check if valid memory request
     if ((address >= 0x0000) && (address <= 0xFFFF))
     {
@@ -1516,18 +1573,60 @@ void load_rom(char* filename)
         exit(1);
     }
 
-    // extract program ROM data
+    // extract PRG ROM data
     int prg_rom_size = header[4] * 16384;
     unsigned char* prg_rom = malloc(prg_rom_size);
     fread(prg_rom, sizeof(unsigned char), prg_rom_size, file);
 
-    // load program ROM data into memory starting at 0x8000
+    // extract CHR ROM data
+    int chr_rom_size = header[5] * 8192;
+    unsigned char* chr_rom = malloc(chr_rom_size);
+    fread(chr_rom, sizeof(unsigned char), chr_rom_size, file);
+
+    // extract mapper number
+    int mapper_num = ((header[6] >> 4) & 0x0F) | (header[7] & 0xF0);
+
+    // extract mirroring mode
+    int mirroring_mode = (header[6] & 0x01) ? 1 : 0;
+
+    // extract battery-backed PRG RAM size
+    int prg_ram_size = header[8] * 8192;
+
+    // extract trainer data
+    int trainer_size = (header[6] & 0x04) ? 512 : 0;
+    unsigned char* trainer_data = malloc(trainer_size);
+    if (trainer_size > 0)
+    {
+        fread(trainer_data, sizeof(unsigned char), trainer_size, file);
+    }
+
+    // extract palette data
+    int palette_data_offset = 16 + prg_rom_size + chr_rom_size + trainer_size;
+    unsigned char palette_data[32];
+    fseek(file, palette_data_offset, SEEK_SET);
+    fread(palette_data, sizeof(unsigned char), 32, file);
+
+    // load PRG ROM data into memory starting at 0x8000
     for (int i = 0; i < prg_rom_size; i++)
     {
         mem_write(0xC000 + i, prg_rom[i]);
     }
 
+    // load CHR ROM data into PPU memory starting at 0x0000
+    for (int i = 0; i < chr_rom_size; i++)
+    {
+        ppu_write(0x0000 + i, chr_rom[i]);
+    }
+
+    // load palette data into PPU memory starting at 0x3F00
+    for (int i = 0; i < 32; i++)
+    {
+        ppu_write(0x3F00 + i, palette_data[i]);
+    }
+
     free(prg_rom);
+    free(chr_rom);
+    free(trainer_data);
     fclose(file);
 }
 
@@ -1553,9 +1652,54 @@ void updateFrame() {
     SDL_UpdateTexture(texture, NULL, (void*)g, WIDTH * sizeof(uint8_t));
     SDL_UpdateTexture(texture, NULL, (void*)b, WIDTH * sizeof(uint8_t));
 
-    // Render texture to screen
-    SDL_RenderCopy(renderer, texture, NULL, NULL);
+    // Clear screen
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+
+    // Get window size
+    int window_width, window_height;
+    SDL_GetWindowSize(window, &window_width, &window_height);
+
+    // Calculate aspect ratio
+    float aspect_ratio = (float)WIDTH / (float)HEIGHT;
+
+    // Calculate size of rectangle to render RGB data
+    int render_width = window_width * 2 / 3;
+    int render_height = (int)(render_width / aspect_ratio);
+
+    if (render_height > window_height * 2 / 3) {
+        render_height = window_height * 2 / 3;
+        render_width = (int)(render_height * aspect_ratio);
+    }
+
+    // position of rectangle to render RGB data
+    int x = 0;
+    int y = 0;
+
+    // Render RGB data to screen
+    SDL_Rect rect = {x, y, render_width, render_height};
+    SDL_RenderCopy(renderer, texture, NULL, &rect);
+
+    // Render border around rectangle
+    SDL_Rect border_rect = {x - 2, y - 2, render_width + 4, render_height + 4};
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderDrawRect(renderer, &border_rect);
+
+    // Render to screen
     SDL_RenderPresent(renderer);
+}
+
+void print_ppu_registers()
+{
+    printf("PPUCTRL: 0x%x\n", ppu_ctrl);
+    printf("PPUMASK: 0x%x\n", ppu_mask);
+    printf("PPUSTATUS: 0x%x\n", ppu_status);
+    printf("OAMADDR: 0x%x\n", oam_addr);
+    printf("OAMDATA: 0x%x\n", oam_data);
+    printf("PPUSCROLL: 0x%x\n", ppu_scroll);
+    printf("PPUADDR: 0x%x\n", ppu_addr);
+    printf("PPUDATA: 0x%x\n", ppu_data);
+    printf("OAMDMA: 0x%x\n", oam_dma);
 }
 
 int main(int argc, char* argv[])
@@ -1573,68 +1717,69 @@ int main(int argc, char* argv[])
     reset();
     //load rom at 0x8000, default location
     load_rom("nestest.nes");
-    print_ram_state(10, 0xC5FD);
     program_counter = 0xC000;
-    for (int i = 0; i < 26555; i++)
+    for (int i = 0; i < 100000; i++)
     {
         clock();
     }
 
    SDL_Init(SDL_INIT_VIDEO);
 
-window = SDL_CreateWindow("Image Viewer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH * 3, HEIGHT * 3, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
-renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    window = SDL_CreateWindow("Nes Emulator", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH * 3, HEIGHT * 3, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
-// Fill RGB data with example values
-for (int i = 0; i < WIDTH * HEIGHT; i++) {
-    r[i] = 100;
-    g[i] = 100;
-    b[i] = 100;
-}
-
-// Create texture from RGB data
-texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
-SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-
-// Render initial frame
-updateFrame();
-
-// Main loop
-SDL_Event event;
-while (SDL_WaitEvent(&event)) {
-    if (event.type == SDL_QUIT) {
-        break;
+    // Fill RGB data with example values
+    for (int i = 0; i < WIDTH * HEIGHT; i++) {
+        r[i] = 100;
+        g[i] = 100;
+        b[i] = 100;
     }
 
-    //maintain aspect ratio
+    // Create texture from RGB data
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 
-    if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-        // Calculate new window size while maintaining aspect ratio
-        int newWidth = event.window.data1;
-        int newHeight = (newWidth * HEIGHT) / WIDTH;
-        SDL_SetWindowSize(window, newWidth, newHeight);
-    }
+    // Render initial frame
+    updateFrame();
 
-    //detect keyboard input
+    // Main loop
+    SDL_Event event;
+    while (SDL_WaitEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            break;
+        }
 
-    if (event.type == SDL_KEYDOWN) {
-        if (event.key.keysym.sym == SDLK_SPACE) {
-            // Update RGB data to random values
-            for (int i = 0; i < WIDTH * HEIGHT; i++) {
-                r[i] = rand() % 255;
-                g[i] = rand() % 255;
-                b[i] = rand() % 255;
+        //maintain aspect ratio
+
+        if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+            // Calculate new window size while maintaining aspect ratio
+            int newWidth = event.window.data1;
+            int newHeight = (newWidth * HEIGHT) / WIDTH;
+            SDL_SetWindowSize(window, newWidth, newHeight);
+        }
+
+        //detect keyboard input
+
+        if (event.type == SDL_KEYDOWN) {
+            if (event.key.keysym.sym == SDLK_SPACE) {
+                // Update RGB data to random values
+                for (int i = 0; i < WIDTH * HEIGHT; i++) {
+                    r[i] = rand() % 255;
+                    g[i] = rand() % 255;
+                    b[i] = rand() % 255;
+                }
+                //print ppu registers
+                print_ppu_registers();
+                updateFrame();
             }
-            updateFrame();
         }
     }
-}
 
-// Clean up resources
-SDL_DestroyTexture(texture);
-SDL_DestroyRenderer(renderer);
-SDL_DestroyWindow(window);
-SDL_Quit();
+    // Clean up resources
+    SDL_DestroyTexture(texture);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
 
-return 0;
+    return 0;
 }
