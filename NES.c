@@ -66,8 +66,20 @@ bool accumulator_mode = false;
 uint16_t absolute_address = 0x0000;
 uint16_t relative_address = 0x0000;
 
-//memory
-uint8_t ram[64 * 1024];
+
+uint8_t cpuBus[64 * 1024];
+//CPU BUS SPECIFICATIONS:
+
+//0x0000-0x07FF: 2KB Ram
+//0x0800-0x0FFF: Mirrors of 0x0000-0x07FF
+//0x1000-0x17FF: Mirrors of 0x0000-0x07FF
+//0x1800-0x1FFF: Mirrors of 0x0000-0x07FF
+//0x2000-0x2007: PPU registers
+//0x2008-0x3FFF: Mirrors of PPU registers
+//0x4000-0x4017: APU and I/O registers
+//0x4018-0x401F: APU and I/O functionality that is normally disabled
+//0x4020-0xFFFF: Cartridge space: PRG ROM, PRG RAM, and mapper registers
+
 
 //for debug output
 FILE* fp;
@@ -76,8 +88,24 @@ FILE* fp;
 uint64_t total_cycles = 0;
 
 // PPU arrays
-uint8_t ppu_memory[0x4000] = {0};
+uint8_t ppuBus[0x4000] = {0};
+//PPU BUS SPECIFICATIONS:
+
+//0x0000-0x0FFF: Pattern table 0
+//0x1000-0x1FFF: Pattern table 1
+//0x2000-0x23FF: Nametable 0
+//0x2400-0x27FF: Nametable 1
+//0x2800-0x2BFF: Nametable 2
+//0x2C00-0x2FFF: Nametable 3
+//0x3000-0x3EFF: Mirrors of 0x2000-0x2EFF
+//0x3F00-0x3F1F: Palette RAM indexes
+//0x3F20-0x3FFF: Mirrors of 0x3F00-0x3F1F
+
+
+//32 color palette
 uint8_t ppu_palette[0x20] = {0};
+
+//256byte object attribute memory
 uint8_t ppu_oam[0x100] = {0};
 
 // PPU registers
@@ -120,12 +148,12 @@ uint8_t b[WIDTH * HEIGHT];
 //0x3F00-0x3F1F: Palette RAM indexes
 //0x3F20-0x3FFF: Mirrors of 0x3F00-0x3F1F
 
-void ppu_write(uint16_t address, uint8_t data)
+void ppuBus_write(uint16_t address, uint8_t data)
 {
     //check if valid memory request
     if ((address >= 0x0000) && (address <= 0x3FFF))
     {
-        ppu_memory[address] = data;
+        ppuBus[address] = data;
     }
     else
     {
@@ -133,17 +161,17 @@ void ppu_write(uint16_t address, uint8_t data)
     }
 }
 
-uint8_t ppu_read(uint16_t address)
+uint8_t ppuBus_read(uint16_t address)
 {
     //check if valid memory request
     if ((address >= 0x0000) && (address <= 0x3FFF))
     {
-        return ppu_memory[address];
+        return ppuBus[address];
     }
 }
 
 //memory IO
-void mem_write(uint16_t address, uint8_t data)
+void cpuBus_write(uint16_t address, uint8_t data)
 {
     // Mirroring for PPU registers
     if (address >= 0x2000 && address <= 0x3FFF) {
@@ -158,7 +186,7 @@ void mem_write(uint16_t address, uint8_t data)
     //check if valid memory request
     if ((address >= 0x0000) && (address <= 0xFFFF))
     {
-        ram[address] = data;
+        cpuBus[address] = data;
     }
     else
     {
@@ -166,7 +194,7 @@ void mem_write(uint16_t address, uint8_t data)
     }
 }
 
-uint8_t mem_read(uint16_t address)
+uint8_t cpuBus_read(uint16_t address)
 {
     // Mirroring for PPU registers
     if (address >= 0x2000 && address <= 0x3FFF) {
@@ -181,7 +209,7 @@ uint8_t mem_read(uint16_t address)
     //check if valid memory request
     if ((address >= 0x0000) && (address <= 0xFFFF))
     {
-        return ram[address];
+        return cpuBus[address];
     }
 }
 
@@ -204,7 +232,7 @@ uint8_t IMM()
 uint8_t ZP0()
 {
     //zero page
-    absolute_address = mem_read(program_counter);
+    absolute_address = cpuBus_read(program_counter);
     program_counter++;
     absolute_address &= 0x00FF;
     return 0;
@@ -213,7 +241,7 @@ uint8_t ZP0()
 uint8_t ZPX()
 {
     //zero page with offset from X register
-    absolute_address = (mem_read(program_counter) + x_register);
+    absolute_address = (cpuBus_read(program_counter) + x_register);
     program_counter++;
     absolute_address &= 0x00FF;
     return 0;
@@ -222,7 +250,7 @@ uint8_t ZPX()
 uint8_t ZPY()
 {
     //zero page with offset from Y register
-    absolute_address = (mem_read(program_counter) + y_register);
+    absolute_address = (cpuBus_read(program_counter) + y_register);
     program_counter++;
     absolute_address &= 0x00FF;
     return 0;
@@ -231,7 +259,7 @@ uint8_t ZPY()
 uint8_t REL()
 {
     //relative for branching instructions
-    relative_address = mem_read(program_counter);
+    relative_address = cpuBus_read(program_counter);
     program_counter++;
 
     //check if negative
@@ -246,10 +274,10 @@ uint8_t ABS()
 {
     //absolute
     //read first byte
-    uint16_t low = mem_read(program_counter);
+    uint16_t low = cpuBus_read(program_counter);
     program_counter++;
     //second
-    uint16_t high = mem_read(program_counter) << 8;
+    uint16_t high = cpuBus_read(program_counter) << 8;
     program_counter++;
 
     absolute_address = high | low;
@@ -261,10 +289,10 @@ uint8_t ABX()
     //absolute with offset, offsets by X register after bytes are read
 
     //read first byte
-    uint16_t low = mem_read(program_counter);
+    uint16_t low = cpuBus_read(program_counter);
     program_counter++;
     //second
-    uint16_t high = mem_read(program_counter) << 8;
+    uint16_t high = cpuBus_read(program_counter) << 8;
     program_counter++;
 
     absolute_address = high | low;
@@ -281,10 +309,10 @@ uint8_t ABY()
     //absolute with offset
 
     //read first byte
-    uint16_t low = mem_read(program_counter);
+    uint16_t low = cpuBus_read(program_counter);
     program_counter++;
     //second
-    uint16_t high = mem_read(program_counter) << 8;
+    uint16_t high = cpuBus_read(program_counter) << 8;
     program_counter++;
 
     absolute_address = high | low;
@@ -300,9 +328,9 @@ uint8_t ABY()
 
 uint8_t IND()
 {
-    uint16_t low = mem_read(program_counter);
+    uint16_t low = cpuBus_read(program_counter);
     program_counter++;
-    uint16_t high = mem_read(program_counter);
+    uint16_t high = cpuBus_read(program_counter);
     program_counter++;
 
     uint16_t address = (high << 8) | low;
@@ -310,12 +338,12 @@ uint8_t IND()
     if (low == 0x00FF)
     {
         //page crossing
-        absolute_address = (mem_read(address & 0xFF00) << 8) | mem_read(address);
+        absolute_address = (cpuBus_read(address & 0xFF00) << 8) | cpuBus_read(address);
     }
     else
     {
         //normal case
-        absolute_address = (mem_read(address + 1) << 8) | mem_read(address);
+        absolute_address = (cpuBus_read(address + 1) << 8) | cpuBus_read(address);
     }
 
     return 0;
@@ -324,11 +352,11 @@ uint8_t IND()
 uint8_t IZX()
 {
 
-    uint16_t argument = mem_read(program_counter);
+    uint16_t argument = cpuBus_read(program_counter);
     program_counter++;
 
-    uint16_t low = mem_read(((uint16_t)(argument + (uint16_t)x_register)) & 0x00FF);
-    uint16_t high = mem_read(((uint16_t)(argument + (uint16_t)x_register + 1)) & 0x00FF);
+    uint16_t low = cpuBus_read(((uint16_t)(argument + (uint16_t)x_register)) & 0x00FF);
+    uint16_t high = cpuBus_read(((uint16_t)(argument + (uint16_t)x_register + 1)) & 0x00FF);
 
     absolute_address = (high << 8) | low;
 
@@ -338,13 +366,13 @@ uint8_t IZX()
 uint8_t IZY()
 {
     //indirect indexed
-    uint16_t input = mem_read(program_counter);
+    uint16_t input = cpuBus_read(program_counter);
     program_counter++;
 
     //get actual address and offset final by y, but also check for page change
 
-    uint16_t low = mem_read(input & 0x00FF);
-    uint16_t high = mem_read((input + 1) & 0x00FF) << 8;
+    uint16_t low = cpuBus_read(input & 0x00FF);
+    uint16_t high = cpuBus_read((input + 1) & 0x00FF) << 8;
 
     absolute_address = high | low;
     absolute_address += y_register;
@@ -363,7 +391,7 @@ uint8_t update_absolute_data()
         data_at_absolute = accumulator;
         return data_at_absolute;
     }
-    data_at_absolute = mem_read(absolute_address);
+    data_at_absolute = cpuBus_read(absolute_address);
     return data_at_absolute;
 }
 
@@ -425,7 +453,7 @@ uint8_t ASL()
     }
     else
     {
-        mem_write(absolute_address, tmp & 0x00FF);
+        cpuBus_write(absolute_address, tmp & 0x00FF);
     }
     accumulator_mode = false;
 
@@ -732,7 +760,7 @@ uint8_t CPY()
 uint8_t DEC()
 {
     update_absolute_data();
-    mem_write(absolute_address, data_at_absolute - 1);
+    cpuBus_write(absolute_address, data_at_absolute - 1);
     update_absolute_data();
 
     set_flag(Z_flag, data_at_absolute == 0x00);
@@ -823,7 +851,7 @@ uint8_t EOR()
 uint8_t INC()
 {
     update_absolute_data();
-    mem_write(absolute_address, data_at_absolute + 1);
+    cpuBus_write(absolute_address, data_at_absolute + 1);
     update_absolute_data();
 
     set_flag(Z_flag, data_at_absolute == 0x00);
@@ -894,15 +922,15 @@ uint8_t JSR()
 {
 
     program_counter--;
-    uint16_t second_half = mem_read(program_counter - 1);
-    uint16_t first_half = mem_read(program_counter) << 8;
+    uint16_t second_half = cpuBus_read(program_counter - 1);
+    uint16_t first_half = cpuBus_read(program_counter) << 8;
 
     uint16_t target = first_half | second_half;
 
     //push program counter to stack
-    mem_write(0x0100 + stack_pointer, program_counter >> 8);
+    cpuBus_write(0x0100 + stack_pointer, program_counter >> 8);
     stack_pointer--;
-    mem_write(0x0100 + stack_pointer, program_counter & 0x00FF);
+    cpuBus_write(0x0100 + stack_pointer, program_counter & 0x00FF);
     stack_pointer--;
 
     //set program counter
@@ -990,7 +1018,7 @@ uint8_t LSR()
     set_flag(Z_flag, temp == 0x00);
     set_flag(N_flag, temp & 0x80);
 
-    accumulator_mode ? accumulator = temp : mem_write(absolute_address, temp);
+    accumulator_mode ? accumulator = temp : cpuBus_write(absolute_address, temp);
     accumulator_mode = false;
 
     return 0;
@@ -1039,7 +1067,7 @@ uint8_t ORA()
 uint8_t PHA()
 {
     //stack is descending and fills the 1 page
-    mem_write(0x0100 + stack_pointer, accumulator);
+    cpuBus_write(0x0100 + stack_pointer, accumulator);
     stack_pointer--;
     return 0;
 }
@@ -1048,7 +1076,7 @@ uint8_t PHP()
 {
     //flags must be set before push
     set_flag(B_flag, 1);
-    mem_write(0x0100 + stack_pointer, status_register); 
+    cpuBus_write(0x0100 + stack_pointer, status_register); 
     set_flag(B_flag, 0);
     set_flag(U_flag, 1);
     stack_pointer--;
@@ -1059,7 +1087,7 @@ uint8_t PHP()
 uint8_t PLA()
 {
     stack_pointer++;
-    accumulator = mem_read(0x0100 + stack_pointer);
+    accumulator = cpuBus_read(0x0100 + stack_pointer);
     if (accumulator == 0x00)
     {
         set_flag(Z_flag, 1);
@@ -1084,7 +1112,7 @@ uint8_t PLP()
 {
     
     stack_pointer++;
-    status_register = mem_read(0x0100 + stack_pointer);
+    status_register = cpuBus_read(0x0100 + stack_pointer);
     set_flag(U_flag, 1);
     set_flag(B_flag, 0);
     return 0;
@@ -1107,7 +1135,7 @@ uint8_t ROL()
     }
     else
     {
-        mem_write(absolute_address, tmp & 0x00FF);
+        cpuBus_write(absolute_address, tmp & 0x00FF);
     }
 
     accumulator_mode = false;
@@ -1133,7 +1161,7 @@ uint8_t ROR()
     }
     else
     {
-        mem_write(absolute_address, tmp & 0x00FF);
+        cpuBus_write(absolute_address, tmp & 0x00FF);
     }
 
     accumulator_mode = false;
@@ -1147,14 +1175,14 @@ uint8_t RTI()
 
     //read status
     stack_pointer++;
-    status_register = mem_read(0x0100 + stack_pointer);
+    status_register = cpuBus_read(0x0100 + stack_pointer);
     set_flag(U_flag, 1);
     set_flag(B_flag, 0);
 
     stack_pointer++;
-    uint16_t second_half = (uint16_t)mem_read(0x0100 + stack_pointer);
+    uint16_t second_half = (uint16_t)cpuBus_read(0x0100 + stack_pointer);
     stack_pointer++;
-    uint16_t first_half = mem_read(0x0100 + stack_pointer) << 8;
+    uint16_t first_half = cpuBus_read(0x0100 + stack_pointer) << 8;
 
     program_counter = first_half | second_half;
     return 0;
@@ -1164,9 +1192,9 @@ uint8_t RTS()
 {
 
     stack_pointer++;
-    program_counter = mem_read(0x0100 + stack_pointer);
+    program_counter = cpuBus_read(0x0100 + stack_pointer);
     stack_pointer++;
-    program_counter = program_counter | ((uint16_t)mem_read(0x0100 + stack_pointer) << 8);
+    program_counter = program_counter | ((uint16_t)cpuBus_read(0x0100 + stack_pointer) << 8);
     //go to next instruction
     program_counter++;
 
@@ -1213,21 +1241,21 @@ uint8_t STA()
     update_absolute_data();
     
 
-    mem_write(absolute_address, accumulator);
+    cpuBus_write(absolute_address, accumulator);
 
     return 0;
 }
 
 uint8_t STX()
 {
-    mem_write(absolute_address, x_register);
+    cpuBus_write(absolute_address, x_register);
     //absolute addressing
     return 0;
 }
 
 uint8_t STY()
 {
-    mem_write(absolute_address, y_register);
+    cpuBus_write(absolute_address, y_register);
     return 0;
 }
 
@@ -1306,7 +1334,7 @@ uint8_t LAX()
 
 uint8_t SAX()
 {
-    mem_write(absolute_address, accumulator & x_register);
+    cpuBus_write(absolute_address, accumulator & x_register);
     return 0;
 }
 
@@ -1400,7 +1428,7 @@ void clock()
     if (cycles == 0) {
         instruction_count++;
         //get next opcode
-        current_opcode = mem_read(program_counter);
+        current_opcode = cpuBus_read(program_counter);
 
         //print cpu state
         print_cpu_state();
@@ -1445,8 +1473,8 @@ void reset()
 
     //hard coded location
     absolute_address = 0xFFFC;
-    uint8_t low = mem_read(absolute_address);
-    uint8_t high = mem_read(absolute_address + 1) << 8;
+    uint8_t low = cpuBus_read(absolute_address);
+    uint8_t high = cpuBus_read(absolute_address + 1) << 8;
 
     //combine
     program_counter = high | low;
@@ -1464,9 +1492,9 @@ void interrupt_request()
     if (check_flag(I_flag) != 1)
     {
         //pc to stack
-        mem_write(0x0100 + stack_pointer, (program_counter >> 8) & 0x00FF);
+        cpuBus_write(0x0100 + stack_pointer, (program_counter >> 8) & 0x00FF);
         stack_pointer--;
-        mem_write(0x0100 + stack_pointer, program_counter & 0x00FF);
+        cpuBus_write(0x0100 + stack_pointer, program_counter & 0x00FF);
         stack_pointer--;
 
         //set flags
@@ -1475,12 +1503,12 @@ void interrupt_request()
         set_flag(I_flag, true);
 
         //save flags to stack
-        mem_write(0x0100 + stack_pointer, status_register);
+        cpuBus_write(0x0100 + stack_pointer, status_register);
 
         //new pc hard coded
         absolute_address = 0xFFFE;
-        uint8_t low = mem_read(absolute_address);
-        uint8_t high = mem_read(absolute_address + 1) << 8;
+        uint8_t low = cpuBus_read(absolute_address);
+        uint8_t high = cpuBus_read(absolute_address + 1) << 8;
 
         //combine
         program_counter = high | low;
@@ -1493,9 +1521,9 @@ void interrupt_request()
 void non_maskable_interrupt_request()
 {
     //pc to stack
-    mem_write(0x0100 + stack_pointer, (program_counter >> 8) & 0x00FF);
+    cpuBus_write(0x0100 + stack_pointer, (program_counter >> 8) & 0x00FF);
     stack_pointer--;
-    mem_write(0x0100 + stack_pointer, program_counter & 0x00FF);
+    cpuBus_write(0x0100 + stack_pointer, program_counter & 0x00FF);
     stack_pointer--;
 
     //set flags
@@ -1504,12 +1532,12 @@ void non_maskable_interrupt_request()
     set_flag(I_flag, true);
 
     //save flags to stack
-    mem_write(0x0100 + stack_pointer, status_register);
+    cpuBus_write(0x0100 + stack_pointer, status_register);
 
     //new pc hard coded
     absolute_address = 0xFFFE;
-    uint8_t low = mem_read(absolute_address);
-    uint8_t high = mem_read(absolute_address + 1) << 8;
+    uint8_t low = cpuBus_read(absolute_address);
+    uint8_t high = cpuBus_read(absolute_address + 1) << 8;
 
     //combine
     program_counter = high | low;
@@ -1564,10 +1592,10 @@ void initialize_cpu()
     uint8_t current_opcode = 0x00;
     uint8_t cycles = 0x00;
 
-    for (int i = 0; i < sizeof(ram); i++)
+    for (int i = 0; i < sizeof(cpuBus); i++)
     {
         //make sure ram is zerod
-        ram[i] = 0x00;
+        cpuBus[i] = 0x00;
     }
 
 }
@@ -1628,19 +1656,19 @@ void load_rom(char* filename)
     // load PRG ROM data into memory starting at 0x8000
     for (int i = 0; i < prg_rom_size; i++)
     {
-        mem_write(0xC000 + i, prg_rom[i]);
+        cpuBus_write(0xC000 + i, prg_rom[i]);
     }
 
     // load CHR ROM data into PPU memory starting at 0x0000
     for (int i = 0; i < chr_rom_size; i++)
     {
-        ppu_write(0x0000 + i, chr_rom[i]);
+        ppuBus_write(0x0000 + i, chr_rom[i]);
     }
 
     // load palette data into PPU memory starting at 0x3F00
     for (int i = 0; i < 32; i++)
     {
-        ppu_write(0x3F00 + i, palette_data[i]);
+        ppuBus_write(0x3F00 + i, palette_data[i]);
     }
 
     free(prg_rom);
@@ -1661,7 +1689,7 @@ void print_ram_state(int depth, int start_position)
     depth = depth + start_position;
     for (int i = start_position; i < depth; i++)
     {
-        printf("ram[0x%x]: 0x%x\n", i, ram[i]);
+        printf("cpuBus[0x%x]: 0x%x\n", i, cpuBus[i]);
     }
 }
 
@@ -1785,25 +1813,25 @@ void updateFrame() {
         //first rectangle
         SDL_Rect rect = {small_rect_x, small_rect_y, small_rect_height, small_rect_height};
         //get color
-        uint8_t *color = palette_colors[ppu_read(0x3F00 + i * 4)];
+        uint8_t *color = palette_colors[ppuBus_read(0x3F00 + i * 4)];
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect);
 
         //second rectangle
         SDL_Rect rect2 = {small_rect_x + small_rect_height, small_rect_y, small_rect_height, small_rect_height};
-        color = palette_colors[ppu_read(0x3F01 + i * 4)];
+        color = palette_colors[ppuBus_read(0x3F01 + i * 4)];
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect2);
 
         //third rectangle
         SDL_Rect rect3 = {small_rect_x + small_rect_height * 2, small_rect_y, small_rect_height, small_rect_height};
-        color = palette_colors[ppu_read(0x3F02 + i * 4)];
+        color = palette_colors[ppuBus_read(0x3F02 + i * 4)];
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect3);
 
         //fourth rectangle
         SDL_Rect rect4 = {small_rect_x + small_rect_height * 3, small_rect_y, small_rect_height, small_rect_height};
-        color = palette_colors[ppu_read(0x3F03 + i * 4)];
+        color = palette_colors[ppuBus_read(0x3F03 + i * 4)];
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect4);
 
@@ -1821,25 +1849,25 @@ void updateFrame() {
 
         //first rectangle
         SDL_Rect rect = {small_rect_x, small_rect_y, small_rect_height, small_rect_height};
-        uint8_t *color = palette_colors[ppu_read(0x3F10 + i * 4)];
+        uint8_t *color = palette_colors[ppuBus_read(0x3F10 + i * 4)];
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect);
 
         //second rectangle
         SDL_Rect rect2 = {small_rect_x + small_rect_height, small_rect_y, small_rect_height, small_rect_height};
-        color = palette_colors[ppu_read(0x3F11 + i * 4)];
+        color = palette_colors[ppuBus_read(0x3F11 + i * 4)];
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect2);
 
         //third rectangle
         SDL_Rect rect3 = {small_rect_x + small_rect_height * 2, small_rect_y, small_rect_height, small_rect_height};
-        color = palette_colors[ppu_read(0x3F12 + i * 4)];
+        color = palette_colors[ppuBus_read(0x3F12 + i * 4)];
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect3);
 
         //fourth rectangle
         SDL_Rect rect4 = {small_rect_x + small_rect_height * 3, small_rect_y, small_rect_height, small_rect_height};
-        color = palette_colors[ppu_read(0x3F13 + i * 4)];
+        color = palette_colors[ppuBus_read(0x3F13 + i * 4)];
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect4);
         
@@ -1880,8 +1908,8 @@ void printPalettes() {
     //0x3F19 - 0x3F1B - sprite palette 2
     //0x3F1D - 0x3F1F - sprite palette 3
     for (int i = 0; i < 32; i++) {
-        uint8_t value = ppu_read(0x3F00 + i);
-        printf("Palette[%d], ppu_memory[%X] = %02X\n", i, 0x3F00 + i, value);
+        uint8_t value = ppuBus_read(0x3F00 + i);
+        printf("Palette[%d], ppuBus[%X] = %02X\n", i, 0x3F00 + i, value);
     }
 }
 
