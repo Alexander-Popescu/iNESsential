@@ -145,6 +145,15 @@ uint8_t ppu_read(uint16_t address)
 //memory IO
 void mem_write(uint16_t address, uint8_t data)
 {
+    // Mirroring for PPU registers
+    if (address >= 0x2000 && address <= 0x3FFF) {
+        address = 0x2000 + (address % 8);
+    }
+
+    // Mirroring for RAM
+    if (address >= 0x0800 && address <= 0x1FFF) {
+        address = address % 0x0800;
+    }
 
     //check if valid memory request
     if ((address >= 0x0000) && (address <= 0xFFFF))
@@ -159,6 +168,16 @@ void mem_write(uint16_t address, uint8_t data)
 
 uint8_t mem_read(uint16_t address)
 {
+    // Mirroring for PPU registers
+    if (address >= 0x2000 && address <= 0x3FFF) {
+        address = 0x2000 + (address % 8);
+    }
+
+    // Mirroring for RAM
+    if (address >= 0x0800 && address <= 0x1FFF) {
+        address = address % 0x0800;
+    }
+
     //check if valid memory request
     if ((address >= 0x0000) && (address <= 0xFFFF))
     {
@@ -1732,7 +1751,7 @@ void updateFrame() {
 
     // Calculate size of rectangle to render RGB data
     int render_width = window_width * 2 / 3;
-    int render_height = (int)(render_width / aspect_ratio);
+    int render_height = window_height * 2 / 3;
 
     if (render_height > window_height * 2 / 3) {
         render_height = window_height * 2 / 3;
@@ -1752,48 +1771,83 @@ void updateFrame() {
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderDrawRect(renderer, &border_rect);
 
-    // Calculate spacing between RGB data and rectangles
-    int spacing = (int)(window_height * 0.02);
+    // Render 8 small rectangles beneath RGB data with spacing
+    int small_rect_width = render_width / 16;
+    int small_rect_height = small_rect_width;
+    int small_rect_y = y + render_height + 10;
+    int spacing = small_rect_width / 2;
+    for (int i = 0; i < 4; i++) {
 
-    // Calculate size of rectangles under the array data
-    int rect_width = render_width / 8;
-    int rect_height = (render_height - spacing) / 8;
+        int small_rect_x = x + i * small_rect_width * 4 + spacing * (i + 1);
 
-    // Calculate position of rectangles under the array data
-    int rect_x = x;
-    int rect_y = y + render_height + spacing;
+        //palette first row
 
-    // Render rectangles under the array data
-    for (int i = 0; i < 8; i++) {
-        // Calculate position of the first rectangle in the 2x2 grid
-        int grid_rect_width = rect_width / 2;
-        int grid_rect_height = rect_height / 2;
-        int grid_x = rect_x + rect_width / 4 - grid_rect_width / 2;
-        int grid_y = rect_y + rect_height / 4 - grid_rect_height / 2;
+        //first rectangle
+        SDL_Rect rect = {small_rect_x, small_rect_y, small_rect_height, small_rect_height};
+        //get color
+        uint8_t *color = palette_colors[ppu_read(0x3F00 + i * 4)];
+        SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
+        SDL_RenderFillRect(renderer, &rect);
 
-        // Render 2x2 grid of rectangles with different colors
-        for (int j = 0; j < 2; j++) {
-            for (int k = 0; k < 2; k++) {
-                // Get the color index from the palette section of ppu_memory
-                uint8_t color_index = ppu_memory[0x3F00 + i * 4 + j * 2 + k];
+        //second rectangle
+        SDL_Rect rect2 = {small_rect_x + small_rect_height, small_rect_y, small_rect_height, small_rect_height};
+        color = palette_colors[ppu_read(0x3F01 + i * 4)];
+        SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
+        SDL_RenderFillRect(renderer, &rect2);
 
-                // Get the RGB values from the palette_Colors array
-                uint8_t* color = palette_colors[color_index];
+        //third rectangle
+        SDL_Rect rect3 = {small_rect_x + small_rect_height * 2, small_rect_y, small_rect_height, small_rect_height};
+        color = palette_colors[ppu_read(0x3F02 + i * 4)];
+        SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
+        SDL_RenderFillRect(renderer, &rect3);
 
-                // Render the rectangle with the color
-                SDL_Rect grid_rect = {grid_x + k * grid_rect_width, grid_y + j * grid_rect_height, grid_rect_width, grid_rect_height};
-                SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
-                SDL_RenderFillRect(renderer, &grid_rect);
-            }
-        }
+        //fourth rectangle
+        SDL_Rect rect4 = {small_rect_x + small_rect_height * 3, small_rect_y, small_rect_height, small_rect_height};
+        color = palette_colors[ppu_read(0x3F03 + i * 4)];
+        SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
+        SDL_RenderFillRect(renderer, &rect4);
 
-        // Draw border around the 2x2 grid
-        SDL_Rect rect = {rect_x, rect_y, rect_width, rect_height};
+        //white border
+        SDL_Rect small_rect = {small_rect_x, small_rect_y, small_rect_width * 4, small_rect_height};
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        SDL_RenderDrawRect(renderer, &rect);
+        SDL_RenderDrawRect(renderer, &small_rect);
+    }
+    small_rect_y += small_rect_height + 10;
+    for (int i = 4; i < 8; i++) {
 
-        // Move to the next rectangle position
-        rect_x += rect_width + spacing;
+        int small_rect_x = x + (i - 4) * small_rect_width * 4 + spacing * ((i - 4) + 1);
+
+        //render palette second row
+
+        //first rectangle
+        SDL_Rect rect = {small_rect_x, small_rect_y, small_rect_height, small_rect_height};
+        uint8_t *color = palette_colors[ppu_read(0x3F10 + i * 4)];
+        SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
+        SDL_RenderFillRect(renderer, &rect);
+
+        //second rectangle
+        SDL_Rect rect2 = {small_rect_x + small_rect_height, small_rect_y, small_rect_height, small_rect_height};
+        color = palette_colors[ppu_read(0x3F11 + i * 4)];
+        SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
+        SDL_RenderFillRect(renderer, &rect2);
+
+        //third rectangle
+        SDL_Rect rect3 = {small_rect_x + small_rect_height * 2, small_rect_y, small_rect_height, small_rect_height};
+        color = palette_colors[ppu_read(0x3F12 + i * 4)];
+        SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
+        SDL_RenderFillRect(renderer, &rect3);
+
+        //fourth rectangle
+        SDL_Rect rect4 = {small_rect_x + small_rect_height * 3, small_rect_y, small_rect_height, small_rect_height};
+        color = palette_colors[ppu_read(0x3F13 + i * 4)];
+        SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
+        SDL_RenderFillRect(renderer, &rect4);
+        
+
+        //render white border
+        SDL_Rect small_rect = {small_rect_x, small_rect_y, small_rect_width * 4, small_rect_height};
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_RenderDrawRect(renderer, &small_rect);
     }
 
     // Render to screen
@@ -1815,6 +1869,16 @@ void print_ppu_registers()
 
 void printPalettes() {
     // Iterate over palette data in PPU memory
+
+    //0x3F00 - background color
+    //0x3F01 - 0x3F03 - background palette 0
+    //0x3F05 - 0x3F07 - background palette 1
+    //0x3F09 - 0x3F0B - background palette 2
+    //0x3F0D - 0x3F0F - background palette 3
+    //0x3F11 - 0x3F13 - sprite palette 0
+    //0x3F15 - 0x3F17 - sprite palette 1
+    //0x3F19 - 0x3F1B - sprite palette 2
+    //0x3F1D - 0x3F1F - sprite palette 3
     for (int i = 0; i < 32; i++) {
         uint8_t value = ppu_read(0x3F00 + i);
         printf("Palette[%d], ppu_memory[%X] = %02X\n", i, 0x3F00 + i, value);
