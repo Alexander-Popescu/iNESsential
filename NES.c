@@ -80,7 +80,6 @@ uint8_t cpuBus[64 * 1024];
 //0x4018-0x401F: APU and I/O functionality that is normally disabled
 //0x4020-0xFFFF: Cartridge space: PRG ROM, PRG RAM, and mapper registers
 
-
 //for debug output
 FILE* fp;
 
@@ -124,6 +123,12 @@ uint8_t address_latch = 0x00;
 uint8_t ppu_data_buffer = 0x00;
 uint16_t ppu_temp_address = 0x0000;
 
+//rom file vars
+uint8_t mapper = 0x00;
+uint8_t mirror_mode = 0x00;
+uint8_t prg_banks = 0x00;
+uint8_t chr_banks = 0x00;
+
 
 //SDL globals
 #define WIDTH 256
@@ -135,18 +140,6 @@ SDL_Texture* texture;
 uint8_t r[WIDTH * HEIGHT];
 uint8_t g[WIDTH * HEIGHT];
 uint8_t b[WIDTH * HEIGHT];
-
-//PPU io
-
-//0x0000-0x0FFF: Pattern table 0
-//0x1000-0x1FFF: Pattern table 1
-//0x2000-0x23FF: Nametable 0
-//0x2400-0x27FF: Nametable 1
-//0x2800-0x2BFF: Nametable 2
-//0x2C00-0x2FFF: Nametable 3
-//0x3000-0x3EFF: Mirrors of 0x2000-0x2EFF
-//0x3F00-0x3F1F: Palette RAM indexes
-//0x3F20-0x3FFF: Mirrors of 0x3F00-0x3F1F
 
 void ppuBus_write(uint16_t address, uint8_t data)
 {
@@ -176,6 +169,39 @@ void cpuBus_write(uint16_t address, uint8_t data)
     // Mirroring for PPU registers
     if (address >= 0x2000 && address <= 0x3FFF) {
         address = 0x2000 + (address % 8);
+        switch (address) {
+            case 0x2000:
+                // Write data to PPUCTRL register
+                printf("PPUCTRL: %d\n", data);
+                break;
+            case 0x2001:
+                // Write data to PPUMASK register
+                printf("PPUMASK: %d\n", data);
+                break;
+            case 0x2003:
+                // Write data to OAMADDR register
+                printf("OAMADDR: %d\n", data);
+                break;
+            case 0x2004:
+                // Write data to OAMDATA register
+                printf("OAMDATA: %d\n", data);
+                break;
+            case 0x2005:
+                // Write data to PPUSCROLL register
+                printf("PPUSCROLL: %d\n", data);
+                break;
+            case 0x2006:
+                // Write data to PPUADDR register
+                printf("PPUADDR: %d\n", data);
+                break;
+            case 0x2007:
+                // Write data to PPUDATA register
+                printf("PPUDATA: %d\n", data);
+                break;
+            default:
+                printf("Invalid PPU register address: %d", address);
+                break;
+        }
     }
 
     // Mirroring for RAM
@@ -183,7 +209,7 @@ void cpuBus_write(uint16_t address, uint8_t data)
         address = address % 0x0800;
     }
 
-    //check if valid memory request
+    //accessing RAM
     if ((address >= 0x0000) && (address <= 0xFFFF))
     {
         cpuBus[address] = data;
@@ -199,6 +225,23 @@ uint8_t cpuBus_read(uint16_t address)
     // Mirroring for PPU registers
     if (address >= 0x2000 && address <= 0x3FFF) {
         address = 0x2000 + (address % 8);
+        switch (address) {
+            case 0x2002:
+                // Read data from PPUSTATUS register
+                printf("PPUSTATUS: %d\n", ppu_status);
+                break;
+            case 0x2004:
+                // Read data from OAMDATA register
+                printf("OAMDATA: %d\n", oam_data);
+                break;
+            case 0x2007:
+                // Read data from PPUDATA register
+                printf("PPUDATA: %d\n", ppu_data);
+                break;
+            default:
+                printf("Invalid PPU register address: %d", address);
+                break;
+        }
     }
 
     // Mirroring for RAM
@@ -206,7 +249,7 @@ uint8_t cpuBus_read(uint16_t address)
         address = address % 0x0800;
     }
 
-    //check if valid memory request
+    //accessing RAM
     if ((address >= 0x0000) && (address <= 0xFFFF))
     {
         return cpuBus[address];
@@ -1602,6 +1645,30 @@ void initialize_cpu()
 
 void load_rom(char* filename)
 {
+    //CPU BUS SPECIFICATIONS:
+
+    //0x0000-0x07FF: 2KB Ram
+    //0x0800-0x0FFF: Mirrors of 0x0000-0x07FF
+    //0x1000-0x17FF: Mirrors of 0x0000-0x07FF
+    //0x1800-0x1FFF: Mirrors of 0x0000-0x07FF
+    //0x2000-0x2007: PPU registers
+    //0x2008-0x3FFF: Mirrors of PPU registers
+    //0x4000-0x4017: APU and I/O registers
+    //0x4018-0x401F: APU and I/O functionality that is normally disabled
+    //0x4020-0xFFFF: Cartridge space: PRG ROM, PRG RAM, and mapper registers
+
+    //PPU BUS SPECIFICATIONS:
+
+    //0x0000-0x0FFF: Pattern table 0
+    //0x1000-0x1FFF: Pattern table 1
+    //0x2000-0x23FF: Nametable 0
+    //0x2400-0x27FF: Nametable 1
+    //0x2800-0x2BFF: Nametable 2
+    //0x2C00-0x2FFF: Nametable 3
+    //0x3000-0x3EFF: Mirrors of 0x2000-0x2EFF
+    //0x3F00-0x3F1F: Palette RAM indexes
+    //0x3F20-0x3FFF: Mirrors of 0x3F00-0x3F1F
+
     FILE* file = fopen(filename, "rb");
     if (file == NULL)
     {
@@ -1619,22 +1686,31 @@ void load_rom(char* filename)
         printf("Error: Invalid iNES header\n");
         exit(1);
     }
+    printf("iNES header found and valid\n");
 
     // extract PRG ROM data
     int prg_rom_size = header[4] * 16384;
     unsigned char* prg_rom = malloc(prg_rom_size);
     fread(prg_rom, sizeof(unsigned char), prg_rom_size, file);
 
+    printf("PRG ROM size: %d bytes\n", prg_rom_size);
+
     // extract CHR ROM data
     int chr_rom_size = header[5] * 8192;
     unsigned char* chr_rom = malloc(chr_rom_size);
     fread(chr_rom, sizeof(unsigned char), chr_rom_size, file);
 
+    printf("CHR ROM size: %d bytes\n", chr_rom_size);
+
     // extract mapper number
     int mapper_num = ((header[6] >> 4) & 0x0F) | (header[7] & 0xF0);
 
+    printf("Mapper number: %d\n", mapper_num);
+
     // extract mirroring mode
     int mirroring_mode = (header[6] & 0x01) ? 1 : 0;
+
+    printf("Mirroring mode: %s\n", mirroring_mode ? "vertical" : "horizontal");
 
     // extract battery-backed PRG RAM size
     int prg_ram_size = header[8] * 8192;
@@ -1671,6 +1747,24 @@ void load_rom(char* filename)
         ppuBus_write(0x3F00 + i, palette_data[i]);
     }
 
+    //dump PRG ROM data to file
+    FILE* prg_rom_dump = fopen("prg_rom_dump.bin", "wb");
+    fwrite(prg_rom, sizeof(unsigned char), prg_rom_size, prg_rom_dump);
+    fclose(prg_rom_dump);
+
+    //dump CHR ROM data to file
+    FILE* chr_rom_dump = fopen("chr_rom_dump.bin", "wb");
+    fwrite(chr_rom, sizeof(unsigned char), chr_rom_size, chr_rom_dump);
+    fclose(chr_rom_dump);
+
+    //dump palette data to file
+    FILE* palette_data_dump = fopen("palette_data_dump.bin", "wb");
+    fwrite(palette_data, sizeof(unsigned char), 32, palette_data_dump);
+    fclose(palette_data_dump);
+
+    //program counter read from iNES
+    program_counter = cpuBus_read(0xFFFC) | (cpuBus_read(0xFFFD) << 8);
+
     free(prg_rom);
     free(chr_rom);
     free(trainer_data);
@@ -1680,8 +1774,11 @@ void load_rom(char* filename)
 
 void print_cpu_state()
 {
-    //FORMAT: C000  JMP                    A:00 X:00 Y:00 P:24 SP:FD CYC:7
-    fprintf(fp, "%04X  %s                    A:%02X X:%02X Y:%02X P:%X SP:%X CYC:%d\n", program_counter, get_opcode(current_opcode).name, accumulator, x_register, y_register, status_register, stack_pointer, total_cycles);
+    if (total_cycles < 26555)
+    {
+        //FORMAT: C000  JMP                    A:00 X:00 Y:00 P:24 SP:FD CYC:7
+        fprintf(fp, "%04X  %s                    A:%02X X:%02X Y:%02X P:%X SP:%X CYC:%d\n", program_counter, get_opcode(current_opcode).name, accumulator, x_register, y_register, status_register, stack_pointer, total_cycles);
+    }
 }
 
 void print_ram_state(int depth, int start_position)
@@ -1922,19 +2019,15 @@ int main(int argc, char* argv[])
         printf("Error opening file!\n");
         exit(1);
     }
-
     //cpu and ram
     initialize_cpu();
     reset();
     //load rom at 0x8000, default location
     load_rom("nestest.nes");
-    program_counter = 0xC000;
-    for (int i = 0; i < 100000; i++)
+    for (int i = 0; i < 1000000; i++)
     {
         clock();
     }
-
-    printPalettes();
 
    SDL_Init(SDL_INIT_VIDEO);
 
