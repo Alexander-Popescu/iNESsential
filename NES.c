@@ -100,9 +100,15 @@ uint8_t ppuBus[0x4000] = {0};
 //0x3F00-0x3F1F: Palette RAM indexes
 //0x3F20-0x3FFF: Mirrors of 0x3F00-0x3F1F
 
+//nametables
+uint8_t ppu_nametables[2][1024] = {0};
+
+//pattern tables
+uint8_t ppu_pattern_tables[2][4096] = {0};
 
 //32 color palette
 uint8_t ppu_palette[0x20] = {0};
+uint8_t selected_palette = 0x00;
 
 //256byte object attribute memory
 uint8_t ppu_oam[0x100] = {0};
@@ -143,24 +149,45 @@ uint8_t b[WIDTH * HEIGHT];
 
 void ppuBus_write(uint16_t address, uint8_t data)
 {
-    //check if valid memory request
-    if ((address >= 0x0000) && (address <= 0x3FFF))
+    address &= 0x3FFF;
+
+    if ( address >= 0x0000 && address <= 0x1FFF)
     {
-        ppuBus[address] = data;
-    }
-    else
+        //CHR ROM
+        ppu_pattern_tables[address >> 12][address & 0x0FFF] = data;
+    } else if ( address >= 0x2000 && address <= 0x3EFF)
     {
-        printf("Invalid memory address: %d", address);
+        //Nametables
+    } else if ( address >= 0x3F00 && address <= 0x3FFF)
+    {
+        //Palette
     }
 }
 
 uint8_t ppuBus_read(uint16_t address)
 {
-    //check if valid memory request
-    if ((address >= 0x0000) && (address <= 0x3FFF))
+    uint8_t data = 0x00;
+    address &= 0x3FFF;
+
+    if ( address >= 0x0000 && address <= 0x1FFF)
     {
-        return ppuBus[address];
+        //CHR ROM
+        data = ppu_pattern_tables[address >> 12][address & 0x0FFF];
+    } else if ( address >= 0x2000 && address <= 0x3EFF)
+    {
+        //Nametables
+    } else if ( address >= 0x3F00 && address <= 0x3FFF)
+    {
+        //Palette
+        address &= 0x001F;
+        if ( address == 0x0010) address = 0x0000;
+        if ( address == 0x0014) address = 0x0004;
+        if ( address == 0x0018) address = 0x0008;
+        if ( address == 0x001C) address = 0x000C;
+        data = ppu_palette[address];
     }
+
+    return data;
 }
 
 //memory IO
@@ -1740,6 +1767,11 @@ void load_rom(char* filename)
     {
         ppuBus_write(0x3F00 + i, palette_data[i]);
     }
+    //load palette data into ppu+palette array
+    for (int i = 0; i < 32; i++)
+    {
+        ppu_palette[i] = palette_data[i];
+    }
 
     //dump PRG ROM data to file
     FILE* prg_rom_dump = fopen("prg_rom_dump.bin", "wb");
@@ -1848,25 +1880,154 @@ uint8_t palette_colors[64][3] = {
     { 0, 0, 0 }
 };
 
+uint8_t* getRGBvaluefromPalette(uint8_t palette, uint8_t pixel)
+{
+    return palette_colors[ppuBus_read(0x3F00 + (palette << 2) + pixel)];
+}
+
 void updateFrame() {
     //create textures for 2 128x128 pattern tables
     SDL_Texture* pattern_table_0 = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, 128, 128);
     SDL_Texture* pattern_table_1 = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, 128, 128);
 
-    //fill pattern tables with test data
-    uint8_t pattern_table_0_data[128 * 128 * 3];
-    uint8_t pattern_table_1_data[128 * 128 * 3];
+    //create rgb data for pattern tables seperately for each color channel
+    uint8_t pattern_table_0_r[128 * 128] = {0};
+    uint8_t pattern_table_0_g[128 * 128] = {0};
+    uint8_t pattern_table_0_b[128 * 128] = {0};
+    
+    uint8_t pattern_table_1_r[128 * 128] = {0};
+    uint8_t pattern_table_1_g[128 * 128] = {0};
+    uint8_t pattern_table_1_b[128 * 128] = {0};
 
-    for (int i = 0; i < 128 * 128 * 3; i++)
+    //fill in rgb data for pattern table 0
+
+    for (uint16_t y_tile = 0; y_tile < 16; y_tile++)
     {
-        pattern_table_0_data[i] = 255;
-        pattern_table_1_data[i] = 255;
+        for (uint16_t x_tile = 0; x_tile < 16; x_tile++)
+        {
+            //loop over 8x8 pixels in each tile
+            uint16_t offset = y_tile * 256 + x_tile * 16;
+
+            for (uint16_t row = 0; row < 8; row++)
+            {
+                uint8_t tile_least_sig = ppuBus_read(offset + row);
+                uint8_t tile_most_sig = ppuBus_read(offset + row + 8);
+
+                for (uint16_t col = 8; col > 0; col--)
+                {
+                    uint8_t pixel = (tile_least_sig & 0x01) + (tile_most_sig & 0x01);
+                    tile_least_sig >>= 1;
+                    tile_most_sig >>= 1;
+
+                    //example palette
+                    uint8_t* pixel_rgb = getRGBvaluefromPalette(selected_palette, pixel);
+
+                    if (pixel == 0x00)
+                    {
+                        pattern_table_0_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
+                        pattern_table_0_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
+                        pattern_table_0_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
+                    }
+
+                    if (pixel == 0x01)
+                    {
+                        pattern_table_0_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
+                        pattern_table_0_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
+                        pattern_table_0_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
+                    }
+
+                    if (pixel == 0x10)
+                    {
+                        pattern_table_0_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
+                        pattern_table_0_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
+                        pattern_table_0_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
+                    }
+
+                    if (pixel == 0x11)
+                    {
+                        pattern_table_0_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
+                        pattern_table_0_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
+                        pattern_table_0_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
+                    }
+                }
+            }
+        }
     }
 
-    //update pattern table textures
-    SDL_UpdateTexture(pattern_table_0, NULL, (void*)pattern_table_0_data, 128 * sizeof(uint8_t));
-    SDL_UpdateTexture(pattern_table_1, NULL, (void*)pattern_table_1_data, 128 * sizeof(uint8_t));
+    //fill in rgb data for pattern table 1
+    for (uint16_t y_tile = 0; y_tile < 16; y_tile++)
+    {
+        for (uint16_t x_tile = 0; x_tile < 16; x_tile++)
+        {
+            //loop over 8x8 pixels in each tile
+            uint16_t offset = y_tile * 256 + x_tile * 16;
 
+            for (uint16_t row = 0; row < 8; row++)
+            {
+                uint8_t tile_least_sig = ppuBus_read(0x1000 + offset + row);
+                uint8_t tile_most_sig = ppuBus_read(0x1000 +offset + row + 8);
+
+                for (uint16_t col = 8; col > 0; col--)
+                {
+                    uint8_t pixel = (tile_least_sig & 0x01) + (tile_most_sig & 0x01);
+                    tile_least_sig >>= 1;
+                    tile_most_sig >>= 1;
+
+                    //example palette
+                    uint8_t* pixel_rgb = getRGBvaluefromPalette(selected_palette, pixel);
+
+                    if (pixel == 0x00)
+                    {
+                        pattern_table_1_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
+                        pattern_table_1_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
+                        pattern_table_1_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
+                    }
+
+                    if (pixel == 0x01)
+                    {
+                        pattern_table_1_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
+                        pattern_table_1_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
+                        pattern_table_1_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
+                    }
+
+                    if (pixel == 0x10)
+                    {
+                        pattern_table_1_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
+                        pattern_table_1_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
+                        pattern_table_1_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
+                    }
+
+                    if (pixel == 0x11)
+                    {
+                        pattern_table_1_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
+                        pattern_table_1_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
+                        pattern_table_1_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
+                    }
+                }
+            }
+        }
+    }
+
+    //create rgb data for pattern tables by overlaying RGB channels
+    uint8_t pattern_table_0_data[128 * 128 * 3];
+    for (int i = 0; i < 128 * 128; i++) {
+        pattern_table_0_data[i * 3] = pattern_table_0_r[i];
+        pattern_table_0_data[i * 3 + 1] = pattern_table_0_g[i];
+        pattern_table_0_data[i * 3 + 2] = pattern_table_0_b[i];
+    }
+
+    uint8_t pattern_table_1_data[128 * 128 * 3];
+    for (int i = 0; i < 128 * 128; i++) {
+        pattern_table_1_data[i * 3] = pattern_table_1_r[i];
+        pattern_table_1_data[i * 3 + 1] = pattern_table_1_g[i];
+        pattern_table_1_data[i * 3 + 2] = pattern_table_1_b[i];
+    }
+
+    //update pattern table textures with combined pixel data
+    SDL_UpdateTexture(pattern_table_0, NULL, pattern_table_0_data, 128 * 3);
+    SDL_UpdateTexture(pattern_table_1, NULL, pattern_table_1_data, 128 * 3);
+
+    //main texture
 
     // Update texture with new RGB data
     SDL_UpdateTexture(texture, NULL, (void*)r, WIDTH * sizeof(uint8_t));
@@ -1920,32 +2081,34 @@ void updateFrame() {
         //first rectangle
         SDL_Rect rect = {small_rect_x, small_rect_y, small_rect_height, small_rect_height};
         //get color
-        uint8_t *color = palette_colors[ppuBus_read(0x3F00 + i * 4)];
+        uint8_t *color = getRGBvaluefromPalette(i, 0);
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect);
 
         //second rectangle
         SDL_Rect rect2 = {small_rect_x + small_rect_height, small_rect_y, small_rect_height, small_rect_height};
-        color = palette_colors[ppuBus_read(0x3F01 + i * 4)];
+        color = getRGBvaluefromPalette(i, 1);
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect2);
 
         //third rectangle
         SDL_Rect rect3 = {small_rect_x + small_rect_height * 2, small_rect_y, small_rect_height, small_rect_height};
-        color = palette_colors[ppuBus_read(0x3F02 + i * 4)];
+        color = getRGBvaluefromPalette(i, 2);
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect3);
 
         //fourth rectangle
         SDL_Rect rect4 = {small_rect_x + small_rect_height * 3, small_rect_y, small_rect_height, small_rect_height};
-        color = palette_colors[ppuBus_read(0x3F03 + i * 4)];
+        color = getRGBvaluefromPalette(i, 3);
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect4);
 
         //white border
-        SDL_Rect small_rect = {small_rect_x, small_rect_y, small_rect_width * 4, small_rect_height};
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        SDL_RenderDrawRect(renderer, &small_rect);
+        if (selected_palette == i) {
+            SDL_Rect small_rect = {small_rect_x, small_rect_y, small_rect_width * 4, small_rect_height};
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+            SDL_RenderDrawRect(renderer, &small_rect);
+        }
     }
     small_rect_y += small_rect_height + 10;
     for (int i = 4; i < 8; i++) {
@@ -1979,9 +2142,12 @@ void updateFrame() {
         SDL_RenderFillRect(renderer, &rect4);
 
         //render white border
-        SDL_Rect small_rect = {small_rect_x, small_rect_y, small_rect_width * 4, small_rect_height};
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        SDL_RenderDrawRect(renderer, &small_rect);
+        if (selected_palette == i && selected_palette >= 4)
+        {
+            SDL_Rect small_rect = {small_rect_x, small_rect_y, small_rect_width * 4, small_rect_height};
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+            SDL_RenderDrawRect(renderer, &small_rect);
+        }
     }
 
     // Render pattern tables to the right of RGB data
@@ -2047,7 +2213,7 @@ int main(int argc, char* argv[])
     //cpu and ram
     initialize_cpu();
     //load rom at 0x8000, default location
-    load_rom("nestest.nes");
+    load_rom("kong.nes");
     reset();
 
    SDL_Init(SDL_INIT_VIDEO);
@@ -2090,8 +2256,14 @@ int main(int argc, char* argv[])
                     //print ppu registers
                     print_ppu_registers();
                 }
+                if (event.key.keysym.sym == SDLK_p) {
+                    printPalettes();
+                    selected_palette++;
+                    if (selected_palette > 7) {
+                        selected_palette = 0;
+                    }
+                }
             }
-
             //maintain aspect ratio
             if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
                 // Calculate new window size while maintaining aspect ratio
