@@ -1514,13 +1514,7 @@ void reset()
     stack_pointer = 0xFD;
     status_register = 0x00 | (1 << 5);
 
-    //hard coded location
-    absolute_address = 0xFFFC;
-    uint8_t low = cpuBus_read(absolute_address);
-    uint8_t high = cpuBus_read(absolute_address + 1) << 8;
-
-    //combine
-    program_counter = high | low;
+    program_counter = cpuBus_read(0xFFFC) | (cpuBus_read(0xFFFD) << 8);
 
     data_at_absolute = 0x00;
     absolute_address = 0x0000;
@@ -1762,9 +1756,6 @@ void load_rom(char* filename)
     fwrite(palette_data, sizeof(unsigned char), 32, palette_data_dump);
     fclose(palette_data_dump);
 
-    //program counter read from iNES
-    program_counter = cpuBus_read(0xFFFC) | (cpuBus_read(0xFFFD) << 8);
-
     free(prg_rom);
     free(chr_rom);
     free(trainer_data);
@@ -1858,6 +1849,25 @@ uint8_t palette_colors[64][3] = {
 };
 
 void updateFrame() {
+    //create textures for 2 128x128 pattern tables
+    SDL_Texture* pattern_table_0 = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, 128, 128);
+    SDL_Texture* pattern_table_1 = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, 128, 128);
+
+    //fill pattern tables with test data
+    uint8_t pattern_table_0_data[128 * 128 * 3];
+    uint8_t pattern_table_1_data[128 * 128 * 3];
+
+    for (int i = 0; i < 128 * 128 * 3; i++)
+    {
+        pattern_table_0_data[i] = 255;
+        pattern_table_1_data[i] = 255;
+    }
+
+    //update pattern table textures
+    SDL_UpdateTexture(pattern_table_0, NULL, (void*)pattern_table_0_data, 128 * sizeof(uint8_t));
+    SDL_UpdateTexture(pattern_table_1, NULL, (void*)pattern_table_1_data, 128 * sizeof(uint8_t));
+
+
     // Update texture with new RGB data
     SDL_UpdateTexture(texture, NULL, (void*)r, WIDTH * sizeof(uint8_t));
     SDL_UpdateTexture(texture, NULL, (void*)g, WIDTH * sizeof(uint8_t));
@@ -1967,7 +1977,6 @@ void updateFrame() {
         color = palette_colors[ppuBus_read(0x3F13 + i * 4)];
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect4);
-        
 
         //render white border
         SDL_Rect small_rect = {small_rect_x, small_rect_y, small_rect_width * 4, small_rect_height};
@@ -1975,8 +1984,24 @@ void updateFrame() {
         SDL_RenderDrawRect(renderer, &small_rect);
     }
 
+    // Render pattern tables to the right of RGB data
+    int pattern_table_width = render_width / 2.5;
+    int pattern_table_height = render_height / 2.5;
+    int pattern_table_x = x + render_width + 10;
+    int pattern_table_y = y + (render_height - pattern_table_height) / 4;
+
+    SDL_Rect pattern_table_0_rect = {pattern_table_x, pattern_table_y, pattern_table_width, pattern_table_height};
+    SDL_RenderCopy(renderer, pattern_table_0, NULL, &pattern_table_0_rect);
+
+    SDL_Rect pattern_table_1_rect = {pattern_table_x, pattern_table_y + pattern_table_height + 10, pattern_table_width, pattern_table_height};
+    SDL_RenderCopy(renderer, pattern_table_1, NULL, &pattern_table_1_rect);
+
     // Render to screen
     SDL_RenderPresent(renderer);
+
+    //free
+    SDL_DestroyTexture(pattern_table_0);
+    SDL_DestroyTexture(pattern_table_1);
 }
 
 void print_ppu_registers()
@@ -2021,13 +2046,9 @@ int main(int argc, char* argv[])
     }
     //cpu and ram
     initialize_cpu();
-    reset();
     //load rom at 0x8000, default location
     load_rom("nestest.nes");
-    for (int i = 0; i < 1000000; i++)
-    {
-        clock();
-    }
+    reset();
 
    SDL_Init(SDL_INIT_VIDEO);
 
@@ -2048,36 +2069,45 @@ int main(int argc, char* argv[])
     // Render initial frame
     updateFrame();
 
-    // Main loop
-    SDL_Event event;
-    while (SDL_WaitEvent(&event)) {
-        if (event.type == SDL_QUIT) {
-            break;
-        }
-
-        //maintain aspect ratio
-
-        if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-            // Calculate new window size while maintaining aspect ratio
-            int newWidth = event.window.data1;
-            int newHeight = (newWidth * HEIGHT) / WIDTH;
-            SDL_SetWindowSize(window, newWidth, newHeight);
-        }
-
-        //detect keyboard input
-
-        if (event.type == SDL_KEYDOWN) {
-            if (event.key.keysym.sym == SDLK_SPACE) {
-                // Update RGB data to random values
-                for (int i = 0; i < WIDTH * HEIGHT; i++) {
-                    r[i] = rand() % 255;
-                    g[i] = rand() % 255;
-                    b[i] = rand() % 255;
-                }
-                //print ppu registers
-                print_ppu_registers();
-                updateFrame();
+        // Main loop
+    while (true) {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                // Exit main loop
+                return 0;
             }
+
+            // Check for SDL events
+            if (event.type == SDL_KEYDOWN) {
+                if (event.key.keysym.sym == SDLK_SPACE) {
+                    // Update RGB data to random values
+                    for (int i = 0; i < WIDTH * HEIGHT; i++) {
+                        r[i] = 0;
+                        g[i] = 0;
+                        b[i] = 0;
+                    }
+                    //print ppu registers
+                    print_ppu_registers();
+                }
+            }
+
+            //maintain aspect ratio
+            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                // Calculate new window size while maintaining aspect ratio
+                int newWidth = event.window.data1;
+                int newHeight = (newWidth * HEIGHT) / WIDTH;
+                SDL_SetWindowSize(window, newWidth, newHeight);
+            }
+        }
+
+        // Run clock and update frame
+        clock();
+        updateFrame();
+        for (int i = 0; i < WIDTH * HEIGHT; i++) {
+            r[i] = rand() % 255;
+            g[i] = rand() % 255;
+            b[i] = rand() % 255;
         }
     }
 
@@ -2088,5 +2118,4 @@ int main(int argc, char* argv[])
     SDL_Quit();
 
     return 0;
-    //TODO: fix pallettes and render the sprite tables
 }
