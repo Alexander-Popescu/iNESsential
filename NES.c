@@ -67,7 +67,8 @@ uint16_t absolute_address = 0x0000;
 uint16_t relative_address = 0x0000;
 
 
-uint8_t cpuBus[64 * 1024];
+uint8_t cpuRam[0x0800] = {0};
+
 //CPU BUS SPECIFICATIONS:
 
 //0x0000-0x07FF: 2KB Ram
@@ -86,8 +87,6 @@ FILE* fp;
 //total cycles elapsed
 uint64_t total_cycles = 0;
 
-// PPU arrays
-uint8_t ppuBus[0x4000] = {0};
 //PPU BUS SPECIFICATIONS:
 
 //0x0000-0x0FFF: Pattern table 0
@@ -127,13 +126,21 @@ uint8_t oam_dma = 0x00;
 //PPU helpers
 uint8_t address_latch = 0x00;
 uint8_t ppu_data_buffer = 0x00;
-uint16_t ppu_temp_address = 0x0000;
+uint16_t ppu_address = 0x0000;
 
 //rom file vars
 uint8_t mapper = 0x00;
 uint8_t mirror_mode = 0x00;
 uint8_t prg_banks = 0x00;
 uint8_t chr_banks = 0x00;
+
+//cartridge
+uint8_t* PRG_ROM;
+uint8_t* CHR_ROM;
+
+//sizes
+uint32_t prg_rom_size;
+uint32_t chr_rom_size;
 
 
 //SDL globals
@@ -149,152 +156,108 @@ uint8_t b[WIDTH * HEIGHT];
 
 void ppuBus_write(uint16_t address, uint8_t data)
 {
-    address &= 0x3FFF;
 
-    if ( address >= 0x0000 && address <= 0x1FFF)
-    {
-        //CHR ROM
-        ppu_pattern_tables[address >> 12][address & 0x0FFF] = data;
-    } else if ( address >= 0x2000 && address <= 0x3EFF)
-    {
-        //Nametables
-    } else if ( address >= 0x3F00 && address <= 0x3FFF)
-    {
-        //Palette
-    }
 }
 
 uint8_t ppuBus_read(uint16_t address)
 {
-    uint8_t data = 0x00;
-    address &= 0x3FFF;
 
-    if ( address >= 0x0000 && address <= 0x1FFF)
-    {
-        //CHR ROM
-        data = ppu_pattern_tables[address >> 12][address & 0x0FFF];
-    } else if ( address >= 0x2000 && address <= 0x3EFF)
-    {
-        //Nametables
-    } else if ( address >= 0x3F00 && address <= 0x3FFF)
-    {
-        //Palette
-        address &= 0x001F;
-        if ( address == 0x0010) address = 0x0000;
-        if ( address == 0x0014) address = 0x0004;
-        if ( address == 0x0018) address = 0x0008;
-        if ( address == 0x001C) address = 0x000C;
-        data = ppu_palette[address];
-    }
-
-    return data;
 }
 
-//memory IO
-void cpuBus_write(uint16_t address, uint8_t data)
+uint8_t cartridgeBus_read(uint16_t address)
 {
-    // Mirroring for PPU registers
-    if (address >= 0x2000 && address <= 0x3FFF) {
-        address = 0x2000 + (address % 8);
-        switch (address) {
-            case 0x2000:
-                // Write data to PPUCTRL register
-                ppu_ctrl = data;
-                break;
-            case 0x2001:
-                // Write data to PPUMASK register
-                ppu_mask = data;
-                break;
-            case 0x2003:
-                // Write data to OAMADDR register
-                break;
-            case 0x2004:
-                // Write data to OAMDATA register
-                break;
-            case 0x2005:
-                // Write data to PPUSCROLL register
-                break;
-            case 0x2006:
-                // Write data to PPUADDR register
-                if (address_latch == 0) {
-                    ppu_temp_address = (ppu_temp_address & 0x00FF) | (data << 8);
-                    address_latch = 1;
-                } else {
-                    ppu_temp_address = (ppu_temp_address & 0xFF00) | data;
-                    address_latch = 0;
-                }
-                break;
-            case 0x2007:
-                // Write data to PPUDATA register
-                break;
-            default:
-                break;
-        }
-    }
-
-    // Mirroring for RAM
-    if (address >= 0x0800 && address <= 0x1FFF) {
-        address = address % 0x0800;
-    }
-
-    //accessing RAM
-    if ((address >= 0x0000) && (address <= 0xFFFF))
+    if (address >= 0x8000 && address <= 0xFFFF)
     {
-        cpuBus[address] = data;
+        // Read from PRG ROM
+        return PRG_ROM[(address - 0x8000) % prg_rom_size];
+    }
+    else if (address >= 0x6000 && address <= 0x7FFF)
+    {
+        // Read from PRG RAM
+        return PRG_ROM[address - 0x6000];
+    }
+    else if (address >= 0x0000 && address <= 0x1FFF)
+    {
+        // Read from CHR ROM
+        return CHR_ROM[address % chr_rom_size];
     }
     else
     {
-        printf("Invalid memory address: %d", address);
+        // Invalid address
+        return 0;
     }
+}
+
+void cartridgeBus_write(uint16_t address, uint8_t data)
+{
+    if (address >= 0x8000 && address <= 0xFFFF)
+    {
+        // Write to PRG ROM (not allowed)
+    }
+    else if (address >= 0x6000 && address <= 0x7FFF)
+    {
+        // Write to PRG RAM
+        PRG_ROM[address - 0x6000] = data;
+    }
+    else if (address >= 0x0000 && address <= 0x1FFF)
+    {
+        // Write to CHR ROM (not allowed)
+    }
+    else
+    {
+        // Invalid address
+    }
+}
+
+void cpuBus_write(uint16_t address, uint8_t data)
+{
+    if (address >= 0x0000 && address <= 0x1FFF)
+    {
+        // cpu RAM address space
+        cpuRam[address % 0x0800] = data;
+    }
+    else if (address >= 0x2000 && address <= 0x3FFF)
+    {
+        // Handle write to PPU registers
+        ppuBus_write(address % 8, data);
+    }
+    else if (address >= 0x4000 && address <= 0x4017)
+    {
+        // write to APU and I/O registers TODO
+    }
+    else if (address >= 0x4018 && address <= 0xFFFF)
+    {
+        // Handle write to cartridge space
+        cartridgeBus_write(address, data);
+    }
+    // Invalid address
 }
 
 uint8_t cpuBus_read(uint16_t address)
 {
-    uint8_t data = 0x00;
-    // Mirroring for PPU registers
-    if (address >= 0x2000 && address <= 0x3FFF) {
-        address = 0x2000 + (address % 8);
-        switch (address) {
-            case 0x2002:
-                // Read data from PPUSTATUS register
-                //set vblank
-                ppu_status = ppu_status | 0x80;
-                data = (ppu_status & 0xE0) | (ppu_data_buffer & 0x1F);
-                //clear vblank
-                ppu_status = ppu_status & 0x7F;
-                address_latch = 0;
-                break;
-            case 0x2004:
-                // Read data from OAMDATA register
-                break;
-            case 0x2007:
-                // Read data from PPUDATA register
-                data = ppu_data_buffer;
-                ppu_data_buffer = ppuBus_read(address);
-
-                if (ppu_temp_address >= 0x3F00) {
-                    data = ppu_data_buffer;
-                }
-                break;
-            default:
-                printf("Invalid PPU register address: %d", address);
-                break;
-        }
-    }
-
-    // Mirroring for RAM
-    if (address >= 0x0800 && address <= 0x1FFF) {
-        address = address % 0x0800;
-    }
-
-    //accessing RAM
-    if ((address >= 0x0000) && (address <= 0xFFFF))
+    if (address >= 0x0000 && address <= 0x1FFF)
     {
-        data = cpuBus[address];
+        // cpu RAM address space
+        return cpuRam[address % 0x0800];
     }
-
-    return data;
+    else if (address >= 0x2000 && address <= 0x3FFF)
+    {
+        // Handle read from PPU registers
+        return ppuBus_read(address % 8);
+    }
+    else if (address >= 0x4000 && address <= 0x4017)
+    {
+        // read from APU and I/O registers TODO
+    }
+    else if (address >= 0x4018 && address <= 0xFFFF)
+    {
+        // Handle read from cartridge space
+        return cartridgeBus_read(address);
+    }
+    // Invalid address
+    return 0;
 }
+
 
 
 //addressing modes
@@ -1700,10 +1663,10 @@ void initialize_cpu()
     uint8_t current_opcode = 0x00;
     uint8_t cycles = 0x00;
 
-    for (int i = 0; i < sizeof(cpuBus); i++)
+    for (int i = 0; i < sizeof(cpuRam); i++)
     {
         //make sure ram is zerod
-        cpuBus[i] = 0x00;
+        cpuRam[i] = 0x00;
     }
 
 }
@@ -1754,14 +1717,14 @@ void load_rom(char* filename)
     printf("iNES header found and valid\n");
 
     // extract PRG ROM data
-    int prg_rom_size = header[4] * 16384;
+    prg_rom_size = header[4] * 16384;
     unsigned char* prg_rom = malloc(prg_rom_size);
     fread(prg_rom, sizeof(unsigned char), prg_rom_size, file);
 
     printf("PRG ROM size: %d bytes\n", prg_rom_size);
 
     // extract CHR ROM data
-    int chr_rom_size = header[5] * 8192;
+    chr_rom_size = header[5] * 8192;
     unsigned char* chr_rom = malloc(chr_rom_size);
     fread(chr_rom, sizeof(unsigned char), chr_rom_size, file);
 
@@ -1794,16 +1757,27 @@ void load_rom(char* filename)
     fseek(file, palette_data_offset, SEEK_SET);
     fread(palette_data, sizeof(unsigned char), 32, file);
 
-    // load PRG ROM data into memory starting at 0x8000
-    for (int i = 0; i < prg_rom_size; i++)
-    {
-        cpuBus_write(0xC000 + i, prg_rom[i]);
-    }
+    //resize PRG_ROM and CHR_ROM
+    PRG_ROM = realloc(PRG_ROM, prg_rom_size);
+    CHR_ROM = realloc(CHR_ROM, chr_rom_size);
 
-    // load CHR ROM data into PPU memory starting at 0x0000
+
+    //load CHR_ROM
     for (int i = 0; i < chr_rom_size; i++)
     {
-        ppuBus_write(0x0000 + i, chr_rom[i]);
+        CHR_ROM[i] = chr_rom[i];
+    }
+
+    //load PRG_ROM
+    for (int i = 0; i < prg_rom_size; i++)
+    {
+        PRG_ROM[i] = prg_rom[i];
+    }
+
+    //load palette data
+    for (int i = 0; i < 32; i++)
+    {
+        ppu_palette[i] = palette_data[i];
     }
 
     //dump PRG ROM data to file
@@ -1842,7 +1816,7 @@ void print_ram_state(int depth, int start_position)
     depth = depth + start_position;
     for (int i = start_position; i < depth; i++)
     {
-        printf("cpuBus[0x%x]: 0x%x\n", i, cpuBus[i]);
+        printf("cpuBus[0x%x]: 0x%x\n", i, cpuRam[i]);
     }
 }
 
@@ -2187,7 +2161,7 @@ void printPalettes() {
     //0x3F19 - 0x3F1B - sprite palette 2
     //0x3F1D - 0x3F1F - sprite palette 3
     for (int i = 0; i < 32; i++) {
-        uint8_t value = ppuBus_read(0x3F00 + i);
+        uint8_t value = ppu_palette[i];
         printf("Palette[%d], ppuBus[%X] = %02X\n", i, 0x3F00 + i, value);
     }
 }
@@ -2222,6 +2196,7 @@ int main(int argc, char* argv[])
     //load rom at 0x8000, default location
     load_rom("nestest.nes");
     reset();
+    program_counter = 0xC000;
 
    SDL_Init(SDL_INIT_VIDEO);
 
