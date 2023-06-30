@@ -1922,33 +1922,9 @@ void updateFrame() {
                     //example palette
                     uint8_t* pixel_rgb = getRGBvaluefromPalette(selected_palette, pixel);
 
-                    if (pixel == 0x00)
-                    {
-                        pattern_table_0_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
-                        pattern_table_0_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
-                        pattern_table_0_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
-                    }
-
-                    if (pixel == 0x01)
-                    {
-                        pattern_table_0_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
-                        pattern_table_0_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
-                        pattern_table_0_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
-                    }
-
-                    if (pixel == 0x10)
-                    {
-                        pattern_table_0_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
-                        pattern_table_0_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
-                        pattern_table_0_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
-                    }
-
-                    if (pixel == 0x11)
-                    {
-                        pattern_table_0_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
-                        pattern_table_0_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
-                        pattern_table_0_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
-                    }
+                    pattern_table_0_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
+                    pattern_table_0_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
+                    pattern_table_0_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
                 }
             }
         }
@@ -1976,33 +1952,9 @@ void updateFrame() {
                     //example palette
                     uint8_t* pixel_rgb = getRGBvaluefromPalette(selected_palette, pixel);
 
-                    if (pixel == 0x00)
-                    {
-                        pattern_table_1_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
-                        pattern_table_1_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
-                        pattern_table_1_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
-                    }
-
-                    if (pixel == 0x01)
-                    {
-                        pattern_table_1_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
-                        pattern_table_1_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
-                        pattern_table_1_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
-                    }
-
-                    if (pixel == 0x10)
-                    {
-                        pattern_table_1_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
-                        pattern_table_1_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
-                        pattern_table_1_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
-                    }
-
-                    if (pixel == 0x11)
-                    {
-                        pattern_table_1_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
-                        pattern_table_1_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
-                        pattern_table_1_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
-                    }
+                    pattern_table_1_r[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[0];
+                    pattern_table_1_g[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[1];
+                    pattern_table_1_b[(y_tile * 8 + row) * 128 + x_tile * 8 + col] = pixel_rgb[2];
                 }
             }
         }
@@ -2119,25 +2071,25 @@ void updateFrame() {
 
         //first rectangle
         SDL_Rect rect = {small_rect_x, small_rect_y, small_rect_height, small_rect_height};
-        uint8_t *color = palette_colors[ppuBus_read(0x3F10 + i * 4)];
+        uint8_t *color = getRGBvaluefromPalette(i, 0);
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect);
 
         //second rectangle
         SDL_Rect rect2 = {small_rect_x + small_rect_height, small_rect_y, small_rect_height, small_rect_height};
-        color = palette_colors[ppuBus_read(0x3F11 + i * 4)];
+        color = getRGBvaluefromPalette(i, 1);
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect2);
 
         //third rectangle
         SDL_Rect rect3 = {small_rect_x + small_rect_height * 2, small_rect_y, small_rect_height, small_rect_height};
-        color = palette_colors[ppuBus_read(0x3F12 + i * 4)];
+        color = getRGBvaluefromPalette(i, 2);
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect3);
 
         //fourth rectangle
         SDL_Rect rect4 = {small_rect_x + small_rect_height * 3, small_rect_y, small_rect_height, small_rect_height};
-        color = palette_colors[ppuBus_read(0x3F13 + i * 4)];
+        color = getRGBvaluefromPalette(i, 3);
         SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
         SDL_RenderFillRect(renderer, &rect4);
 
