@@ -1698,7 +1698,7 @@ void load_rom(char* filename)
     }
 
     // read iNES header
-    unsigned char header[16];
+    unsigned char header[16] = {0};
     fread(header, sizeof(unsigned char), 16, file);
 
     // check for valid iNES header
@@ -1961,18 +1961,18 @@ void updateFrame() {
     }
 
     //create rgb data for pattern tables by overlaying RGB channels
-    uint8_t pattern_table_0_data[128 * 128 * 3];
+    uint8_t pattern_table_0_data[128 * 128 * 3] = {0};
     for (int i = 0; i < 128 * 128; i++) {
-        pattern_table_0_data[i * 3] = pattern_table_0_r[i];
-        pattern_table_0_data[i * 3 + 1] = pattern_table_0_g[i];
-        pattern_table_0_data[i * 3 + 2] = pattern_table_0_b[i];
+        pattern_table_0_data[i * 3] = pattern_table_0_r[i + 1];
+        pattern_table_0_data[i * 3 + 1] = pattern_table_0_g[i + 1];
+        pattern_table_0_data[i * 3 + 2] = pattern_table_0_b[i + 1];
     }
 
-    uint8_t pattern_table_1_data[128 * 128 * 3];
+    uint8_t pattern_table_1_data[128 * 128 * 3] = {0};
     for (int i = 0; i < 128 * 128; i++) {
-        pattern_table_1_data[i * 3] = pattern_table_1_r[i];
-        pattern_table_1_data[i * 3 + 1] = pattern_table_1_g[i];
-        pattern_table_1_data[i * 3 + 2] = pattern_table_1_b[i];
+        pattern_table_1_data[i * 3] = pattern_table_1_r[i + 1];
+        pattern_table_1_data[i * 3 + 1] = pattern_table_1_g[i + 1];
+        pattern_table_1_data[i * 3 + 2] = pattern_table_1_b[i + 1];
     }
 
     //update pattern table textures with combined pixel data
@@ -2165,7 +2165,7 @@ int main(int argc, char* argv[])
     //cpu and ram
     initialize_cpu();
     //load rom at 0x8000, default location
-    load_rom("kong.nes");
+    load_rom("nestest.nes");
     reset();
 
    SDL_Init(SDL_INIT_VIDEO);
