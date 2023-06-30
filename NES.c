@@ -200,10 +200,12 @@ void cpuBus_write(uint16_t address, uint8_t data)
             case 0x2000:
                 // Write data to PPUCTRL register
                 printf("PPUCTRL: %d\n", data);
+                ppu_ctrl = data;
                 break;
             case 0x2001:
                 // Write data to PPUMASK register
                 printf("PPUMASK: %d\n", data);
+                ppu_mask = data;
                 break;
             case 0x2003:
                 // Write data to OAMADDR register
@@ -220,6 +222,13 @@ void cpuBus_write(uint16_t address, uint8_t data)
             case 0x2006:
                 // Write data to PPUADDR register
                 printf("PPUADDR: %d\n", data);
+                if (address_latch == 0) {
+                    ppu_temp_address = (ppu_temp_address & 0x00FF) | (data << 8);
+                    address_latch = 1;
+                } else {
+                    ppu_temp_address = (ppu_temp_address & 0xFF00) | data;
+                    address_latch = 0;
+                }
                 break;
             case 0x2007:
                 // Write data to PPUDATA register
@@ -249,6 +258,7 @@ void cpuBus_write(uint16_t address, uint8_t data)
 
 uint8_t cpuBus_read(uint16_t address)
 {
+    uint8_t data = 0x00;
     // Mirroring for PPU registers
     if (address >= 0x2000 && address <= 0x3FFF) {
         address = 0x2000 + (address % 8);
@@ -256,6 +266,12 @@ uint8_t cpuBus_read(uint16_t address)
             case 0x2002:
                 // Read data from PPUSTATUS register
                 printf("PPUSTATUS: %d\n", ppu_status);
+                //set vblank
+                ppu_status = ppu_status | 0x80;
+                data = (ppu_status & 0xE0) | (ppu_data_buffer & 0x1F);
+                //clear vblank
+                ppu_status = ppu_status & 0x7F;
+                address_latch = 0;
                 break;
             case 0x2004:
                 // Read data from OAMDATA register
@@ -264,6 +280,12 @@ uint8_t cpuBus_read(uint16_t address)
             case 0x2007:
                 // Read data from PPUDATA register
                 printf("PPUDATA: %d\n", ppu_data);
+                data = ppu_data_buffer;
+                ppu_data_buffer = ppuBus_read(address);
+
+                if (ppu_temp_address >= 0x3F00) {
+                    data = ppu_data_buffer;
+                }
                 break;
             default:
                 printf("Invalid PPU register address: %d", address);
@@ -279,8 +301,10 @@ uint8_t cpuBus_read(uint16_t address)
     //accessing RAM
     if ((address >= 0x0000) && (address <= 0xFFFF))
     {
-        return cpuBus[address];
+        data = cpuBus[address];
     }
+
+    return data;
 }
 
 
@@ -1533,6 +1557,37 @@ void clock()
     total_cycles++;
 }
 
+uint16_t ppu_cycle = 0;
+int ppu_scanline = 0;
+bool frame_complete = false;
+
+void setMainPixel(uint8_t x, uint8_t y, uint8_t red, uint8_t green, uint8_t blue)
+{
+    r[x + (y * 256)] = red;
+    g[x + (y * 256)] = green;
+    b[x + (y * 256)] = blue;
+}
+
+void ppu_clock()
+{
+    uint8_t random = (uint8_t)rand() % 256;
+    if (ppu_scanline < 240 && ppu_cycle < 256)
+    {
+        setMainPixel(ppu_cycle, ppu_scanline, random, random, random);
+    }
+    ppu_cycle++;
+    if (ppu_cycle >= 341)
+    {
+        ppu_cycle = 0;
+        ppu_scanline++;
+        if (ppu_scanline >= 261)
+        {
+            ppu_scanline = -1;
+            frame_complete = true;
+        }
+    }
+}
+
 void reset()
 {
     accumulator = 0x00;
@@ -1762,17 +1817,6 @@ void load_rom(char* filename)
         ppuBus_write(0x0000 + i, chr_rom[i]);
     }
 
-    // load palette data into PPU memory starting at 0x3F00
-    for (int i = 0; i < 32; i++)
-    {
-        ppuBus_write(0x3F00 + i, palette_data[i]);
-    }
-    //load palette data into ppu+palette array
-    for (int i = 0; i < 32; i++)
-    {
-        ppu_palette[i] = palette_data[i];
-    }
-
     //dump PRG ROM data to file
     FILE* prg_rom_dump = fopen("prg_rom_dump.bin", "wb");
     fwrite(prg_rom, sizeof(unsigned char), prg_rom_size, prg_rom_dump);
@@ -1981,10 +2025,16 @@ void updateFrame() {
 
     //main texture
 
-    // Update texture with new RGB data
-    SDL_UpdateTexture(texture, NULL, (void*)r, WIDTH * sizeof(uint8_t));
-    SDL_UpdateTexture(texture, NULL, (void*)g, WIDTH * sizeof(uint8_t));
-    SDL_UpdateTexture(texture, NULL, (void*)b, WIDTH * sizeof(uint8_t));
+    //update main texture data using r g and b arrays
+    uint8_t main_texture_data[256 * 240 * 3] = {0};
+    for (int i = 0; i < 256 * 240; i++) {
+        main_texture_data[i * 3] = r[i];
+        main_texture_data[i * 3 + 1] = g[i];
+        main_texture_data[i * 3 + 2] = b[i];
+    }
+
+    //update main texture with new data
+    SDL_UpdateTexture(texture, NULL, main_texture_data, 256 * 3);
 
     // Clear screen
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -2199,7 +2249,6 @@ int main(int argc, char* argv[])
             // Check for SDL events
             if (event.type == SDL_KEYDOWN) {
                 if (event.key.keysym.sym == SDLK_SPACE) {
-                    // Update RGB data to random values
                     for (int i = 0; i < WIDTH * HEIGHT; i++) {
                         r[i] = 0;
                         g[i] = 0;
@@ -2227,12 +2276,8 @@ int main(int argc, char* argv[])
 
         // Run clock and update frame
         clock();
+        ppu_clock();
         updateFrame();
-        for (int i = 0; i < WIDTH * HEIGHT; i++) {
-            r[i] = rand() % 255;
-            g[i] = rand() % 255;
-            b[i] = rand() % 255;
-        }
     }
 
     // Clean up resources
