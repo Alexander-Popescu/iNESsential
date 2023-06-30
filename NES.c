@@ -2206,6 +2206,7 @@ void bus_clock()
 }
 
 bool run_in_realtime = false;
+uint32_t frame_count = 0x00;
 
 int main(int argc, char* argv[])
 {
@@ -2279,7 +2280,12 @@ int main(int argc, char* argv[])
         }
         // Run clock and update frame
         bus_clock();
-        updateFrame();
+        if (frame_complete) {
+            updateFrame();
+            frame_count++;
+            printf("Frame: %d\n", frame_count);
+            frame_complete = false;
+        }
     }
 
     // Clean up resources
