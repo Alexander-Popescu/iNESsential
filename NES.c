@@ -99,12 +99,6 @@ uint64_t total_cycles = 0;
 //0x3F00-0x3F1F: Palette RAM indexes
 //0x3F20-0x3FFF: Mirrors of 0x3F00-0x3F1F
 
-//nametables
-uint8_t ppu_nametables[2][1024] = {0};
-
-//pattern tables
-uint8_t ppu_pattern_tables[2][4096] = {0};
-
 //32 color palette
 uint8_t ppu_palette[0x20] = {0};
 uint8_t selected_palette = 0x00;
@@ -113,15 +107,14 @@ uint8_t selected_palette = 0x00;
 uint8_t ppu_oam[0x100] = {0};
 
 // PPU registers
-uint8_t ppu_ctrl = 0x00;
-uint8_t ppu_mask = 0x00;
-uint8_t ppu_status = 0x00;
-uint8_t oam_addr = 0x00;
-uint8_t oam_data = 0x00;
-uint8_t ppu_scroll = 0x00;
-uint8_t ppu_addr = 0x00;
-uint8_t ppu_data = 0x00;
-uint8_t oam_dma = 0x00;
+uint8_t PPUCTRL;    // 0x2000
+uint8_t PPUMASK;    // 0x2001
+uint8_t PPUSTATUS;  // 0x2002
+uint8_t OAMADDR;    // 0x2003
+uint8_t OAMDATA;    // 0x2004
+uint8_t PPUSCROLL;  // 0x2005
+uint8_t PPUADDR;    // 0x2006
+uint8_t PPUDATA;    // 0x2007
 
 //PPU helpers
 uint8_t address_latch = 0x00;
@@ -156,12 +149,50 @@ uint8_t b[WIDTH * HEIGHT];
 
 void ppuBus_write(uint16_t address, uint8_t data)
 {
-
+    if (address >= 0x0000 && address <= 0x1FFF)
+    {
+        // CHR ROM
+        CHR_ROM[address] = data;
+    }
+    else if (address >= 0x2000 && address <= 0x3EFF)
+    {
+        // Nametables
+    }
+    else if (address >= 0x3F00 && address <= 0x3FFF)
+    {
+        // Palette
+        uint16_t paletteAddress = address % 0x20;
+        if (paletteAddress == 0x10 || paletteAddress == 0x14 || paletteAddress == 0x18 || paletteAddress == 0x1C)
+        {
+            paletteAddress -= 0x10;
+        }
+        ppu_palette[paletteAddress] = data;
+    }
 }
 
 uint8_t ppuBus_read(uint16_t address)
 {
-
+    if (address >= 0x0000 && address <= 0x1FFF)
+    {
+        // CHR ROM
+        return CHR_ROM[address];
+    }
+    else if (address >= 0x2000 && address <= 0x3EFF)
+    {
+        // Nametables
+    }
+    else if (address >= 0x3F00 && address <= 0x3FFF)
+    {
+        // Palette
+        uint16_t paletteAddress = address % 0x20;
+        if (paletteAddress == 0x10 || paletteAddress == 0x14 || paletteAddress == 0x18 || paletteAddress == 0x1C)
+        {
+            paletteAddress -= 0x10;
+        }
+        return ppu_palette[paletteAddress];
+    }
+    // Invalid address
+    return 0;
 }
 
 uint8_t cartridgeBus_read(uint16_t address)
@@ -2137,15 +2168,14 @@ void updateFrame() {
 
 void print_ppu_registers()
 {
-    printf("PPUCTRL: 0x%x\n", ppu_ctrl);
-    printf("PPUMASK: 0x%x\n", ppu_mask);
-    printf("PPUSTATUS: 0x%x\n", ppu_status);
-    printf("OAMADDR: 0x%x\n", oam_addr);
-    printf("OAMDATA: 0x%x\n", oam_data);
-    printf("PPUSCROLL: 0x%x\n", ppu_scroll);
-    printf("PPUADDR: 0x%x\n", ppu_addr);
-    printf("PPUDATA: 0x%x\n", ppu_data);
-    printf("OAMDMA: 0x%x\n", oam_dma);
+    printf("PPUCTRL: 0x%x\n", PPUCTRL);
+    printf("PPUMASK: 0x%x\n", PPUMASK);
+    printf("PPUSTATUS: 0x%x\n", PPUSTATUS);
+    printf("OAMADDR: 0x%x\n", OAMADDR);
+    printf("OAMDATA: 0x%x\n", OAMDATA);
+    printf("PPUSCROLL: 0x%x\n", PPUSCROLL);
+    printf("PPUADDR: 0x%x\n", PPUADDR);
+    printf("PPUDATA: 0x%x\n", PPUDATA);
 }
 
 void printPalettes() {
@@ -2196,7 +2226,6 @@ int main(int argc, char* argv[])
     //load rom at 0x8000, default location
     load_rom("nestest.nes");
     reset();
-    program_counter = 0xC000;
 
    SDL_Init(SDL_INIT_VIDEO);
 
