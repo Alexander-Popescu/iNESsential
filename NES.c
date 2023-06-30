@@ -199,29 +199,23 @@ void cpuBus_write(uint16_t address, uint8_t data)
         switch (address) {
             case 0x2000:
                 // Write data to PPUCTRL register
-                printf("PPUCTRL: %d\n", data);
                 ppu_ctrl = data;
                 break;
             case 0x2001:
                 // Write data to PPUMASK register
-                printf("PPUMASK: %d\n", data);
                 ppu_mask = data;
                 break;
             case 0x2003:
                 // Write data to OAMADDR register
-                printf("OAMADDR: %d\n", data);
                 break;
             case 0x2004:
                 // Write data to OAMDATA register
-                printf("OAMDATA: %d\n", data);
                 break;
             case 0x2005:
                 // Write data to PPUSCROLL register
-                printf("PPUSCROLL: %d\n", data);
                 break;
             case 0x2006:
                 // Write data to PPUADDR register
-                printf("PPUADDR: %d\n", data);
                 if (address_latch == 0) {
                     ppu_temp_address = (ppu_temp_address & 0x00FF) | (data << 8);
                     address_latch = 1;
@@ -232,10 +226,8 @@ void cpuBus_write(uint16_t address, uint8_t data)
                 break;
             case 0x2007:
                 // Write data to PPUDATA register
-                printf("PPUDATA: %d\n", data);
                 break;
             default:
-                printf("Invalid PPU register address: %d", address);
                 break;
         }
     }
@@ -265,7 +257,6 @@ uint8_t cpuBus_read(uint16_t address)
         switch (address) {
             case 0x2002:
                 // Read data from PPUSTATUS register
-                printf("PPUSTATUS: %d\n", ppu_status);
                 //set vblank
                 ppu_status = ppu_status | 0x80;
                 data = (ppu_status & 0xE0) | (ppu_data_buffer & 0x1F);
@@ -275,11 +266,9 @@ uint8_t cpuBus_read(uint16_t address)
                 break;
             case 0x2004:
                 // Read data from OAMDATA register
-                printf("OAMDATA: %d\n", oam_data);
                 break;
             case 0x2007:
                 // Read data from PPUDATA register
-                printf("PPUDATA: %d\n", ppu_data);
                 data = ppu_data_buffer;
                 ppu_data_buffer = ppuBus_read(address);
 
@@ -2203,6 +2192,21 @@ void printPalettes() {
     }
 }
 
+uint32_t system_clock_count = 0x00;
+
+void bus_clock()
+{
+    ppu_clock();
+    if (system_clock_count % 3 == 0)
+    {
+        clock();
+    }
+
+    system_clock_count++;
+}
+
+bool run_in_realtime = false;
+
 int main(int argc, char* argv[])
 {
     //open file for debug
@@ -2273,10 +2277,8 @@ int main(int argc, char* argv[])
                 SDL_SetWindowSize(window, newWidth, newHeight);
             }
         }
-
         // Run clock and update frame
-        clock();
-        ppu_clock();
+        bus_clock();
         updateFrame();
     }
 
