@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 //6502
 //A: Accumulator
@@ -100,7 +101,7 @@ uint64_t total_cycles = 0;
 //0x3F20-0x3FFF: Mirrors of 0x3F00-0x3F1F
 
 //32 color palette
-uint8_t ppu_palette[0x20] = {0};
+uint8_t ppu_palette[32] = {0};
 uint8_t selected_palette = 0x00;
 
 //256byte object attribute memory
@@ -180,6 +181,15 @@ uint8_t* CHR_ROM;
 //sizes
 uint32_t prg_rom_size;
 uint32_t chr_rom_size;
+
+//nmi bool
+bool nmi = false;
+
+//emulation modes
+bool fullspeed = false;
+bool run_single_frame = false;
+bool run_single_instruction = false;
+bool run_single_cycle = false;
 
 
 //SDL globals
@@ -369,7 +379,6 @@ uint8_t cpuBus_read(uint16_t address)
             break;
         case 2:
             //PPUSTATUS
-            ppu_status.vertical_blank = 1;
             data = (ppu_status.reg & 0xE0) | (ppu_data_buffer & 0x1F);
             //clear vblank flag
             ppu_status.vertical_blank = 0;
@@ -409,7 +418,6 @@ uint8_t cpuBus_read(uint16_t address)
         // Handle read from cartridge space
         data = cartridgeBus_read(address);
     }
-    // Invalid address
     return data;
 }
 
@@ -1623,69 +1631,8 @@ opcode get_opcode(uint8_t input) {
     return opcode_obj;
 }
 
-void clock()
-{
-    //needs to be run at the proper clock cycle to be accurate
-    if (cycles == 0) {
-        instruction_count++;
-        //get next opcode
-        current_opcode = cpuBus_read(program_counter);
-        
-        //flag set thing
-        set_flag(U_flag, 1);
-
-        //increment program counter
-        program_counter++;
-
-        //cycles
-
-        opcode op_to_execute = get_opcode(current_opcode);
-        cycles = op_to_execute.cycle_count;
-
-        //print instruction info
-        fprintf(fp, "Instruction %d: PC=%04X OP=%02X ", instruction_count, program_counter - 1, current_opcode);
-        fprintf(fp, "%s ", op_to_execute.name);
-
-        //print arguments
-        uint8_t num_args = op_to_execute.byte_size - 1;
-        for (int i = 0; i < num_args; i++) {
-            uint8_t arg = cpuBus_read(program_counter + i);
-            fprintf(fp, "%02X ", arg);
-        }
-        
-        if (num_args == 0)
-        {
-            fprintf(fp, "      ");
-        }
-        if (num_args == 1)
-        {
-            fprintf(fp, "   ");
-        }
-
-        //print register values
-        fprintf(fp, "          A=%02X ", accumulator);
-        fprintf(fp, "X=%02X ", x_register);
-        fprintf(fp, "Y=%02X ", y_register);
-        fprintf(fp, "P=%02X ", status_register);
-        fprintf(fp, "SP=%02X\n", stack_pointer);
-
-        //execute the instruction, keep track if return 1 as that means add cycle
-        uint8_t extra_cycle_addressingMode = op_to_execute.addressing_mode();
-        uint8_t extra_cycle_opcode = op_to_execute.opcode();
-        //add any necessary cycles
-        if ((extra_cycle_opcode == 1) && (extra_cycle_addressingMode == 1))
-        {
-            cycles++;
-        }
-
-        //flag set thing
-        set_flag(U_flag, 1);
-
-    }
-    //decrement a cycle every clock cycle, we don't have to calculate every cycle as long as the clock is synced in the main function
-    cycles--;
-    total_cycles++;
-}
+uint8_t clock_print_flag = 0;
+uint8_t single_instruction_latch = 0;
 
 uint16_t ppu_cycle = 0;
 int ppu_scanline = 0;
@@ -1700,6 +1647,20 @@ void setMainPixel(uint8_t x, uint8_t y, uint8_t red, uint8_t green, uint8_t blue
 
 void ppu_clock()
 {
+    if (ppu_scanline == -1 && ppu_cycle == 1)
+    {
+        ppu_status.vertical_blank = 0;
+    }
+
+    if (ppu_scanline == 241 && ppu_cycle == 1)
+    {
+        ppu_status.vertical_blank = 1;
+        if (ppu_ctrl.enable_nmi)
+        {
+            nmi = true;
+        }
+    }
+
     uint8_t random = (uint8_t)rand() % 256;
     if (ppu_scanline < 240 && ppu_cycle < 256)
     {
@@ -1767,7 +1728,7 @@ void interrupt_request()
     }
 }
 
-void non_maskable_interrupt_request()
+void non_maskable_interrupt()
 {
     //pc to stack
     cpuBus_write(0x0100 + stack_pointer, (program_counter >> 8) & 0x00FF);
@@ -1784,14 +1745,14 @@ void non_maskable_interrupt_request()
     cpuBus_write(0x0100 + stack_pointer, status_register);
 
     //new pc hard coded
-    absolute_address = 0xFFFE;
+    absolute_address = 0xFFFA;
     uint8_t low = cpuBus_read(absolute_address);
-    uint8_t high = cpuBus_read(absolute_address + 1) << 8;
+    uint8_t high = cpuBus_read(absolute_address + 1);
 
     //combine
-    program_counter = high | low;
+    program_counter = (high << 8) | low;
 
-    cycles = 7;
+    cycles = 8;
 }
 
 void set_flag(uint8_t flag, bool value)
@@ -1951,6 +1912,12 @@ void load_rom(char* filename)
     {
         PRG_ROM[i] = prg_rom[i];
     }
+
+    //load palette
+    for (int i = 0; i < 32; i++)
+    {
+        ppuBus_write(0x3F00 + i, palette_data[i]);
+    }
     
     //dump PRG ROM data to file
     FILE* prg_rom_dump = fopen("prg_rom_dump.bin", "wb");
@@ -2055,6 +2022,7 @@ uint8_t* getRGBvaluefromPalette(uint8_t palette, uint8_t pixel)
 }
 
 void updateFrame() {
+
     //create textures for 2 128x128 pattern tables
     SDL_Texture* pattern_table_0 = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, 128, 128);
     SDL_Texture* pattern_table_1 = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, 128, 128);
@@ -2327,6 +2295,90 @@ void printPalettes() {
     }
 }
 
+void clock()
+{
+    //needs to be run at the proper clock cycle to be accurate
+    if (cycles == 0) {
+        if (run_single_instruction == true && single_instruction_latch == 1)
+        {
+            single_instruction_latch = 0;
+        }
+        if (run_single_instruction == true && single_instruction_latch == 0)
+        {
+            run_single_instruction = false;
+            updateFrame();
+        }
+
+        instruction_count++;
+        //get next opcode
+        current_opcode = cpuBus_read(program_counter);
+        
+        //flag set thing
+        set_flag(U_flag, 1);
+
+        //increment program counter
+        program_counter++;
+
+        //cycles
+
+        opcode op_to_execute = get_opcode(current_opcode);
+        cycles = op_to_execute.cycle_count;
+
+        //print instruction info
+        if (clock_print_flag == 1)
+        {
+            fprintf(fp, "I  %d: PC=%04X OP=%02X ", instruction_count, program_counter - 1, current_opcode);
+            fprintf(fp, "%s ", op_to_execute.name);
+        }
+            
+        if (clock_print_flag == 1)
+        {
+            //print arguments
+            uint8_t num_args = op_to_execute.byte_size - 1;
+            for (int i = 0; i < num_args; i++) {
+                uint8_t arg = cpuBus_read(program_counter + i);
+                fprintf(fp, "%02X ", arg);
+            }
+            
+            if (num_args == 0)
+            {
+                fprintf(fp, "      ");
+            }
+            if (num_args == 1)
+            {
+                fprintf(fp, "   ");
+            }
+        }
+
+
+        if (clock_print_flag == 1)
+        {
+            //print register values
+            fprintf(fp, "          A=%02X ", accumulator);
+            fprintf(fp, "X=%02X ", x_register);
+            fprintf(fp, "Y=%02X ", y_register);
+            fprintf(fp, "P=%02X ", status_register);
+            fprintf(fp, "SP=%02X\n", stack_pointer);
+        }
+
+        //execute the instruction, keep track if return 1 as that means add cycle
+        uint8_t extra_cycle_addressingMode = op_to_execute.addressing_mode();
+        uint8_t extra_cycle_opcode = op_to_execute.opcode();
+        //add any necessary cycles
+        if ((extra_cycle_opcode == 1) && (extra_cycle_addressingMode == 1))
+        {
+            cycles++;
+        }
+
+        //flag set thing
+        set_flag(U_flag, 1);
+
+    }
+    //decrement a cycle every clock cycle, we don't have to calculate every cycle as long as the clock is synced in the main function
+    cycles--;
+    total_cycles++;
+}
+
 uint32_t system_clock_count = 0x00;
 
 void bus_clock()
@@ -2337,10 +2389,20 @@ void bus_clock()
         clock();
     }
 
+    if (nmi == true)
+    {
+        nmi = false;
+        non_maskable_interrupt();
+    }
+
     system_clock_count++;
+    if (run_single_cycle == true)
+    {
+        run_single_cycle = false;
+        updateFrame();
+    }
 }
 
-bool run_in_realtime = false;
 uint32_t frame_count = 0x00;
 
 int main(int argc, char* argv[])
@@ -2396,6 +2458,7 @@ int main(int argc, char* argv[])
                     }
                     //print ppu registers
                     print_ppu_registers();
+                    updateFrame();
                 }
                 if (event.key.keysym.sym == SDLK_p) {
                     printPalettes();
@@ -2403,6 +2466,24 @@ int main(int argc, char* argv[])
                     if (selected_palette > 7) {
                         selected_palette = 0;
                     }
+                    updateFrame();
+                }
+                if (event.key.keysym.sym == SDLK_1) {
+                    //fullspeed toggle
+                    fullspeed = !fullspeed;
+                }
+                if (event.key.keysym.sym == SDLK_2) {
+                    //run single cycle
+                    run_single_instruction = true;
+                    single_instruction_latch = 1;
+                }
+                if (event.key.keysym.sym == SDLK_3) {
+                    //run single frame
+                    run_single_frame = true;
+                }
+                if (event.key.keysym.sym == SDLK_4) {
+                    //run single frame
+                    run_single_cycle = true;
                 }
             }
             //maintain aspect ratio
@@ -2414,12 +2495,16 @@ int main(int argc, char* argv[])
             }
         }
         // Run clock and update frame
-        bus_clock();
-        if (frame_complete) {
-            updateFrame();
-            frame_count++;
-            printf("Frame: %d\n", frame_count);
-            frame_complete = false;
+        if (fullspeed || run_single_cycle || run_single_frame || run_single_instruction)
+        {
+            bus_clock();
+            if (frame_complete) {
+                updateFrame();
+                frame_count++;
+                printf("Frame: %d\n", frame_count);
+                frame_complete = false;
+                run_single_frame = false;
+            }
         }
     }
 
