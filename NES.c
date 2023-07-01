@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
 
 //6502
 //A: Accumulator
@@ -24,6 +23,7 @@ uint8_t check_flag(uint8_t flag);
 void set_flag(uint8_t flag, bool value);
 void interrupt_request();
 void print_cpu_state();
+void updateFrame();
 
 uint16_t instruction_count = 0;
 
@@ -166,11 +166,28 @@ uint8_t PPUDATA;    // 0x2007
 //PPU helpers
 uint8_t address_latch = 0x00;
 uint8_t ppu_data_buffer = 0x00;
-uint16_t ppu_address = 0x0000;
+
+//loopy register
+typedef union {
+    struct {
+        uint16_t coarse_x : 5;
+        uint16_t coarse_y : 5;
+        uint16_t nametable_x : 1;
+        uint16_t nametable_y : 1;
+        uint16_t fine_y : 3;
+        uint16_t unused : 1;
+    };
+    uint8_t reg;
+} LOOPY;
+
+LOOPY vram_address;
+LOOPY tram_address;
+
+uint8_t fine_x;
 
 //rom file vars
 uint8_t mapper = 0x00;
-uint8_t mirror_mode = 0x00;
+char* mirror_mode = 0x00;
 uint8_t prg_banks = 0x00;
 uint8_t chr_banks = 0x00;
 
@@ -181,6 +198,20 @@ uint8_t* CHR_ROM;
 //sizes
 uint32_t prg_rom_size;
 uint32_t chr_rom_size;
+
+//Nametables 2kb
+uint8_t nametables[2][1024] = {0};
+
+//rendering variables
+uint8_t bg_next_tile_id = 0x00;
+uint8_t bg_next_tile_attrib = 0x00;
+uint8_t bg_next_tile_lsb = 0x00;
+uint8_t bg_next_tile_msb = 0x00;
+
+uint16_t bg_shifter_pattern_lo = 0x0000;
+uint16_t bg_shifter_pattern_hi = 0x0000;
+uint16_t bg_shifter_attrib_lo = 0x0000;
+uint16_t bg_shifter_attrib_hi = 0x0000;
 
 //nmi bool
 bool nmi = false;
@@ -213,11 +244,49 @@ void ppuBus_write(uint16_t address, uint8_t data)
     else if (address >= 0x2000 && address <= 0x3EFF)
     {
         // Nametables
+        if (mirror_mode == "VERTICAL")
+        {
+            if (address >= 0x2000 && address <= 0x23FF)
+            {
+                nametables[0][address & 0x03FF] = data;
+            }
+            else if (address >= 0x2400 && address <= 0x27FF)
+            {
+                nametables[1][address & 0x03FF] = data;
+            }
+            else if (address >= 0x2800 && address <= 0x2BFF)
+            {
+                nametables[0][address & 0x03FF] = data;
+            }
+            else if (address >= 0x2C00 && address <= 0x2FFF)
+            {
+                nametables[1][address & 0x03FF] = data;
+            }
+        }
+        if (mirror_mode == "HORIZONTAL")
+        {
+            if (address >= 0x2000 && address <= 0x23FF)
+            {
+                nametables[0][address & 0x03FF] = data;
+            }
+            else if (address >= 0x2400 && address <= 0x27FF)
+            {
+                nametables[0][address & 0x03FF] = data;
+            }
+            else if (address >= 0x2800 && address <= 0x2BFF)
+            {
+                nametables[1][address & 0x03FF] = data;
+            }
+            else if (address >= 0x2C00 && address <= 0x2FFF)
+            {
+                nametables[1][address & 0x03FF] = data;
+            }
+        }
     }
     else if (address >= 0x3F00 && address <= 0x3FFF)
     {
         // Palette
-        address &= 0x1F;
+        address &= 0x001F;
         if (address == 0x0010) address = 0x0000;
         if (address == 0x0014) address = 0x0004;
         if (address == 0x0018) address = 0x0008;
@@ -236,11 +305,51 @@ uint8_t ppuBus_read(uint16_t address)
     else if (address >= 0x2000 && address <= 0x3EFF)
     {
         // Nametables
+        if (mirror_mode == "VERTICAL")
+        {
+            //vertical
+            if (address >= 0x0000 && address <= 0x03FF)
+            {
+                return nametables[0][address & 0x03FF];
+            }
+            if (address >= 0x0400 && address <= 0x07FF)
+            {
+                return nametables[1][address & 0x03FF];
+            }
+            if (address >= 0x0800 && address <= 0x0BFF)
+            {
+                return nametables[0][address & 0x03FF];
+            }
+            if (address >= 0x0C00 && address <= 0x0FFF)
+            {
+                return nametables[1][address & 0x03FF];
+            }
+        }
+        if (mirror_mode == "HORIZONTAL")
+        {
+            //horizontal
+            if (address >= 0x0000 && address <= 0x03FF)
+            {
+                return nametables[0][address & 0x03FF];
+            }
+            if (address >= 0x0400 && address <= 0x07FF)
+            {
+                return nametables[0][address & 0x03FF];
+            }
+            if (address >= 0x0800 && address <= 0x0BFF)
+            {
+                return nametables[1][address & 0x03FF];
+            }
+            if (address >= 0x0C00 && address <= 0x0FFF)
+            {
+                return nametables[1][address & 0x03FF];
+            }
+        }
     }
     else if (address >= 0x3F00 && address <= 0x3FFF)
     {
         // Palette
-        address &= 0x1F;
+        address &= 0x001F;
         if (address == 0x0010) address = 0x0000;
         if (address == 0x0014) address = 0x0004;
         if (address == 0x0018) address = 0x0008;
@@ -311,6 +420,8 @@ void cpuBus_write(uint16_t address, uint8_t data)
         case 0:
             //PPUCTRL
             ppu_ctrl.reg = data;
+            tram_address.nametable_x = ppu_ctrl.nametable_x;
+            tram_address.nametable_y = ppu_ctrl.nametable_y;
             break;
         case 1:
             //PPUMASK
@@ -324,24 +435,37 @@ void cpuBus_write(uint16_t address, uint8_t data)
             break;
         case 5:
             //PPUSCROLL
+            if (address_latch == 0)
+            {
+                fine_x = data & 0x07;
+                tram_address.coarse_x = data >> 3;
+                address_latch = 1;
+            }
+            else
+            {
+                tram_address.fine_y = data & 0x07;
+                tram_address.coarse_y = data >> 3;
+                address_latch = 0;
+            }
             break;
         case 6:
             //PPUADDR
             if (address_latch == 0)
             {
-                ppu_address = (ppu_address & 0x00FF) | (data << 8);
+                tram_address.reg = (tram_address.reg & 0x00FF) | (data << 8);
                 address_latch = 1;
             }
             else
             {
-                ppu_address = (ppu_address & 0xFF00) | data;
+                tram_address.reg = (tram_address.reg & 0xFF00) | data;
+                vram_address.reg = tram_address.reg;
                 address_latch = 0;
             }
             break;
         case 7:
             //PPUDATA
-            ppuBus_write(ppu_address, data);
-            ppu_address++;
+            ppuBus_write(tram_address.reg, data);
+            tram_address.reg += (ppu_ctrl.increment_mode ? 32 : 1);
             break;
         }
         
@@ -399,13 +523,13 @@ uint8_t cpuBus_read(uint16_t address)
         case 7:
             //PPUDATA
             data = ppu_data_buffer;
-            ppu_data_buffer = ppuBus_read(ppu_address);
+            ppu_data_buffer = ppuBus_read(vram_address.reg);
 
-            if (ppu_address >= 0x3F00 && ppu_address <= 0x3FFF)
+            if (vram_address.reg >= 0x3F00 && vram_address.reg <= 0x3FFF)
             {
                 data = ppu_data_buffer;
             }
-            ppu_address++;
+            vram_address.reg += (ppu_ctrl.increment_mode ? 32 : 1);
             break;
         }
     }
@@ -1631,324 +1755,6 @@ opcode get_opcode(uint8_t input) {
     return opcode_obj;
 }
 
-uint8_t clock_print_flag = 0;
-uint8_t single_instruction_latch = 0;
-
-uint16_t ppu_cycle = 0;
-int ppu_scanline = 0;
-bool frame_complete = false;
-
-void setMainPixel(uint8_t x, uint8_t y, uint8_t red, uint8_t green, uint8_t blue)
-{
-    r[x + (y * 256)] = red;
-    g[x + (y * 256)] = green;
-    b[x + (y * 256)] = blue;
-}
-
-void ppu_clock()
-{
-    if (ppu_scanline == -1 && ppu_cycle == 1)
-    {
-        ppu_status.vertical_blank = 0;
-    }
-
-    if (ppu_scanline == 241 && ppu_cycle == 1)
-    {
-        ppu_status.vertical_blank = 1;
-        if (ppu_ctrl.enable_nmi)
-        {
-            nmi = true;
-        }
-    }
-
-    uint8_t random = (uint8_t)rand() % 256;
-    if (ppu_scanline < 240 && ppu_cycle < 256)
-    {
-        setMainPixel(ppu_cycle, ppu_scanline, random, random, random);
-    }
-    ppu_cycle++;
-    if (ppu_cycle >= 341)
-    {
-        ppu_cycle = 0;
-        ppu_scanline++;
-        if (ppu_scanline >= 261)
-        {
-            ppu_scanline = -1;
-            frame_complete = true;
-        }
-    }
-}
-
-void reset()
-{
-    accumulator = 0x00;
-    x_register = 0x00;
-    y_register = 0x00;
-    stack_pointer = 0xFD;
-    status_register = 0x00 | (1 << 5);
-
-    program_counter = cpuBus_read(0xFFFC) | (cpuBus_read(0xFFFD) << 8);
-
-    data_at_absolute = 0x00;
-    absolute_address = 0x0000;
-    relative_address = 0x00;
-    cycles = 7;
-    //nestest specific
-    status_register = 0x24;
-}
-
-void interrupt_request()
-{
-    if (check_flag(I_flag) != 1)
-    {
-        //pc to stack
-        cpuBus_write(0x0100 + stack_pointer, (program_counter >> 8) & 0x00FF);
-        stack_pointer--;
-        cpuBus_write(0x0100 + stack_pointer, program_counter & 0x00FF);
-        stack_pointer--;
-
-        //set flags
-        set_flag(B_flag, false);
-        set_flag(U_flag, true);
-        set_flag(I_flag, true);
-
-        //save flags to stack
-        cpuBus_write(0x0100 + stack_pointer, status_register);
-
-        //new pc hard coded
-        absolute_address = 0xFFFE;
-        uint8_t low = cpuBus_read(absolute_address);
-        uint8_t high = cpuBus_read(absolute_address + 1) << 8;
-
-        //combine
-        program_counter = high | low;
-
-        cycles = 7;
-
-    }
-}
-
-void non_maskable_interrupt()
-{
-    //pc to stack
-    cpuBus_write(0x0100 + stack_pointer, (program_counter >> 8) & 0x00FF);
-    stack_pointer--;
-    cpuBus_write(0x0100 + stack_pointer, program_counter & 0x00FF);
-    stack_pointer--;
-
-    //set flags
-    set_flag(B_flag, false);
-    set_flag(U_flag, true);
-    set_flag(I_flag, true);
-
-    //save flags to stack
-    cpuBus_write(0x0100 + stack_pointer, status_register);
-
-    //new pc hard coded
-    absolute_address = 0xFFFA;
-    uint8_t low = cpuBus_read(absolute_address);
-    uint8_t high = cpuBus_read(absolute_address + 1);
-
-    //combine
-    program_counter = (high << 8) | low;
-
-    cycles = 8;
-}
-
-void set_flag(uint8_t flag, bool value)
-{
-    if (value == true)
-    {
-        if (check_flag(flag) == 0)
-        {
-            status_register += flag;
-        }
-    }
-    else
-    {
-        if (check_flag(flag) == 1)
-        {
-            status_register -= flag;
-        }
-    }
-}
-uint8_t check_flag(uint8_t flag)
-{
-    //0000 0000
-    //0000 0000
-    //NVUB DIZC
-    if ((status_register & flag) == flag)
-    {
-        return 1;
-    }
-    else
-    {
-        return 0;
-    }
-}
-
-//initializes cpu
-void initialize_cpu()
-{
-    //sets cpu stuff to zero and ram as well
-    uint8_t accumulator = 0x00;
-    uint8_t x_register = 0x00;
-    uint8_t y_register = 0x00;
-
-    uint16_t program_counter = 0x8000;
-    uint8_t stack_pointer = 0xFD;
-    uint8_t status_register = 0x00;
-
-    uint8_t current_opcode = 0x00;
-    uint8_t cycles = 0x00;
-
-    for (int i = 0; i < sizeof(cpuRam); i++)
-    {
-        //make sure ram is zerod
-        cpuRam[i] = 0x00;
-    }
-
-}
-
-void load_rom(char* filename)
-{
-    //CPU BUS SPECIFICATIONS:
-
-    //0x0000-0x07FF: 2KB Ram
-    //0x0800-0x0FFF: Mirrors of 0x0000-0x07FF
-    //0x1000-0x17FF: Mirrors of 0x0000-0x07FF
-    //0x1800-0x1FFF: Mirrors of 0x0000-0x07FF
-    //0x2000-0x2007: PPU registers
-    //0x2008-0x3FFF: Mirrors of PPU registers
-    //0x4000-0x4017: APU and I/O registers
-    //0x4018-0x401F: APU and I/O functionality that is normally disabled
-    //0x4020-0xFFFF: Cartridge space: PRG ROM, PRG RAM, and mapper registers
-
-    //PPU BUS SPECIFICATIONS:
-
-    //0x0000-0x0FFF: Pattern table 0
-    //0x1000-0x1FFF: Pattern table 1
-    //0x2000-0x23FF: Nametable 0
-    //0x2400-0x27FF: Nametable 1
-    //0x2800-0x2BFF: Nametable 2
-    //0x2C00-0x2FFF: Nametable 3
-    //0x3000-0x3EFF: Mirrors of 0x2000-0x2EFF
-    //0x3F00-0x3F1F: Palette RAM indexes
-    //0x3F20-0x3FFF: Mirrors of 0x3F00-0x3F1F
-
-    FILE* file = fopen(filename, "rb");
-    if (file == NULL)
-    {
-        printf("Error: Could not open file %s\n", filename);
-        exit(1);
-    }
-
-    // read iNES header
-    unsigned char header[16] = {0};
-    fread(header, sizeof(unsigned char), 16, file);
-
-    // check for valid iNES header
-    if (header[0] != 'N' || header[1] != 'E' || header[2] != 'S' || header[3] != 0x1A)
-    {
-        printf("Error: Invalid iNES header\n");
-        exit(1);
-    }
-    printf("iNES header found and valid\n");
-
-    // extract PRG ROM data
-    prg_rom_size = header[4] * 16384;
-    unsigned char* prg_rom = malloc(prg_rom_size);
-    fread(prg_rom, sizeof(unsigned char), prg_rom_size, file);
-
-    printf("PRG ROM size: %d bytes\n", prg_rom_size);
-
-    // extract CHR ROM data
-    chr_rom_size = header[5] * 8192;
-    unsigned char* chr_rom = malloc(chr_rom_size);
-    fread(chr_rom, sizeof(unsigned char), chr_rom_size, file);
-
-    printf("CHR ROM size: %d bytes\n", chr_rom_size);
-
-    // extract mapper number
-    int mapper_num = ((header[6] >> 4) & 0x0F) | (header[7] & 0xF0);
-
-    printf("Mapper number: %d\n", mapper_num);
-
-    // extract mirroring mode
-    int mirroring_mode = (header[6] & 0x01) ? 1 : 0;
-
-    printf("Mirroring mode: %s\n", mirroring_mode ? "vertical" : "horizontal");
-
-    // extract battery-backed PRG RAM size
-    int prg_ram_size = header[8] * 8192;
-
-    // extract trainer data
-    int trainer_size = (header[6] & 0x04) ? 512 : 0;
-    unsigned char* trainer_data = malloc(trainer_size);
-    if (trainer_size > 0)
-    {
-        fread(trainer_data, sizeof(unsigned char), trainer_size, file);
-    }
-
-    // extract palette data
-    int palette_data_offset = 16 + prg_rom_size + chr_rom_size + trainer_size;
-    unsigned char palette_data[32];
-    fseek(file, palette_data_offset, SEEK_SET);
-    fread(palette_data, sizeof(unsigned char), 32, file);
-
-    //resize PRG_ROM and CHR_ROM
-    PRG_ROM = realloc(PRG_ROM, prg_rom_size);
-    CHR_ROM = realloc(CHR_ROM, chr_rom_size);
-
-
-    //load CHR_ROM
-    for (int i = 0; i < chr_rom_size; i++)
-    {
-        CHR_ROM[i] = chr_rom[i];
-    }
-
-    //load PRG_ROM
-    for (int i = 0; i < prg_rom_size; i++)
-    {
-        PRG_ROM[i] = prg_rom[i];
-    }
-
-    //load palette
-    for (int i = 0; i < 32; i++)
-    {
-        ppuBus_write(0x3F00 + i, palette_data[i]);
-    }
-    
-    //dump PRG ROM data to file
-    FILE* prg_rom_dump = fopen("prg_rom_dump.bin", "wb");
-    fwrite(prg_rom, sizeof(unsigned char), prg_rom_size, prg_rom_dump);
-    fclose(prg_rom_dump);
-
-    //dump CHR ROM data to file
-    FILE* chr_rom_dump = fopen("chr_rom_dump.bin", "wb");
-    fwrite(chr_rom, sizeof(unsigned char), chr_rom_size, chr_rom_dump);
-    fclose(chr_rom_dump);
-
-    //dump palette data to file
-    FILE* palette_data_dump = fopen("palette_data_dump.bin", "wb");
-    fwrite(palette_data, sizeof(unsigned char), 32, palette_data_dump);
-    fclose(palette_data_dump);
-
-    free(prg_rom);
-    free(chr_rom);
-    free(trainer_data);
-    fclose(file);
-}
-
-void print_ram_state(int depth, int start_position)
-{
-    depth = depth + start_position;
-    for (int i = start_position; i < depth; i++)
-    {
-        printf("cpuBus[0x%x]: 0x%x\n", i, cpuRam[i]);
-    }
-}
-
 uint8_t palette_colors[64][3] = {
     { 84, 84, 84 },
     { 0, 30, 116 },
@@ -2016,9 +1822,431 @@ uint8_t palette_colors[64][3] = {
     { 0, 0, 0 }
 };
 
+
 uint8_t* getRGBvaluefromPalette(uint8_t palette, uint8_t pixel)
 {
     return palette_colors[ppu_palette[palette * 4 + pixel]];
+}
+
+uint8_t clock_print_flag = 0;
+uint8_t single_instruction_latch = 0;
+
+uint16_t ppu_cycle = 0;
+int ppu_scanline = 0;
+bool frame_complete = false;
+
+void setMainPixel(uint8_t x, uint8_t y, uint8_t red, uint8_t green, uint8_t blue)
+{
+    r[x + (y * 256)] = red;
+    g[x + (y * 256)] = green;
+    b[x + (y * 256)] = blue;
+}
+
+void ppu_update_shifters()
+{
+    if (ppu_mask.render_background)
+    {
+        bg_shifter_pattern_lo = (bg_shifter_pattern_lo & 0xFF00) | bg_next_tile_lsb;
+        bg_shifter_pattern_hi = (bg_shifter_pattern_hi & 0xFF00) | bg_next_tile_msb;
+
+        bg_shifter_attrib_lo = (bg_shifter_attrib_lo & 0xFF00) | ((bg_next_tile_attrib & 0b01) ? 0xFF : 0x00);
+        bg_shifter_attrib_hi = (bg_shifter_attrib_hi & 0xFF00) | ((bg_next_tile_attrib & 0b10) ? 0xFF : 0x00);
+    }
+}
+
+void ppu_load_background_shifters()
+{
+    bg_shifter_pattern_lo = (bg_shifter_pattern_lo & 0xFF00) | bg_next_tile_lsb;
+    bg_shifter_pattern_hi = (bg_shifter_pattern_hi & 0xFF00) | bg_next_tile_msb;
+
+    bg_shifter_attrib_lo = (bg_shifter_attrib_lo & 0xFF00) | ((bg_next_tile_attrib & 0b01) ? 0xFF : 0x00);
+    bg_shifter_attrib_hi = (bg_shifter_attrib_hi & 0xFF00) | ((bg_next_tile_attrib & 0b10) ? 0xFF : 0x00);
+}
+
+void ppu_increment_scroll_x()
+{
+    if (ppu_mask.render_background || ppu_mask.render_sprites)
+    {
+        if (vram_address.coarse_x == 31)
+        {
+            vram_address.coarse_x = 0;
+            vram_address.nametable_x = ~vram_address.nametable_x;
+        }
+        else
+        {
+            vram_address.coarse_x++;
+        }
+    }
+}
+
+void ppu_increment_scroll_y()
+{
+    if (ppu_mask.render_background || ppu_mask.render_sprites)
+    {
+        if (vram_address.fine_y < 7)
+        {
+            vram_address.fine_y++;
+        }
+        else
+        {
+            vram_address.fine_y = 0;
+
+            if (vram_address.coarse_y == 29)
+            {
+                vram_address.coarse_y = 0;
+                vram_address.nametable_y = ~vram_address.nametable_y;
+            }
+            else if (vram_address.coarse_y == 31)
+            {
+                vram_address.coarse_y = 0;
+            }
+            else
+            {
+                vram_address.coarse_y++;
+            }
+        }
+    }
+}
+
+void ppu_transfer_address_x()
+{
+    if (ppu_mask.render_background || ppu_mask.render_sprites)
+    {
+        vram_address.nametable_x = tram_address.nametable_x;
+        vram_address.coarse_x = tram_address.coarse_x;
+    }
+}
+
+void ppu_transfer_address_y()
+{
+    if (ppu_mask.render_background || ppu_mask.render_sprites)
+    {
+        vram_address.fine_y = tram_address.fine_y;
+        vram_address.nametable_y = tram_address.nametable_y;
+        vram_address.coarse_y = tram_address.coarse_y;
+    }
+}
+
+void ppu_clock()
+{
+    if (ppu_scanline >= -1 && ppu_scanline <= 240)
+    {
+        if (ppu_scanline == -1 && ppu_cycle == 1)
+        {
+            ppu_status.vertical_blank = 0;
+        }
+
+        if ((ppu_cycle >= 2 && ppu_cycle < 258) || (ppu_cycle >= 321 && ppu_cycle < 338))
+        {
+            ppu_update_shifters();
+
+            switch ((ppu_cycle - 1) % 8)
+            {
+                case 0:
+                    ppu_load_background_shifters();
+                    bg_next_tile_id = ppuBus_read(0x2000 | (vram_address.reg & 0x0FFF));
+                    break;
+                case 2:
+                    bg_next_tile_attrib = ppuBus_read(0x23C0 | (vram_address.nametable_y << 11) | (vram_address.nametable_x << 10) | ((vram_address.coarse_y >> 2) << 3) | (vram_address.coarse_x >> 2));
+                    if (vram_address.coarse_y & 0x02) bg_next_tile_attrib >>= 4;
+                    if (vram_address.coarse_x & 0x02) bg_next_tile_attrib >>= 2;
+                    bg_next_tile_attrib &= 0x03;
+                    break;
+                case 4:
+                    bg_next_tile_lsb = ppuBus_read((ppu_ctrl.pattern_background << 12) + ((uint16_t)bg_next_tile_id << 4) + (vram_address.fine_y) + 0);
+                    break;
+                case 6:
+                    bg_next_tile_msb = ppuBus_read((ppu_ctrl.pattern_background << 12) + ((uint16_t)bg_next_tile_id << 4) + (vram_address.fine_y) + 8);
+                    break;
+                case 7:
+                    ppu_increment_scroll_x();
+                    break;
+            }
+        }
+
+        if (ppu_cycle == 256)
+        {
+            ppu_increment_scroll_y();
+        }
+        if (ppu_cycle == 257)
+        {
+            ppu_transfer_address_x();
+        }
+
+        if (ppu_scanline == -1 && ppu_cycle >= 280 && ppu_cycle < 305)
+        {
+            ppu_transfer_address_y();
+        }
+
+    }
+
+    if (ppu_scanline == 241 && ppu_cycle == 1)
+    {
+        ppu_status.vertical_blank = 1;
+        if (ppu_ctrl.enable_nmi)
+        {
+            nmi = true;
+        }
+    }
+
+    uint8_t bg_pixel = 0x00;
+    uint8_t bg_palette = 0x00;
+
+    if (ppu_mask.render_background)
+    {
+        uint16_t bit_mux = 0x8000 >> fine_x;
+
+        uint8_t p0_pixel = (bg_shifter_pattern_lo & bit_mux) > 0;
+        uint8_t p1_pixel = (bg_shifter_pattern_hi & bit_mux) > 0;
+        bg_pixel = (p1_pixel << 1) | p0_pixel;
+
+        uint8_t bg_pal0 = (bg_shifter_attrib_lo & bit_mux) > 0;
+        uint8_t bg_pal1 = (bg_shifter_attrib_hi & bit_mux) > 0;
+        bg_palette = (bg_pal1 << 1) | bg_pal0;
+
+        uint8_t* rgb_pixel = getRGBvaluefromPalette(bg_palette, bg_pixel);
+        
+        if (ppu_scanline < 240 && ppu_cycle < 256)
+        {
+            setMainPixel(ppu_cycle - 1, ppu_scanline, rgb_pixel[0], rgb_pixel[1], rgb_pixel[2]);
+        }
+
+
+    }
+
+    ppu_cycle++;
+    if (ppu_cycle >= 341)
+    {
+        ppu_cycle = 0;
+        ppu_scanline++;
+        if (ppu_scanline >= 261)
+        {
+            ppu_scanline = -1;
+            frame_complete = true;
+        }
+    }
+}
+
+void reset()
+{
+    accumulator = 0x00;
+    x_register = 0x00;
+    y_register = 0x00;
+    stack_pointer = 0xFD;
+    status_register = 0x00 | (1 << 5);
+
+    program_counter = cpuBus_read(0xFFFC) | (cpuBus_read(0xFFFD) << 8);
+
+    data_at_absolute = 0x00;
+    absolute_address = 0x0000;
+    relative_address = 0x00;
+    cycles = 7;
+    //nestest specific
+    status_register = 0x24;
+
+    //ppu
+    ppu_cycle = 0;
+    ppu_scanline = 0;
+    ppu_data_buffer = 0x00;
+    fine_x = 0x00;
+    bg_next_tile_id = 0x00;
+    bg_next_tile_attrib = 0x00;
+    bg_next_tile_lsb = 0x00;
+    bg_next_tile_msb = 0x00;
+    bg_shifter_pattern_lo = 0x0000;
+    bg_shifter_pattern_hi = 0x0000;
+    bg_shifter_attrib_lo = 0x0000;
+    bg_shifter_attrib_hi = 0x0000;
+    ppu_data_buffer = 0x00;
+    ppu_scanline = 0;
+    ppu_cycle = 0;
+}
+
+void interrupt_request()
+{
+    if (check_flag(I_flag) != 1)
+    {
+        //pc to stack
+        cpuBus_write(0x0100 + stack_pointer, (program_counter >> 8) & 0x00FF);
+        stack_pointer--;
+        cpuBus_write(0x0100 + stack_pointer, program_counter & 0x00FF);
+        stack_pointer--;
+
+        //set flags
+        set_flag(B_flag, false);
+        set_flag(U_flag, true);
+        set_flag(I_flag, true);
+
+        //save flags to stack
+        cpuBus_write(0x0100 + stack_pointer, status_register);
+
+        //new pc hard coded
+        absolute_address = 0xFFFE;
+        uint8_t low = cpuBus_read(absolute_address);
+        uint8_t high = cpuBus_read(absolute_address + 1) << 8;
+
+        //combine
+        program_counter = high | low;
+
+        cycles = 7;
+
+    }
+}
+
+void non_maskable_interrupt()
+{
+    //pc to stack
+    cpuBus_write(0x0100 + stack_pointer, (program_counter >> 8) & 0x00FF);
+    stack_pointer--;
+    cpuBus_write(0x0100 + stack_pointer, program_counter & 0x00FF);
+    stack_pointer--;
+
+    //set flags
+    set_flag(B_flag, false);
+    set_flag(U_flag, true);
+    set_flag(I_flag, true);
+
+    //save flags to stack
+    cpuBus_write(0x0100 + stack_pointer, status_register);
+
+    //new pc hard coded
+    absolute_address = 0xFFFA;
+    uint8_t low = cpuBus_read(absolute_address);
+    uint8_t high = cpuBus_read(absolute_address + 1) << 8;
+
+    //combine
+    program_counter = high | low;
+
+    cycles = 8;
+}
+
+void set_flag(uint8_t flag, bool value)
+{
+    if (value == true)
+    {
+        if (check_flag(flag) == 0)
+        {
+            status_register += flag;
+        }
+    }
+    else
+    {
+        if (check_flag(flag) == 1)
+        {
+            status_register -= flag;
+        }
+    }
+}
+uint8_t check_flag(uint8_t flag)
+{
+    //0000 0000
+    //0000 0000
+    //NVUB DIZC
+    if ((status_register & flag) == flag)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+//initializes cpu
+void initialize_cpu()
+{
+    //sets cpu stuff to zero and ram as well
+    uint8_t accumulator = 0x00;
+    uint8_t x_register = 0x00;
+    uint8_t y_register = 0x00;
+
+    uint16_t program_counter = 0x8000;
+    uint8_t stack_pointer = 0xFD;
+    uint8_t status_register = 0x00;
+
+    uint8_t current_opcode = 0x00;
+    uint8_t cycles = 0x00;
+
+    for (int i = 0; i < sizeof(cpuRam); i++)
+    {
+        //make sure ram is zerod
+        cpuRam[i] = 0x00;
+    }
+
+}
+
+void load_rom(char* filename)
+{
+    FILE* file = fopen(filename, "rb");
+    if (file == NULL)
+    {
+        printf("Error: Could not open file %s\n", filename);
+        exit(1);
+    }
+
+    // read iNES header
+    unsigned char header[16] = {0};
+    fread(header, sizeof(unsigned char), 16, file);
+
+    // check for valid iNES header
+    if (header[0] != 'N' || header[1] != 'E' || header[2] != 'S' || header[3] != 0x1A)
+    {
+        printf("Error: Invalid iNES header\n");
+        exit(1);
+    }
+    printf("iNES header found and valid\n");
+
+    //mirroring mode
+    if ((header[6] & 0x01) == 0x01)
+    {
+        mirror_mode = "VERTICAL";
+    }
+    else
+    {
+        mirror_mode = "HORIZONTAL";
+    }
+
+    // extract PRG ROM data
+    prg_rom_size = header[4] * 16384;
+    PRG_ROM = malloc(prg_rom_size);
+    fread(PRG_ROM, sizeof(unsigned char), prg_rom_size, file);
+
+    printf("PRG ROM size: %d bytes\n", prg_rom_size);
+
+    // extract CHR ROM data
+    chr_rom_size = header[5] * 8192;
+    CHR_ROM = malloc(chr_rom_size);
+    fread(CHR_ROM, sizeof(unsigned char), chr_rom_size, file);
+
+    printf("CHR ROM size: %d bytes\n", chr_rom_size);
+
+    //dump CHR ROM to file
+    FILE* chr_rom_file = fopen("chr_rom_dump.bin", "wb");
+    fwrite(CHR_ROM, sizeof(unsigned char), chr_rom_size, chr_rom_file);
+    fclose(chr_rom_file);
+
+    //dump PRG ROM to file
+    FILE* prg_rom_file = fopen("prg_rom_dump.bin", "wb");
+    fwrite(PRG_ROM, sizeof(unsigned char), prg_rom_size, prg_rom_file);
+    fclose(prg_rom_file);
+
+    //since palettes are broken, just for visuals
+    for (int i = 0; i < 32; i++)
+    {
+        ppu_palette[i] = 32 - i;
+    }
+
+
+    fclose(file);
+}
+
+void print_ram_state(int depth, int start_position)
+{
+    depth = depth + start_position;
+    for (int i = start_position; i < depth; i++)
+    {
+        printf("cpuBus[0x%x]: 0x%x\n", i, cpuRam[i]);
+    }
 }
 
 void updateFrame() {
@@ -2420,7 +2648,7 @@ int main(int argc, char* argv[])
     load_rom("nestest.nes");
     reset();
 
-   SDL_Init(SDL_INIT_VIDEO);
+    SDL_Init(SDL_INIT_VIDEO);
 
     window = SDL_CreateWindow("Nes Emulator", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH * 3, HEIGHT * 3, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
