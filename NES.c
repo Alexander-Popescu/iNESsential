@@ -228,8 +228,11 @@ bool run_single_cycle = false;
 #define HEIGHT 240
 
 SDL_Window* window;
+SDL_Window* debug_window;
 SDL_Renderer* renderer;
+SDL_Renderer* debug_renderer;
 SDL_Texture* texture;
+SDL_Texture* debug_texture;
 uint8_t r[WIDTH * HEIGHT];
 uint8_t g[WIDTH * HEIGHT];
 uint8_t b[WIDTH * HEIGHT];
@@ -267,8 +270,68 @@ bool mapper_0_ppu(uint16_t address, uint32_t* mapped_address)
     return false;
 }
 
+bool cartridgeBus_cpu_read(uint16_t address, uint8_t* data)
+{
+    uint32_t mapped_address = 0;
+    if (mapper_0(address, &mapped_address))
+    {
+        *data = PRG_ROM[mapped_address];
+        return  true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool cartridgeBus_cpu_write(uint16_t address, uint8_t data)
+{
+    uint32_t mapped_address = 0;
+    if (mapper_0(address, &mapped_address))
+    {
+        PRG_ROM[mapped_address] = data;
+        return  true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool cartridgeBus_ppu_read(uint16_t address, uint8_t* data)
+{
+    uint32_t mapped_address = 0;
+    if (mapper_0_ppu(address, &mapped_address))
+    {
+        *data = CHR_ROM[mapped_address];
+        return  true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool cartridgeBus_ppu_write(uint16_t address, uint8_t data)
+{
+    uint32_t mapped_address = 0;
+    if (mapper_0_ppu(address, &mapped_address))
+    {
+        CHR_ROM[mapped_address] = data;
+        return  true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
 void ppuBus_write(uint16_t address, uint8_t data)
 {
+    if (cartridgeBus_ppu_write(address, data))
+    {
+        return;
+    }
     if (address >= 0x0000 && address <= 0x1FFF)
     {
         // CHR ROM
@@ -330,10 +393,16 @@ void ppuBus_write(uint16_t address, uint8_t data)
 
 uint8_t ppuBus_read(uint16_t address)
 {
-    if (address >= 0x0000 && address <= 0x1FFF)
+    uint8_t data = 0x00;
+
+    if (cartridgeBus_ppu_read(address, &data))
+    {
+
+    }
+    else if (address >= 0x0000 && address <= 0x1FFF)
     {
         // CHR ROM
-        return CHR_ROM[address];
+        data = CHR_ROM[address];
     }
     else if (address >= 0x2000 && address <= 0x3EFF)
     {
@@ -343,19 +412,19 @@ uint8_t ppuBus_read(uint16_t address)
             //vertical
             if (address >= 0x0000 && address <= 0x03FF)
             {
-                return nametables[0][address & 0x03FF];
+                data = nametables[0][address & 0x03FF];
             }
             if (address >= 0x0400 && address <= 0x07FF)
             {
-                return nametables[1][address & 0x03FF];
+                data = nametables[1][address & 0x03FF];
             }
             if (address >= 0x0800 && address <= 0x0BFF)
             {
-                return nametables[0][address & 0x03FF];
+                data = nametables[0][address & 0x03FF];
             }
             if (address >= 0x0C00 && address <= 0x0FFF)
             {
-                return nametables[1][address & 0x03FF];
+                data = nametables[1][address & 0x03FF];
             }
         }
         if (mirror_mode == "HORIZONTAL")
@@ -363,19 +432,19 @@ uint8_t ppuBus_read(uint16_t address)
             //horizontal
             if (address >= 0x0000 && address <= 0x03FF)
             {
-                return nametables[0][address & 0x03FF];
+                data = nametables[0][address & 0x03FF];
             }
             if (address >= 0x0400 && address <= 0x07FF)
             {
-                return nametables[0][address & 0x03FF];
+                data = nametables[0][address & 0x03FF];
             }
             if (address >= 0x0800 && address <= 0x0BFF)
             {
-                return nametables[1][address & 0x03FF];
+                data = nametables[1][address & 0x03FF];
             }
             if (address >= 0x0C00 && address <= 0x0FFF)
             {
-                return nametables[1][address & 0x03FF];
+                data = nametables[1][address & 0x03FF];
             }
         }
     }
@@ -387,66 +456,10 @@ uint8_t ppuBus_read(uint16_t address)
         if (address == 0x0014) address = 0x0004;
         if (address == 0x0018) address = 0x0008;
         if (address == 0x001C) address = 0x000C;
-        return ppu_palette[address];
+        data = ppu_palette[address];
     }
     // Invalid address
-    return 0;
-}
-
-bool cartridgeBus_cpu_read(uint16_t address, uint8_t* data)
-{
-    uint32_t mapped_address = 0;
-    if (mapper_0(address, &mapped_address))
-    {
-        *data = PRG_ROM[mapped_address];
-        return  true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
-bool cartridgeBus_cpu_write(uint16_t address, uint8_t data)
-{
-    uint32_t mapped_address = 0;
-    if (mapper_0(address, &mapped_address))
-    {
-        PRG_ROM[mapped_address] = data;
-        return  true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
-bool cartridgeBus_ppu_read(uint16_t address, uint8_t* data)
-{
-    uint32_t mapped_address = 0;
-    if (mapper_0_ppu(address, &mapped_address))
-    {
-        *data = CHR_ROM[mapped_address];
-        return  true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
-bool cartridgeBus_ppu_write(uint16_t address, uint8_t data)
-{
-    uint32_t mapped_address = 0;
-    if (mapper_0_ppu(address, &mapped_address))
-    {
-        CHR_ROM[mapped_address] = data;
-        return  true;
-    }
-    else
-    {
-        return false;
-    }
+    return data;
 }
 
 void cpuBus_write(uint16_t address, uint8_t data)
@@ -1871,7 +1884,7 @@ uint8_t* getRGBvaluefromPalette(uint8_t palette, uint8_t pixel)
     return palette_colors[ppu_palette[palette * 4 + pixel]];
 }
 
-uint8_t clock_print_flag = 0;
+uint8_t clock_print_flag = 1;
 uint8_t single_instruction_latch = 0;
 
 uint16_t ppu_cycle = 0;
@@ -2654,7 +2667,7 @@ uint32_t system_clock_count = 0x00;
 
 void bus_clock()
 {
-    ppu_clock();
+    //ppu_clock();
     if (system_clock_count % 3 == 0)
     {
         clock();
@@ -2694,7 +2707,10 @@ int main(int argc, char* argv[])
     SDL_Init(SDL_INIT_VIDEO);
 
     window = SDL_CreateWindow("Nes Emulator", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH * 3, HEIGHT * 3, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+    debug_window = SDL_CreateWindow("Debug", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 500, 500, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    debug_renderer = SDL_CreateRenderer(debug_window, -1, SDL_RENDERER_ACCELERATED);
 
     // Fill RGB data with example values
     for (int i = 0; i < WIDTH * HEIGHT; i++) {
@@ -2705,6 +2721,7 @@ int main(int argc, char* argv[])
 
     // Create texture from RGB data
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
+    debug_texture = SDL_CreateTexture(debug_renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, 500, 500);
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 
     // Render initial frame
@@ -2756,6 +2773,10 @@ int main(int argc, char* argv[])
                     //run single frame
                     run_single_cycle = true;
                 }
+                if (event.key.keysym.sym == SDLK_ESCAPE) {
+                    // Exit main loop
+                    return 0;
+                }
             }
             //maintain aspect ratio
             if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
@@ -2783,6 +2804,9 @@ int main(int argc, char* argv[])
     SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    SDL_DestroyTexture(debug_texture);
+    SDL_DestroyRenderer(debug_renderer);
+    SDL_DestroyWindow(debug_window);
     SDL_Quit();
 
     return 0;
