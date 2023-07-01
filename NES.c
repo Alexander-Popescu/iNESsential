@@ -234,6 +234,39 @@ uint8_t r[WIDTH * HEIGHT];
 uint8_t g[WIDTH * HEIGHT];
 uint8_t b[WIDTH * HEIGHT];
 
+bool mapper_0(uint16_t address, uint32_t* mapped_address)
+{
+    if (address >= 0x8000 && address <= 0xFFFF)
+    {
+        if (prg_rom_size == 0x4000)
+        {
+            *mapped_address = address & 0x3FFF;
+            return true;
+        }
+        else if (prg_rom_size == 0x8000)
+        {
+            *mapped_address = address & 0x7FFF;
+            return true;
+        }
+    }
+
+    return false;
+        
+}
+
+bool mapper_0_ppu(uint16_t address, uint32_t* mapped_address)
+{
+    if (address >= 0x0000 && address <= 0x1FFF)
+    {
+        if (chr_rom_size == 0x2000)
+        {
+            *mapped_address = address;
+            return true;
+        }
+    }
+    return false;
+}
+
 void ppuBus_write(uint16_t address, uint8_t data)
 {
     if (address >= 0x0000 && address <= 0x1FFF)
@@ -360,54 +393,69 @@ uint8_t ppuBus_read(uint16_t address)
     return 0;
 }
 
-uint8_t cartridgeBus_read(uint16_t address)
+bool cartridgeBus_cpu_read(uint16_t address, uint8_t* data)
 {
-    if (address >= 0x8000 && address <= 0xFFFF)
+    uint32_t mapped_address = 0;
+    if (mapper_0(address, &mapped_address))
     {
-        // Read from PRG ROM
-        return PRG_ROM[(address - 0x8000) % prg_rom_size];
-    }
-    else if (address >= 0x6000 && address <= 0x7FFF)
-    {
-        // Read from PRG RAM
-        return PRG_ROM[address - 0x6000];
-    }
-    else if (address >= 0x0000 && address <= 0x1FFF)
-    {
-        // Read from CHR ROM
-        return CHR_ROM[address % chr_rom_size];
+        *data = PRG_ROM[mapped_address];
+        return  true;
     }
     else
     {
-        // Invalid address
-        return 0;
+        return false;
     }
 }
 
-void cartridgeBus_write(uint16_t address, uint8_t data)
+bool cartridgeBus_cpu_write(uint16_t address, uint8_t data)
 {
-    if (address >= 0x8000 && address <= 0xFFFF)
+    uint32_t mapped_address = 0;
+    if (mapper_0(address, &mapped_address))
     {
-        // Write to PRG ROM (not allowed)
-    }
-    else if (address >= 0x6000 && address <= 0x7FFF)
-    {
-        // Write to PRG RAM
-        PRG_ROM[address - 0x6000] = data;
-    }
-    else if (address >= 0x0000 && address <= 0x1FFF)
-    {
-        // Write to CHR ROM (not allowed)
+        PRG_ROM[mapped_address] = data;
+        return  true;
     }
     else
     {
-        // Invalid address
+        return false;
+    }
+}
+
+bool cartridgeBus_ppu_read(uint16_t address, uint8_t* data)
+{
+    uint32_t mapped_address = 0;
+    if (mapper_0_ppu(address, &mapped_address))
+    {
+        *data = CHR_ROM[mapped_address];
+        return  true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool cartridgeBus_ppu_write(uint16_t address, uint8_t data)
+{
+    uint32_t mapped_address = 0;
+    if (mapper_0_ppu(address, &mapped_address))
+    {
+        CHR_ROM[mapped_address] = data;
+        return  true;
+    }
+    else
+    {
+        return false;
     }
 }
 
 void cpuBus_write(uint16_t address, uint8_t data)
-{
-    if (address >= 0x0000 && address <= 0x1FFF)
+{   
+    if (cartridgeBus_cpu_write(address, data))
+    {
+        //cart
+    }
+    else if (address >= 0x0000 && address <= 0x1FFF)
     {
         // cpu RAM address space
         cpuRam[address % 0x0800] = data;
@@ -474,18 +522,18 @@ void cpuBus_write(uint16_t address, uint8_t data)
     {
         // write to APU and I/O registers TODO
     }
-    else if (address >= 0x4018 && address <= 0xFFFF)
-    {
-        // Handle write to cartridge space
-        cartridgeBus_write(address, data);
-    }
     // Invalid address
 }
 
 uint8_t cpuBus_read(uint16_t address)
 {
-    uint16_t data = 0;
-    if (address >= 0x0000 && address <= 0x1FFF)
+    uint8_t data = 0;
+
+    if (cartridgeBus_cpu_read(address, &data))
+    {
+        //cart
+    }
+    else if (address >= 0x0000 && address <= 0x1FFF)
     {
         // cpu RAM address space
         data = cpuRam[address % 0x0800];
@@ -536,11 +584,6 @@ uint8_t cpuBus_read(uint16_t address)
     else if (address >= 0x4000 && address <= 0x4017)
     {
         // read from APU and I/O registers TODO
-    }
-    else if (address >= 0x4018 && address <= 0xFFFF)
-    {
-        // Handle read from cartridge space
-        data = cartridgeBus_read(address);
     }
     return data;
 }
