@@ -107,9 +107,55 @@ uint8_t selected_palette = 0x00;
 uint8_t ppu_oam[0x100] = {0};
 
 // PPU registers
-uint8_t PPUCTRL;    // 0x2000
-uint8_t PPUMASK;    // 0x2001
-uint8_t PPUSTATUS;  // 0x2002
+
+
+//bitfield control register
+typedef union {
+    struct {
+        uint8_t nametable_x : 1;
+        uint8_t nametable_y : 1;
+        uint8_t increment_mode : 1;
+        uint8_t pattern_sprite : 1;
+        uint8_t pattern_background : 1;
+        uint8_t sprite_size : 1;
+        uint8_t slave_mode : 1;
+        uint8_t enable_nmi : 1;
+    };
+    uint8_t reg;
+} PPUCTRL;
+
+PPUCTRL ppu_ctrl;
+
+//bitfield mask register
+typedef union {
+    struct {
+        uint8_t grayscale : 1;
+        uint8_t render_background_left : 1;
+        uint8_t render_sprites_left : 1;
+        uint8_t render_background : 1;
+        uint8_t render_sprites : 1;
+        uint8_t enhance_red : 1;
+        uint8_t enhance_green : 1;
+        uint8_t enhance_blue : 1;
+    };
+    uint8_t reg;
+} PPUMASK;
+
+PPUMASK ppu_mask;
+
+//bitfield status register
+typedef union {
+    struct {
+        uint8_t unused : 5;
+        uint8_t sprite_overflow : 1;
+        uint8_t sprite_zero_hit : 1;
+        uint8_t vertical_blank : 1;
+    };
+    uint8_t reg;
+} PPUSTATUS;
+
+PPUSTATUS ppu_status;
+
 uint8_t OAMADDR;    // 0x2003
 uint8_t OAMDATA;    // 0x2004
 uint8_t PPUSCROLL;  // 0x2005
@@ -161,12 +207,12 @@ void ppuBus_write(uint16_t address, uint8_t data)
     else if (address >= 0x3F00 && address <= 0x3FFF)
     {
         // Palette
-        uint16_t paletteAddress = address % 0x20;
-        if (paletteAddress == 0x10 || paletteAddress == 0x14 || paletteAddress == 0x18 || paletteAddress == 0x1C)
-        {
-            paletteAddress -= 0x10;
-        }
-        ppu_palette[paletteAddress] = data;
+        address &= 0x1F;
+        if (address == 0x0010) address = 0x0000;
+        if (address == 0x0014) address = 0x0004;
+        if (address == 0x0018) address = 0x0008;
+        if (address == 0x001C) address = 0x000C;
+        ppu_palette[address] = data;
     }
 }
 
@@ -184,12 +230,12 @@ uint8_t ppuBus_read(uint16_t address)
     else if (address >= 0x3F00 && address <= 0x3FFF)
     {
         // Palette
-        uint16_t paletteAddress = address % 0x20;
-        if (paletteAddress == 0x10 || paletteAddress == 0x14 || paletteAddress == 0x18 || paletteAddress == 0x1C)
-        {
-            paletteAddress -= 0x10;
-        }
-        return ppu_palette[paletteAddress];
+        address &= 0x1F;
+        if (address == 0x0010) address = 0x0000;
+        if (address == 0x0014) address = 0x0004;
+        if (address == 0x0018) address = 0x0008;
+        if (address == 0x001C) address = 0x000C;
+        return ppu_palette[address];
     }
     // Invalid address
     return 0;
@@ -250,7 +296,45 @@ void cpuBus_write(uint16_t address, uint8_t data)
     else if (address >= 0x2000 && address <= 0x3FFF)
     {
         // Handle write to PPU registers
-        ppuBus_write(address % 8, data);
+        switch (address % 8)
+        {
+        case 0:
+            //PPUCTRL
+            ppu_ctrl.reg = data;
+            break;
+        case 1:
+            //PPUMASK
+            ppu_mask.reg = data;
+            break;
+        case 3:
+            //OAMADDR
+            break;
+        case 4:
+            //OAMDATA
+            break;
+        case 5:
+            //PPUSCROLL
+            break;
+        case 6:
+            //PPUADDR
+            if (address_latch == 0)
+            {
+                ppu_address = (ppu_address & 0x00FF) | (data << 8);
+                address_latch = 1;
+            }
+            else
+            {
+                ppu_address = (ppu_address & 0xFF00) | data;
+                address_latch = 0;
+            }
+            break;
+        case 7:
+            //PPUDATA
+            ppuBus_write(ppu_address, data);
+            ppu_address++;
+            break;
+        }
+        
     }
     else if (address >= 0x4000 && address <= 0x4017)
     {
@@ -266,15 +350,55 @@ void cpuBus_write(uint16_t address, uint8_t data)
 
 uint8_t cpuBus_read(uint16_t address)
 {
+    uint16_t data = 0;
     if (address >= 0x0000 && address <= 0x1FFF)
     {
         // cpu RAM address space
-        return cpuRam[address % 0x0800];
+        data = cpuRam[address % 0x0800];
     }
     else if (address >= 0x2000 && address <= 0x3FFF)
     {
         // Handle read from PPU registers
-        return ppuBus_read(address % 8);
+        switch (address % 8)
+        {
+        case 0:
+            //PPUCTRL
+            break;
+        case 1:
+            //PPUMASK
+            break;
+        case 2:
+            //PPUSTATUS
+            ppu_status.vertical_blank = 1;
+            data = (ppu_status.reg & 0xE0) | (ppu_data_buffer & 0x1F);
+            //clear vblank flag
+            ppu_status.vertical_blank = 0;
+            address_latch = 0;
+            break;
+        case 3:
+            //OAMADDR
+            break;
+        case 4:
+            //OAMDATA
+            break;
+        case 5:
+            //PPUSCROLL
+            break;
+        case 6:
+            //PPUADDR
+            break;
+        case 7:
+            //PPUDATA
+            data = ppu_data_buffer;
+            ppu_data_buffer = ppuBus_read(ppu_address);
+
+            if (ppu_address >= 0x3F00 && ppu_address <= 0x3FFF)
+            {
+                data = ppu_data_buffer;
+            }
+            ppu_address++;
+            break;
+        }
     }
     else if (address >= 0x4000 && address <= 0x4017)
     {
@@ -283,10 +407,10 @@ uint8_t cpuBus_read(uint16_t address)
     else if (address >= 0x4018 && address <= 0xFFFF)
     {
         // Handle read from cartridge space
-        return cartridgeBus_read(address);
+        data = cartridgeBus_read(address);
     }
     // Invalid address
-    return 0;
+    return data;
 }
 
 
@@ -1501,14 +1625,11 @@ opcode get_opcode(uint8_t input) {
 
 void clock()
 {
-    //needs to be run at the propor clock cycle to be accurate
+    //needs to be run at the proper clock cycle to be accurate
     if (cycles == 0) {
         instruction_count++;
         //get next opcode
         current_opcode = cpuBus_read(program_counter);
-
-        //print cpu state
-        print_cpu_state();
         
         //flag set thing
         set_flag(U_flag, 1);
@@ -1521,6 +1642,32 @@ void clock()
         opcode op_to_execute = get_opcode(current_opcode);
         cycles = op_to_execute.cycle_count;
 
+        //print instruction info
+        fprintf(fp, "Instruction %d: PC=%04X OP=%02X ", instruction_count, program_counter - 1, current_opcode);
+        fprintf(fp, "%s ", op_to_execute.name);
+
+        //print arguments
+        uint8_t num_args = op_to_execute.byte_size - 1;
+        for (int i = 0; i < num_args; i++) {
+            uint8_t arg = cpuBus_read(program_counter + i);
+            fprintf(fp, "%02X ", arg);
+        }
+        
+        if (num_args == 0)
+        {
+            fprintf(fp, "      ");
+        }
+        if (num_args == 1)
+        {
+            fprintf(fp, "   ");
+        }
+
+        //print register values
+        fprintf(fp, "          A=%02X ", accumulator);
+        fprintf(fp, "X=%02X ", x_register);
+        fprintf(fp, "Y=%02X ", y_register);
+        fprintf(fp, "P=%02X ", status_register);
+        fprintf(fp, "SP=%02X\n", stack_pointer);
 
         //execute the instruction, keep track if return 1 as that means add cycle
         uint8_t extra_cycle_addressingMode = op_to_execute.addressing_mode();
@@ -1535,7 +1682,7 @@ void clock()
         set_flag(U_flag, 1);
 
     }
-    //decrement a cycle every clock cycle, we dont have to calculate every cycle as long as the clock is synced in the main function
+    //decrement a cycle every clock cycle, we don't have to calculate every cycle as long as the clock is synced in the main function
     cycles--;
     total_cycles++;
 }
@@ -1804,13 +1951,7 @@ void load_rom(char* filename)
     {
         PRG_ROM[i] = prg_rom[i];
     }
-
-    //load palette data
-    for (int i = 0; i < 32; i++)
-    {
-        ppu_palette[i] = palette_data[i];
-    }
-
+    
     //dump PRG ROM data to file
     FILE* prg_rom_dump = fopen("prg_rom_dump.bin", "wb");
     fwrite(prg_rom, sizeof(unsigned char), prg_rom_size, prg_rom_dump);
@@ -1830,16 +1971,6 @@ void load_rom(char* filename)
     free(chr_rom);
     free(trainer_data);
     fclose(file);
-}
-
-
-void print_cpu_state()
-{
-    if (total_cycles < 26555)
-    {
-        //FORMAT: C000  JMP                    A:00 X:00 Y:00 P:24 SP:FD CYC:7
-        fprintf(fp, "%04X  %s                    A:%02X X:%02X Y:%02X P:%X SP:%X CYC:%d\n", program_counter, get_opcode(current_opcode).name, accumulator, x_register, y_register, status_register, stack_pointer, total_cycles);
-    }
 }
 
 void print_ram_state(int depth, int start_position)
@@ -1920,7 +2051,7 @@ uint8_t palette_colors[64][3] = {
 
 uint8_t* getRGBvaluefromPalette(uint8_t palette, uint8_t pixel)
 {
-    return palette_colors[ppuBus_read(0x3F00 + (palette << 2) + pixel)];
+    return palette_colors[ppu_palette[palette * 4 + pixel]];
 }
 
 void updateFrame() {
@@ -2168,9 +2299,9 @@ void updateFrame() {
 
 void print_ppu_registers()
 {
-    printf("PPUCTRL: 0x%x\n", PPUCTRL);
-    printf("PPUMASK: 0x%x\n", PPUMASK);
-    printf("PPUSTATUS: 0x%x\n", PPUSTATUS);
+    printf("PPUCTRL: 0x%x\n", ppu_ctrl.reg);
+    printf("PPUMASK: 0x%x\n", ppu_mask.reg);
+    printf("PPUSTATUS: 0x%x\n", ppu_status.reg);
     printf("OAMADDR: 0x%x\n", OAMADDR);
     printf("OAMDATA: 0x%x\n", OAMDATA);
     printf("PPUSCROLL: 0x%x\n", PPUSCROLL);
