@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 //6502
 //A: Accumulator
@@ -2667,7 +2668,7 @@ uint32_t system_clock_count = 0x00;
 
 void bus_clock()
 {
-    //ppu_clock();
+    ppu_clock();
     if (system_clock_count % 3 == 0)
     {
         clock();
@@ -2705,6 +2706,10 @@ int main(int argc, char* argv[])
     reset();
 
     SDL_Init(SDL_INIT_VIDEO);
+
+    //font
+    TTF_Init();
+    TTF_Font* font = TTF_OpenFont("font.ttf", 12);
 
     window = SDL_CreateWindow("Nes Emulator", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH * 3, HEIGHT * 3, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     debug_window = SDL_CreateWindow("Debug", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 500, 500, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
