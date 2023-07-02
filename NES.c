@@ -2099,12 +2099,13 @@ void reset()
     data_at_absolute = 0x00;
     absolute_address = 0x0000;
     relative_address = 0x00;
-    cycles = 7;
+    cycles = 0;
+    total_cycles = 7;
     //nestest specific
     status_register = 0x24;
 
     //ppu
-    ppu_cycle = 0;
+    ppu_cycle = -1;
     ppu_scanline = 0;
     ppu_data_buffer = 0x00;
     fine_x = 0x00;
@@ -2683,15 +2684,19 @@ void clock()
         opcode op_to_execute = get_opcode(current_opcode);
         cycles = op_to_execute.cycle_count;
 
+        //print format
+        // C004  78        SEI                   A:00 X:00 Y:00 P:24 SP:FD PPU:  0,  0 CYC:7
+        // C005  D8        CLD                   A:00 X:00 Y:00 P:24 SP:FD PPU:  6,  0 CYC:9
+        // C006  A2 FF     LDX                   A:00 X:00 Y:00 P:24 SP:FD PPU: 12,  0 CYC:11
+        // C008  9A        TXS                   A:00 X:FF Y:00 P:A4 SP:FD PPU: 18,  0 CYC:13
+        // C009  AD 02 20  LDA                   A:00 X:FF Y:00 P:A4 SP:FF PPU: 24,  0 CYC:15
+        // C00C  10 FB     BPL                   A:00 X:FF Y:00 P:26 SP:FF PPU: 36,  0 CYC:19
+        // C009  AD 02 20  LDA                   A:00 X:FF Y:00 P:26 SP:FF PPU: 45,  0 CYC:22
         //print instruction info
         if (clock_print_flag == 1)
         {
-            fprintf(fp, "I  %d: PC=%04X OP=%02X ", instruction_count, program_counter - 1, current_opcode);
-            fprintf(fp, "%s ", op_to_execute.name);
-        }
-            
-        if (clock_print_flag == 1)
-        {
+            fprintf(fp, "%04X  %02X ", program_counter - 1, current_opcode);
+
             //print arguments
             uint8_t num_args = op_to_execute.byte_size - 1;
             for (int i = 0; i < num_args; i++) {
@@ -2707,17 +2712,20 @@ void clock()
             {
                 fprintf(fp, "   ");
             }
+            fprintf(fp, " ");
+            fprintf(fp, "%s ", op_to_execute.name);
         }
-
 
         if (clock_print_flag == 1)
         {
             //print register values
-            fprintf(fp, "          A=%02X ", accumulator);
-            fprintf(fp, "X=%02X ", x_register);
-            fprintf(fp, "Y=%02X ", y_register);
-            fprintf(fp, "P=%02X ", status_register);
-            fprintf(fp, "SP=%02X\n", stack_pointer);
+            fprintf(fp, "                  A:%02X ", accumulator);
+            fprintf(fp, "X:%02X ", x_register);
+            fprintf(fp, "Y:%02X ", y_register);
+            fprintf(fp, "P:%02X ", status_register);
+            fprintf(fp, "SP:%02X ", stack_pointer);
+            fprintf(fp, "PPU:%3d,%3d ", ppu_cycle, ppu_scanline);
+            fprintf(fp, "CYC:%d\n", total_cycles);
         }
 
         //execute the instruction, keep track if return 1 as that means add cycle
@@ -2742,7 +2750,6 @@ uint32_t system_clock_count = 0x00;
 
 void bus_clock()
 {
-    ppu_clock();
     if (system_clock_count % 3 == 0)
     {
         clock();
@@ -2760,6 +2767,7 @@ void bus_clock()
         run_single_cycle = false;
         updateFrame();
     }
+    ppu_clock();
 }
 
 uint32_t frame_count = 0x00;
