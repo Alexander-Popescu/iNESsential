@@ -2780,6 +2780,7 @@ void clock()
         if (run_single_instruction == true && single_instruction_latch == 0)
         {
             run_single_instruction = false;
+            debug_window_flag = true;
             updateFrame();
         }
 
@@ -2871,6 +2872,7 @@ void bus_clock()
     if (run_single_cycle == true)
     {
         run_single_cycle = false;
+        debug_window_flag = true;
         updateFrame();
     }
     ppu_clock();
@@ -2999,13 +3001,18 @@ int main(int argc, char* argv[])
         if (fullspeed || run_single_cycle || run_single_frame || run_single_instruction)
         {
             bus_clock();
-            updateDebugWindow(); //debug window stuff
+            if (debug_window_flag)
+            {
+                updateDebugWindow();
+                debug_window_flag = false;
+            }
             if (frame_complete) {
                 updateFrame();
                 frame_count++;
                 printf("Frame: %d\n", frame_count);
                 frame_complete = false;
                 run_single_frame = false;
+                debug_window_flag = true;
             }
         }
     }
