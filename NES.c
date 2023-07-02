@@ -26,7 +26,7 @@ void interrupt_request();
 void print_cpu_state();
 void updateFrame();
 
-uint16_t instruction_count = 0;
+uint32_t instruction_count = 0;
 
 //CPU 6502, globals ah!
 
@@ -2573,7 +2573,7 @@ void updateDebugWindow()
     char ppu_data_string[1000] = {0};
     char register_string[1000] = {0};
 
-    if (sprintf(instruction_count_string, "Instruction:%d |", instruction_count) < 0) {
+    if (sprintf(instruction_count_string, "Instruction:%i |", instruction_count) < 0) {
         fprintf(stderr, "Error: Failed to format instruction_count_string\n");
         return;
     }
