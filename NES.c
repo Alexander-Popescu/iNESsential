@@ -2558,21 +2558,70 @@ void updateDebugWindow(SDL_Window* debug_window, SDL_Renderer* debug_renderer, T
     SDL_SetRenderDrawColor(debug_renderer, 0, 0, 0, 255);
     SDL_RenderClear(debug_renderer);
 
-    //render hello world
-    SDL_Surface* surfaceMessage = TTF_RenderText_Solid(debug_font, "Debug Window", (SDL_Color){255, 255, 255});
+    //render instruction count, cpu cycle, ppu scanlin, ppu cycle, all registers
+    char instruction_count_string[100] = {0};
+    char cpu_cycle_string[100] = {0};
+    char ppu_data_string[100] = {0};
+    char register_string[100] = {0};
+
+    sprintf(instruction_count_string, "Instruction:%d |", instruction_count);
+    sprintf(cpu_cycle_string, "CPU Cycle:%d |", total_cycles);
+    sprintf(ppu_data_string, "PPU: Scan:%d | Cyc:%d", ppu_scanline, ppu_cycle);
+    sprintf(register_string, "A:%02X X:%02X Y:%02X P:%02X SP:%02X | PC: %X", accumulator, x_register, y_register, status_register, stack_pointer, program_counter);
+
+
+    SDL_Color White = {255, 255, 255};
+    SDL_Surface* surfaceMessage = TTF_RenderText_Solid(debug_font, instruction_count_string, White);
     SDL_Texture* Message = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage);
+    SDL_Rect Message_rect = (SDL_Rect){0, 0, 200, 25};
+
+    SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
+
+    //append other texts to the surfaceMessage
+    surfaceMessage = TTF_RenderText_Solid(debug_font, cpu_cycle_string, White);
+    Message = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage);
+    Message_rect = (SDL_Rect){200, 0, 200, 25};
+
+    SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
+
+    surfaceMessage = TTF_RenderText_Solid(debug_font, ppu_data_string, White);
+    Message = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage);
+    Message_rect = (SDL_Rect){405, 0, 225, 25};
+
+    SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
+
+    SDL_SetRenderDrawColor(debug_renderer, 255, 255, 255, 255);
+    SDL_RenderDrawLine(debug_renderer, 0, 25, 640, 25);
+
+    surfaceMessage = TTF_RenderText_Solid(debug_font, register_string, White);
+    Message = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage);
+    Message_rect = (SDL_Rect){0, 25, 350, 30};
+
+    SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
+
+    SDL_SetRenderDrawColor(debug_renderer, 255, 255, 255, 255);
+    SDL_RenderDrawLine(debug_renderer, 0, 55, 640, 55);
+
+    //draw line
+    SDL_SetRenderDrawColor(debug_renderer, 255, 255, 255, 255);
+    SDL_RenderDrawLine(debug_renderer, 0, 450, 640, 450);
+
+    //render controls at the bottom
+    char control_string[100] = {0};
+    sprintf(control_string, "1: Realtime | 2: Instruction | 3: Frame | 4: Cycle | P: palette | Space: PPU REG|");
     
-    SDL_Rect Message_rect;
-    Message_rect.x = 0;
-    Message_rect.y = 0;
-    Message_rect.w = 100;
-    Message_rect.h = 100;
+    surfaceMessage = TTF_RenderText_Solid(debug_font, control_string, White);
+    Message = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage);
+    Message_rect = (SDL_Rect){0, 450, 640, 25};
 
     SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
 
     // Render to screen
     SDL_RenderPresent(debug_renderer);
 
+    //free
+    SDL_DestroyTexture(Message);
+    SDL_FreeSurface(surfaceMessage);
 }
 
 void print_ppu_registers()
@@ -2738,7 +2787,7 @@ int main(int argc, char* argv[])
     window = SDL_CreateWindow("Nes Emulator", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH * 3, HEIGHT * 3, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
-    debug_window = SDL_CreateWindow("Debug Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_SHOWN);
+    debug_window = SDL_CreateWindow("Debug Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     debug_renderer = SDL_CreateRenderer(debug_window, -1, SDL_RENDERER_ACCELERATED);
 
     // Fill RGB data with example values
