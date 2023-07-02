@@ -2608,7 +2608,7 @@ void updateDebugWindow(SDL_Window* debug_window, SDL_Renderer* debug_renderer, T
 
     //render controls at the bottom
     char control_string[100] = {0};
-    sprintf(control_string, "1: Realtime | 2: Instruction | 3: Frame | 4: Cycle | P: palette | Space: PPU REG|");
+    sprintf(control_string, "1: Realtime | 2: Instruction | 3: Frame | 4: Cycle | P: palette | Space: PPU REG| 0: Toggle Log %d", clock_print_flag);
     
     surfaceMessage = TTF_RenderText_Solid(debug_font, control_string, White);
     Message = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage);
@@ -2850,6 +2850,18 @@ int main(int argc, char* argv[])
                 if (event.key.keysym.sym == SDLK_4) {
                     //run single frame
                     run_single_cycle = true;
+                }
+                if (event.key.keysym.sym == SDLK_0) {
+                    //toggle log
+                    if (clock_print_flag == 1)
+                    {
+                        clock_print_flag = 0;
+                    }
+                    else if (clock_print_flag == 0)
+                    {
+                        clock_print_flag = 1;
+                    }
+                    updateDebugWindow(debug_window, debug_renderer, font);
                 }
                 if (event.key.keysym.sym == SDLK_ESCAPE) {
                     // Exit main loop
