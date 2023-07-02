@@ -231,10 +231,14 @@ bool run_single_cycle = false;
 SDL_Window* window;
 SDL_Renderer* renderer;
 SDL_Texture* texture;
+SDL_Texture* debug_texture;
 
 TTF_Font* font;
 SDL_Window* debug_window;
 SDL_Renderer* debug_renderer;
+TTF_Font* font;
+
+bool debug_window_flag = true;
 
 uint8_t r[WIDTH * HEIGHT];
 uint8_t g[WIDTH * HEIGHT];
@@ -2553,40 +2557,80 @@ void updateFrame() {
     SDL_DestroyTexture(pattern_table_1);
 }
 
-void updateDebugWindow(SDL_Window* debug_window, SDL_Renderer* debug_renderer, TTF_Font* debug_font)
+SDL_Texture* createTextureFromText(const char* text, SDL_Color color) {
+    SDL_Surface* surfaceMessage = TTF_RenderText_Solid(font, text, color);
+    if (surfaceMessage == NULL) {
+        fprintf(stderr, "Error: Failed to create surfaceMessage for text\n");
+        return NULL;
+    }
+    SDL_Texture* Message = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage);
+    if (Message == NULL) {
+        fprintf(stderr, "Error: Failed to create Message for text\n");
+        SDL_FreeSurface(surfaceMessage);
+        return NULL;
+    }
+    SDL_FreeSurface(surfaceMessage);
+    return Message;
+}
+
+void updateDebugWindow()
 {
     // Clear screen
+    if (debug_renderer == NULL) {
+        fprintf(stderr, "Error: debug_renderer is NULL\n");
+        return;
+    }
     SDL_SetRenderDrawColor(debug_renderer, 0, 0, 0, 255);
     SDL_RenderClear(debug_renderer);
 
     //render instruction count, cpu cycle, ppu scanlin, ppu cycle, all registers
-    char instruction_count_string[100] = {0};
-    char cpu_cycle_string[100] = {0};
-    char ppu_data_string[100] = {0};
-    char register_string[100] = {0};
+    char instruction_count_string[1000] = {0};
+    char cpu_cycle_string[1000] = {0};
+    char ppu_data_string[1000] = {0};
+    char register_string[1000] = {0};
 
-    sprintf(instruction_count_string, "Instruction:%d |", instruction_count);
-    sprintf(cpu_cycle_string, "CPU Cycle:%d |", total_cycles);
-    sprintf(ppu_data_string, "PPU: Scan:%d | Cyc:%d", ppu_scanline, ppu_cycle);
-    sprintf(register_string, "A:%02X X:%02X Y:%02X P:%02X SP:%02X | PC: %X", accumulator, x_register, y_register, status_register, stack_pointer, program_counter);
-
+    if (sprintf(instruction_count_string, "Instruction:%d |", instruction_count) < 0) {
+        fprintf(stderr, "Error: Failed to format instruction_count_string\n");
+        return;
+    }
+    if (sprintf(cpu_cycle_string, "CPU Cycle:%d |", total_cycles) < 0) {
+        fprintf(stderr, "Error: Failed to format cpu_cycle_string\n");
+        return;
+    }
+    if (sprintf(ppu_data_string, "PPU: Scan:%d | Cyc:%d", ppu_scanline, ppu_cycle) < 0) {
+        fprintf(stderr, "Error: Failed to format ppu_data_string\n");
+        return;
+    }
+    if (sprintf(register_string, "A:%02X X:%02X Y:%02X P:%02X SP:%02X | PC: %X", accumulator, x_register, y_register, status_register, stack_pointer, program_counter) < 0) {
+        fprintf(stderr, "Error: Failed to format register_string\n");
+        return;
+    }
 
     SDL_Color White = {255, 255, 255};
-    SDL_Surface* surfaceMessage = TTF_RenderText_Solid(debug_font, instruction_count_string, White);
-    SDL_Texture* Message = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage);
+    SDL_Texture* Message = createTextureFromText(instruction_count_string, White);
+    if (Message == NULL) {
+        fprintf(stderr, "Error: Failed to create Message for instruction_count_string\n");
+        return;
+    }
     SDL_Rect Message_rect = (SDL_Rect){0, 0, 200, 25};
 
     SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
 
-    //append other texts to the surfaceMessage
-    surfaceMessage = TTF_RenderText_Solid(debug_font, cpu_cycle_string, White);
-    Message = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage);
+    //append other texts to the texture
+    Message = createTextureFromText(cpu_cycle_string, White);
+    if (Message == NULL) {
+        fprintf(stderr, "Error: Failed to create Message for cpu_cycle_string\n");
+        return;
+    }
     Message_rect = (SDL_Rect){200, 0, 200, 25};
 
     SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
 
-    surfaceMessage = TTF_RenderText_Solid(debug_font, ppu_data_string, White);
-    Message = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage);
+    Message = createTextureFromText(ppu_data_string, White);
+    if (Message == NULL) {
+        fprintf(stderr, "Error: Failed to create Message for ppu_data_string\n");
+        return;
+    }
     Message_rect = (SDL_Rect){405, 0, 225, 25};
 
     SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
@@ -2594,8 +2638,11 @@ void updateDebugWindow(SDL_Window* debug_window, SDL_Renderer* debug_renderer, T
     SDL_SetRenderDrawColor(debug_renderer, 255, 255, 255, 255);
     SDL_RenderDrawLine(debug_renderer, 0, 25, 640, 25);
 
-    surfaceMessage = TTF_RenderText_Solid(debug_font, register_string, White);
-    Message = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage);
+    Message = createTextureFromText(register_string, White);
+    if (Message == NULL) {
+        fprintf(stderr, "Error: Failed to create Message for register_string\n");
+        return;
+    }
     Message_rect = (SDL_Rect){0, 25, 350, 30};
 
     SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
@@ -2609,20 +2656,25 @@ void updateDebugWindow(SDL_Window* debug_window, SDL_Renderer* debug_renderer, T
 
     //render controls at the bottom
     char control_string[100] = {0};
-    sprintf(control_string, "1: Realtime | 2: Instruction | 3: Frame | 4: Cycle | P: palette | Space: PPU REG| 0: Toggle Log %d", clock_print_flag);
-    
-    surfaceMessage = TTF_RenderText_Solid(debug_font, control_string, White);
-    Message = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage);
+    if (sprintf(control_string, "1: Realtime | 2: Instruction | 3: Frame | 4: Cycle | P: palette | Space: PPU REG| 0: Toggle Log %d", clock_print_flag) < 0) {
+        fprintf(stderr, "Error: Failed to format control_string\n");
+        return;
+    }
+    Message = createTextureFromText(control_string, White);
+    if (Message == NULL) {
+        fprintf(stderr, "Error: Failed to create Message for control_string\n");
+        return;
+    }
     Message_rect = (SDL_Rect){0, 450, 640, 25};
 
     SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
 
     // Render to screen
+    SDL_RenderCopy(debug_renderer, debug_texture, NULL, NULL);
     SDL_RenderPresent(debug_renderer);
 
     //free
     SDL_DestroyTexture(Message);
-    SDL_FreeSurface(surfaceMessage);
 }
 
 void print_ppu_registers()
@@ -2684,15 +2736,7 @@ void clock()
         opcode op_to_execute = get_opcode(current_opcode);
         cycles = op_to_execute.cycle_count;
 
-        //print format
-        // C004  78        SEI                   A:00 X:00 Y:00 P:24 SP:FD PPU:  0,  0 CYC:7
-        // C005  D8        CLD                   A:00 X:00 Y:00 P:24 SP:FD PPU:  6,  0 CYC:9
-        // C006  A2 FF     LDX                   A:00 X:00 Y:00 P:24 SP:FD PPU: 12,  0 CYC:11
-        // C008  9A        TXS                   A:00 X:FF Y:00 P:A4 SP:FD PPU: 18,  0 CYC:13
-        // C009  AD 02 20  LDA                   A:00 X:FF Y:00 P:A4 SP:FF PPU: 24,  0 CYC:15
-        // C00C  10 FB     BPL                   A:00 X:FF Y:00 P:26 SP:FF PPU: 36,  0 CYC:19
-        // C009  AD 02 20  LDA                   A:00 X:FF Y:00 P:26 SP:FF PPU: 45,  0 CYC:22
-        //print instruction info
+
         if (clock_print_flag == 1)
         {
             fprintf(fp, "%04X  %02X ", program_counter - 1, current_opcode);
@@ -2790,13 +2834,15 @@ int main(int argc, char* argv[])
     SDL_Init(SDL_INIT_VIDEO);
 
     TTF_Init();
-    TTF_Font* font = TTF_OpenFont("Arimo.ttf", 12);
+    font = TTF_OpenFont("Arimo.ttf", 12);
 
     window = SDL_CreateWindow("Nes Emulator", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH * 3, HEIGHT * 3, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
     debug_window = SDL_CreateWindow("Debug Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     debug_renderer = SDL_CreateRenderer(debug_window, -1, SDL_RENDERER_ACCELERATED);
+
+    
 
     // Fill RGB data with example values
     for (int i = 0; i < WIDTH * HEIGHT; i++) {
@@ -2809,9 +2855,12 @@ int main(int argc, char* argv[])
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 
+    debug_texture = SDL_CreateTexture(debug_renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, 256, 240);
+    SDL_SetTextureBlendMode(debug_texture, SDL_BLENDMODE_BLEND);
+
     // Render initial frame
     updateFrame();
-    updateDebugWindow(debug_window, debug_renderer, font);
+    updateDebugWindow();
 
         // Main loop
     while (true) {
@@ -2869,7 +2918,7 @@ int main(int argc, char* argv[])
                     {
                         clock_print_flag = 1;
                     }
-                    updateDebugWindow(debug_window, debug_renderer, font);
+                    updateDebugWindow();
                 }
                 if (event.key.keysym.sym == SDLK_ESCAPE) {
                     // Exit main loop
@@ -2888,7 +2937,7 @@ int main(int argc, char* argv[])
         if (fullspeed || run_single_cycle || run_single_frame || run_single_instruction)
         {
             bus_clock();
-            updateDebugWindow(debug_window, debug_renderer, font); //debug window stuff
+            updateDebugWindow(); //debug window stuff
             if (frame_complete) {
                 updateFrame();
                 frame_count++;
