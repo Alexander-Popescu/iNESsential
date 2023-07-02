@@ -229,11 +229,13 @@ bool run_single_cycle = false;
 #define HEIGHT 240
 
 SDL_Window* window;
-SDL_Window* debug_window;
 SDL_Renderer* renderer;
-SDL_Renderer* debug_renderer;
 SDL_Texture* texture;
-SDL_Texture* debug_texture;
+
+TTF_Font* font;
+SDL_Window* debug_window;
+SDL_Renderer* debug_renderer;
+
 uint8_t r[WIDTH * HEIGHT];
 uint8_t g[WIDTH * HEIGHT];
 uint8_t b[WIDTH * HEIGHT];
@@ -1885,7 +1887,7 @@ uint8_t* getRGBvaluefromPalette(uint8_t palette, uint8_t pixel)
     return palette_colors[ppu_palette[palette * 4 + pixel]];
 }
 
-uint8_t clock_print_flag = 1;
+uint8_t clock_print_flag = 0;
 uint8_t single_instruction_latch = 0;
 
 uint16_t ppu_cycle = 0;
@@ -2550,6 +2552,29 @@ void updateFrame() {
     SDL_DestroyTexture(pattern_table_1);
 }
 
+void updateDebugWindow(SDL_Window* debug_window, SDL_Renderer* debug_renderer, TTF_Font* debug_font)
+{
+    // Clear screen
+    SDL_SetRenderDrawColor(debug_renderer, 0, 0, 0, 255);
+    SDL_RenderClear(debug_renderer);
+
+    //render hello world
+    SDL_Surface* surfaceMessage = TTF_RenderText_Solid(debug_font, "Debug Window", (SDL_Color){255, 255, 255});
+    SDL_Texture* Message = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage);
+    
+    SDL_Rect Message_rect;
+    Message_rect.x = 0;
+    Message_rect.y = 0;
+    Message_rect.w = 100;
+    Message_rect.h = 100;
+
+    SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
+
+    // Render to screen
+    SDL_RenderPresent(debug_renderer);
+
+}
+
 void print_ppu_registers()
 {
     printf("PPUCTRL: 0x%x\n", ppu_ctrl.reg);
@@ -2707,14 +2732,13 @@ int main(int argc, char* argv[])
 
     SDL_Init(SDL_INIT_VIDEO);
 
-    //font
     TTF_Init();
-    TTF_Font* font = TTF_OpenFont("font.ttf", 12);
+    TTF_Font* font = TTF_OpenFont("Arimo.ttf", 12);
 
     window = SDL_CreateWindow("Nes Emulator", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH * 3, HEIGHT * 3, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
-    debug_window = SDL_CreateWindow("Debug", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 500, 500, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
-
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
+    debug_window = SDL_CreateWindow("Debug Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_SHOWN);
     debug_renderer = SDL_CreateRenderer(debug_window, -1, SDL_RENDERER_ACCELERATED);
 
     // Fill RGB data with example values
@@ -2726,11 +2750,11 @@ int main(int argc, char* argv[])
 
     // Create texture from RGB data
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
-    debug_texture = SDL_CreateTexture(debug_renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, 500, 500);
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 
     // Render initial frame
     updateFrame();
+    updateDebugWindow(debug_window, debug_renderer, font);
 
         // Main loop
     while (true) {
@@ -2795,6 +2819,7 @@ int main(int argc, char* argv[])
         if (fullspeed || run_single_cycle || run_single_frame || run_single_instruction)
         {
             bus_clock();
+            updateDebugWindow(debug_window, debug_renderer, font); //debug window stuff
             if (frame_complete) {
                 updateFrame();
                 frame_count++;
@@ -2809,9 +2834,9 @@ int main(int argc, char* argv[])
     SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-    SDL_DestroyTexture(debug_texture);
-    SDL_DestroyRenderer(debug_renderer);
     SDL_DestroyWindow(debug_window);
+    SDL_DestroyRenderer(debug_renderer);
+    TTF_Quit();
     SDL_Quit();
 
     return 0;
