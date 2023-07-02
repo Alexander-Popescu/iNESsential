@@ -237,6 +237,9 @@ TTF_Font* font;
 SDL_Window* debug_window;
 SDL_Renderer* debug_renderer;
 TTF_Font* font;
+SDL_Color White = {255, 255, 255};
+SDL_Rect Message_rect;
+SDL_Texture* Message;
 
 bool debug_window_flag = true;
 
@@ -2557,31 +2560,12 @@ void updateFrame() {
     SDL_DestroyTexture(pattern_table_1);
 }
 
-SDL_Texture* createTextureFromText(const char* text, SDL_Color color) {
-    SDL_Surface* surfaceMessage = TTF_RenderText_Solid(font, text, color);
-    if (surfaceMessage == NULL) {
-        fprintf(stderr, "Error: Failed to create surfaceMessage for text\n");
-        return NULL;
-    }
-    SDL_Texture* Message = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage);
-    if (Message == NULL) {
-        fprintf(stderr, "Error: Failed to create Message for text\n");
-        SDL_FreeSurface(surfaceMessage);
-        return NULL;
-    }
-    SDL_FreeSurface(surfaceMessage);
-    return Message;
-}
-
 void updateDebugWindow()
 {
     // Clear screen
-    if (debug_renderer == NULL) {
-        fprintf(stderr, "Error: debug_renderer is NULL\n");
-        return;
-    }
+    SDL_Rect clear_rect = {0, 0, 640, 480};
     SDL_SetRenderDrawColor(debug_renderer, 0, 0, 0, 255);
-    SDL_RenderClear(debug_renderer);
+    SDL_RenderFillRect(debug_renderer, &clear_rect);
 
     //render instruction count, cpu cycle, ppu scanlin, ppu cycle, all registers
     char instruction_count_string[1000] = {0};
@@ -2606,75 +2590,153 @@ void updateDebugWindow()
         return;
     }
 
-    SDL_Color White = {255, 255, 255};
-    SDL_Texture* Message = createTextureFromText(instruction_count_string, White);
+    SDL_Surface* surfaceMessage = TTF_RenderText_Solid(font, instruction_count_string, White);
+    if (surfaceMessage == NULL) {
+        fprintf(stderr, "Error: Failed to create surfaceMessage for instruction_count_string\n");
+        return;
+    }
+    SDL_Texture* Message = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage);
     if (Message == NULL) {
         fprintf(stderr, "Error: Failed to create Message for instruction_count_string\n");
+        SDL_FreeSurface(surfaceMessage);
         return;
     }
     SDL_Rect Message_rect = (SDL_Rect){0, 0, 200, 25};
 
-    SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
-
     //append other texts to the texture
-    Message = createTextureFromText(cpu_cycle_string, White);
-    if (Message == NULL) {
+    SDL_Surface* surfaceMessage2 = TTF_RenderText_Solid(font, cpu_cycle_string, White);
+    if (surfaceMessage2 == NULL) {
+        fprintf(stderr, "Error: Failed to create surfaceMessage for cpu_cycle_string\n");
+        SDL_DestroyTexture(Message);
+        SDL_FreeSurface(surfaceMessage);
+        return;
+    }
+    SDL_Texture* Message2 = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage2);
+    if (Message2 == NULL) {
         fprintf(stderr, "Error: Failed to create Message for cpu_cycle_string\n");
+        SDL_DestroyTexture(Message);
+        SDL_FreeSurface(surfaceMessage);
+        SDL_FreeSurface(surfaceMessage2);
         return;
     }
-    Message_rect = (SDL_Rect){200, 0, 200, 25};
+    SDL_Rect Message_rect2 = (SDL_Rect){200, 0, 200, 25};
 
-    SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
-
-    Message = createTextureFromText(ppu_data_string, White);
-    if (Message == NULL) {
+    SDL_Surface* surfaceMessage3 = TTF_RenderText_Solid(font, ppu_data_string, White);
+    if (surfaceMessage3 == NULL) {
+        fprintf(stderr, "Error: Failed to create surfaceMessage for ppu_data_string\n");
+        SDL_DestroyTexture(Message);
+        SDL_DestroyTexture(Message2);
+        SDL_FreeSurface(surfaceMessage);
+        SDL_FreeSurface(surfaceMessage2);
+        return;
+    }
+    SDL_Texture* Message3 = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage3);
+    if (Message3 == NULL) {
         fprintf(stderr, "Error: Failed to create Message for ppu_data_string\n");
+        SDL_DestroyTexture(Message);
+        SDL_DestroyTexture(Message2);
+        SDL_FreeSurface(surfaceMessage);
+        SDL_FreeSurface(surfaceMessage2);
+        SDL_FreeSurface(surfaceMessage3);
         return;
     }
-    Message_rect = (SDL_Rect){405, 0, 225, 25};
+    SDL_Rect Message_rect3 = (SDL_Rect){405, 0, 225, 25};
+
+    SDL_Surface* surfaceMessage4 = TTF_RenderText_Solid(font, register_string, White);
+    if (surfaceMessage4 == NULL) {
+        fprintf(stderr, "Error: Failed to create surfaceMessage for register_string\n");
+        SDL_DestroyTexture(Message);
+        SDL_DestroyTexture(Message2);
+        SDL_DestroyTexture(Message3);
+        SDL_FreeSurface(surfaceMessage);
+        SDL_FreeSurface(surfaceMessage2);
+        SDL_FreeSurface(surfaceMessage3);
+        return;
+    }
+    SDL_Texture* Message4 = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage4);
+    if (Message4 == NULL) {
+        fprintf(stderr, "Error: Failed to create Message for register_string\n");
+        SDL_DestroyTexture(Message);
+        SDL_DestroyTexture(Message2);
+        SDL_DestroyTexture(Message3);
+        SDL_FreeSurface(surfaceMessage);
+        SDL_FreeSurface(surfaceMessage2);
+        SDL_FreeSurface(surfaceMessage3);
+        SDL_FreeSurface(surfaceMessage4);
+        return;
+    }
+    SDL_Rect Message_rect4 = (SDL_Rect){0, 25, 350, 30};
 
     SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
+    SDL_RenderCopy(debug_renderer, Message2, NULL, &Message_rect2);
+    SDL_RenderCopy(debug_renderer, Message3, NULL, &Message_rect3);
+    SDL_RenderCopy(debug_renderer, Message4, NULL, &Message_rect4);
 
     SDL_SetRenderDrawColor(debug_renderer, 255, 255, 255, 255);
     SDL_RenderDrawLine(debug_renderer, 0, 25, 640, 25);
-
-    Message = createTextureFromText(register_string, White);
-    if (Message == NULL) {
-        fprintf(stderr, "Error: Failed to create Message for register_string\n");
-        return;
-    }
-    Message_rect = (SDL_Rect){0, 25, 350, 30};
-
-    SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
-
-    SDL_SetRenderDrawColor(debug_renderer, 255, 255, 255, 255);
     SDL_RenderDrawLine(debug_renderer, 0, 55, 640, 55);
-
-    //draw line
-    SDL_SetRenderDrawColor(debug_renderer, 255, 255, 255, 255);
     SDL_RenderDrawLine(debug_renderer, 0, 450, 640, 450);
 
     //render controls at the bottom
     char control_string[100] = {0};
     if (sprintf(control_string, "1: Realtime | 2: Instruction | 3: Frame | 4: Cycle | P: palette | Space: PPU REG| 0: Toggle Log %d", clock_print_flag) < 0) {
         fprintf(stderr, "Error: Failed to format control_string\n");
+        SDL_DestroyTexture(Message);
+        SDL_DestroyTexture(Message2);
+        SDL_DestroyTexture(Message3);
+        SDL_DestroyTexture(Message4);
+        SDL_FreeSurface(surfaceMessage);
+        SDL_FreeSurface(surfaceMessage2);
+        SDL_FreeSurface(surfaceMessage3);
+        SDL_FreeSurface(surfaceMessage4);
         return;
     }
-    Message = createTextureFromText(control_string, White);
-    if (Message == NULL) {
+    SDL_Surface* surfaceMessage5 = TTF_RenderText_Solid(font, control_string, White);
+    if (surfaceMessage5 == NULL) {
+        fprintf(stderr, "Error: Failed to create surfaceMessage for control_string\n");
+        SDL_DestroyTexture(Message);
+        SDL_DestroyTexture(Message2);
+        SDL_DestroyTexture(Message3);
+        SDL_DestroyTexture(Message4);
+        SDL_FreeSurface(surfaceMessage);
+        SDL_FreeSurface(surfaceMessage2);
+        SDL_FreeSurface(surfaceMessage3);
+        SDL_FreeSurface(surfaceMessage4);
+        return;
+    }
+    SDL_Texture* Message5 = SDL_CreateTextureFromSurface(debug_renderer, surfaceMessage5);
+    if (Message5 == NULL) {
         fprintf(stderr, "Error: Failed to create Message for control_string\n");
+        SDL_DestroyTexture(Message);
+        SDL_DestroyTexture(Message2);
+        SDL_DestroyTexture(Message3);
+        SDL_DestroyTexture(Message4);
+        SDL_FreeSurface(surfaceMessage);
+        SDL_FreeSurface(surfaceMessage2);
+        SDL_FreeSurface(surfaceMessage3);
+        SDL_FreeSurface(surfaceMessage4);
+        SDL_FreeSurface(surfaceMessage5);
         return;
     }
-    Message_rect = (SDL_Rect){0, 450, 640, 25};
+    SDL_Rect Message_rect5 = (SDL_Rect){0, 450, 640, 25};
 
-    SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
+    SDL_RenderCopy(debug_renderer, Message5, NULL, &Message_rect5);
 
     // Render to screen
     SDL_RenderCopy(debug_renderer, debug_texture, NULL, NULL);
     SDL_RenderPresent(debug_renderer);
 
     //free
+    SDL_FreeSurface(surfaceMessage);
+    SDL_FreeSurface(surfaceMessage2);
+    SDL_FreeSurface(surfaceMessage3);
+    SDL_FreeSurface(surfaceMessage4);
+    SDL_FreeSurface(surfaceMessage5);
     SDL_DestroyTexture(Message);
+    SDL_DestroyTexture(Message2);
+    SDL_DestroyTexture(Message3);
+    SDL_DestroyTexture(Message4);
+    SDL_DestroyTexture(Message5);
 }
 
 void print_ppu_registers()
