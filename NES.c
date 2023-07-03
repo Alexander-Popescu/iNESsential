@@ -658,11 +658,9 @@ uint8_t ZPY()
 
 uint8_t REL()
 {
-    //relative for branching instructions
+    //relative
     relative_address = cpuBus_read(program_counter);
     program_counter++;
-
-    //check if negative
     if (relative_address & 0x80)
     {
         relative_address |= 0xFF00;
@@ -903,7 +901,7 @@ uint8_t BCS()
 
 uint8_t BEQ()
 {
-    if(check_flag(Z_flag) == 1)
+    if (check_flag(Z_flag) == true)
     {
         //branch
         cycles++;
@@ -916,9 +914,10 @@ uint8_t BEQ()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
-        return 1;
+
+        return 0;
     }
-    return 1;
+    return 0;
 }
 
 uint8_t BIT()
@@ -2180,10 +2179,10 @@ void non_maskable_interrupt()
     //new pc hard coded
     absolute_address = 0xFFFA;
     uint8_t low = cpuBus_read(absolute_address);
-    uint8_t high = cpuBus_read(absolute_address + 1) << 8;
+    uint8_t high = cpuBus_read(absolute_address + 1);
 
     //combine
-    program_counter = high | low;
+    program_counter = (high << 8) | low;
 
     cycles = 8;
 }
@@ -2788,27 +2787,17 @@ void clock()
         instruction_count++;
         //get next opcode
         current_opcode = cpuBus_read(program_counter);
-        
-        //flag set thing
-        set_flag(U_flag, 1);
-
-        //increment program counter
-        program_counter++;
-
-        //cycles
-
-        opcode op_to_execute = get_opcode(current_opcode);
-        cycles = op_to_execute.cycle_count;
-
 
         if (clock_print_flag == 1)
         {
-            fprintf(fp, "%04X  %02X ", program_counter - 1, current_opcode);
+            opcode op_to_execute = get_opcode(cpuBus_read(program_counter));
+            uint8_t num_args = op_to_execute.byte_size - 1;
+
+            fprintf(fp, "%04X  %02X ", program_counter, current_opcode);
 
             //print arguments
-            uint8_t num_args = op_to_execute.byte_size - 1;
             for (int i = 0; i < num_args; i++) {
-                uint8_t arg = cpuBus_read(program_counter + i);
+                uint8_t arg = cpuBus_read(program_counter + 1 + i);
                 fprintf(fp, "%02X ", arg);
             }
             
@@ -2822,23 +2811,38 @@ void clock()
             }
             fprintf(fp, " ");
             fprintf(fp, "%s ", op_to_execute.name);
-        }
-
-        if (clock_print_flag == 1)
-        {
-            //print register values
             fprintf(fp, "                  A:%02X ", accumulator);
             fprintf(fp, "X:%02X ", x_register);
             fprintf(fp, "Y:%02X ", y_register);
             fprintf(fp, "P:%02X ", status_register);
             fprintf(fp, "SP:%02X ", stack_pointer);
-            fprintf(fp, "PPU:%3d,%3d ", ppu_cycle, ppu_scanline);
+            if (ppu_scanline == -1)
+            {
+                ppu_scanline = 261;//for debug matching
+            }
+            fprintf(fp, "PPU:%3d,%3d ", ppu_cycle - 1, ppu_scanline);
+            if (ppu_scanline == 261)
+            {
+                ppu_scanline = -1;
+            }
             fprintf(fp, "CYC:%d\n", total_cycles);
         }
+        
+        //flag set thing
+        set_flag(U_flag, 1);
+
+        //increment program counter
+        program_counter++;
+
+        //cycles
+
+        opcode op_to_execute = get_opcode(current_opcode);
+        cycles = op_to_execute.cycle_count;
 
         //execute the instruction, keep track if return 1 as that means add cycle
         uint8_t extra_cycle_addressingMode = op_to_execute.addressing_mode();
         uint8_t extra_cycle_opcode = op_to_execute.opcode();
+
         //add any necessary cycles
         if ((extra_cycle_opcode == 1) && (extra_cycle_addressingMode == 1))
         {
@@ -2858,25 +2862,17 @@ uint32_t system_clock_count = 0x00;
 
 void bus_clock()
 {
+    ppu_clock();
     if (system_clock_count % 3 == 0)
     {
         clock();
     }
-
     if (nmi == true)
     {
         nmi = false;
         non_maskable_interrupt();
     }
-
     system_clock_count++;
-    if (run_single_cycle == true)
-    {
-        run_single_cycle = false;
-        debug_window_flag = true;
-        updateFrame();
-    }
-    ppu_clock();
 }
 
 
@@ -3013,6 +3009,7 @@ int main(int argc, char* argv[])
                 frame_complete = false;
                 run_single_frame = false;
                 debug_window_flag = true;
+                updateDebugWindow();
             }
         }
     }
