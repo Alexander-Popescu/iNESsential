@@ -167,6 +167,7 @@ uint8_t PPUDATA;    // 0x2007
 //PPU helpers
 uint8_t address_latch = 0x00;
 uint8_t ppu_data_buffer = 0x00;
+uint32_t frame_count = 0x00;
 
 //loopy register
 typedef union {
@@ -2585,7 +2586,7 @@ void updateDebugWindow()
         fprintf(stderr, "Error: Failed to format ppu_data_string\n");
         return;
     }
-    if (sprintf(register_string, "A:%02X X:%02X Y:%02X P:%02X SP:%02X | PC: %X", accumulator, x_register, y_register, status_register, stack_pointer, program_counter) < 0) {
+    if (sprintf(register_string, "A:%02X X:%02X Y:%02X P:%02X SP:%02X | PC: %04X | Frame: %i", accumulator, x_register, y_register, status_register, stack_pointer, program_counter, frame_count) < 0) {
         fprintf(stderr, "Error: Failed to format register_string\n");
         return;
     }
@@ -2665,7 +2666,7 @@ void updateDebugWindow()
         SDL_FreeSurface(surfaceMessage4);
         return;
     }
-    SDL_Rect Message_rect4 = (SDL_Rect){0, 25, 350, 30};
+    SDL_Rect Message_rect4 = (SDL_Rect){0, 25, 450, 30};
 
     SDL_RenderCopy(debug_renderer, Message, NULL, &Message_rect);
     SDL_RenderCopy(debug_renderer, Message2, NULL, &Message_rect2);
@@ -2878,7 +2879,6 @@ void bus_clock()
     ppu_clock();
 }
 
-uint32_t frame_count = 0x00;
 
 int main(int argc, char* argv[])
 {
