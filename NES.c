@@ -2872,6 +2872,11 @@ void bus_clock()
         nmi = false;
         non_maskable_interrupt();
     }
+    if (run_single_cycle == true)
+    {
+        run_single_cycle = false;
+        updateDebugWindow();
+    }
     system_clock_count++;
 }
 
@@ -2956,7 +2961,7 @@ int main(int argc, char* argv[])
                     fullspeed = !fullspeed;
                 }
                 if (event.key.keysym.sym == SDLK_2) {
-                    //run single cycle
+                    //run single instruction
                     run_single_instruction = true;
                     single_instruction_latch = 1;
                 }
@@ -2965,7 +2970,7 @@ int main(int argc, char* argv[])
                     run_single_frame = true;
                 }
                 if (event.key.keysym.sym == SDLK_4) {
-                    //run single frame
+                    //run single cycle
                     run_single_cycle = true;
                 }
                 if (event.key.keysym.sym == SDLK_0) {
