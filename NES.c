@@ -2787,17 +2787,27 @@ void clock()
         instruction_count++;
         //get next opcode
         current_opcode = cpuBus_read(program_counter);
+        
+        //flag set thing
+        set_flag(U_flag, 1);
 
-        if (clock_print_flag == 1)
+        //increment program counter
+        uint16_t old_program_counter = program_counter;
+        program_counter++;
+
+        //cycles
+
+        opcode op_to_execute = get_opcode(current_opcode);
+        cycles = op_to_execute.cycle_count;
+
+        if (clock_print_flag == true)
         {
-            opcode op_to_execute = get_opcode(cpuBus_read(program_counter));
             uint8_t num_args = op_to_execute.byte_size - 1;
-
-            fprintf(fp, "%04X  %02X ", program_counter, current_opcode);
+            fprintf(fp, "%04X  %02X ", old_program_counter, current_opcode);
 
             //print arguments
             for (int i = 0; i < num_args; i++) {
-                uint8_t arg = cpuBus_read(program_counter + 1 + i);
+                uint8_t arg = cpuBus_read(program_counter + i);
                 fprintf(fp, "%02X ", arg);
             }
             
@@ -2820,24 +2830,23 @@ void clock()
             {
                 ppu_scanline = 261;//for debug matching
             }
-            fprintf(fp, "PPU:%3d,%3d ", ppu_cycle - 1, ppu_scanline);
+            if (ppu_cycle == 0)
+            {
+                if (ppu_scanline == 0)
+                {
+                    fprintf(fp, "PPU:%3d,%3d ", 340, 261);
+                } else {
+                    fprintf(fp, "PPU:%3d,%3d ", 340, ppu_scanline - 1);
+                }
+            } else {
+                fprintf(fp, "PPU:%3d,%3d ", ppu_cycle - 1, ppu_scanline);
+            }
             if (ppu_scanline == 261)
             {
                 ppu_scanline = -1;
             }
             fprintf(fp, "CYC:%d\n", total_cycles);
         }
-        
-        //flag set thing
-        set_flag(U_flag, 1);
-
-        //increment program counter
-        program_counter++;
-
-        //cycles
-
-        opcode op_to_execute = get_opcode(current_opcode);
-        cycles = op_to_execute.cycle_count;
 
         //execute the instruction, keep track if return 1 as that means add cycle
         uint8_t extra_cycle_addressingMode = op_to_execute.addressing_mode();
