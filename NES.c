@@ -248,7 +248,7 @@ uint8_t r[WIDTH * HEIGHT];
 uint8_t g[WIDTH * HEIGHT];
 uint8_t b[WIDTH * HEIGHT];
 
-bool mapper_0(uint16_t address, uint32_t* mapped_address)
+bool mapper_0_cpu_read(uint16_t address, uint32_t* mapped_address)
 {
     if (address >= 0x8000 && address <= 0xFFFF)
     {
@@ -259,7 +259,7 @@ bool mapper_0(uint16_t address, uint32_t* mapped_address)
         }
         else if (prg_rom_size == 0x8000)
         {
-            *mapped_address = address & 0x7FFF;
+            *mapped_address = address & (prg_banks > 1 ? 0x7FFF : 0x3FFF);
             return true;
         }
     }
@@ -268,12 +268,33 @@ bool mapper_0(uint16_t address, uint32_t* mapped_address)
         
 }
 
-bool mapper_0_ppu(uint16_t address, uint32_t* mapped_address)
+bool mapper_0_cpu_write(uint16_t address, uint32_t* mapped_address)
+{
+    if (address >= 0x8000 && address <= 0xFFFF)
+    {
+        *mapped_address = address & (prg_banks > 1 ? 0x7FFF : 0x3FFF);
+        return true;
+    }
+    return false;
+}
+
+bool mapper_0_ppu_read(uint16_t address, uint32_t* mapped_address)
 {
     if (address >= 0x0000 && address <= 0x1FFF)
     {
-        if (chr_rom_size == 0x2000)
+        *mapped_address = address;
+        return true;
+    }
+    return false;
+}
+
+bool mapper_0_ppu_write(uint16_t address, uint32_t* mapped_address)
+{
+    if (address >= 0x0000 && address <= 0x1FFF)
+    {
+        if (chr_banks == 0)
         {
+            //ram mode
             *mapped_address = address;
             return true;
         }
@@ -281,10 +302,40 @@ bool mapper_0_ppu(uint16_t address, uint32_t* mapped_address)
     return false;
 }
 
+
+bool cartridgeBus_ppu_read(uint16_t address, uint8_t* data)
+{
+    uint32_t mapped_address = 0;
+    if (mapper_0_ppu_read(address, &mapped_address))
+    {
+        *data = CHR_ROM[mapped_address];
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+
+bool cartridgeBus_ppu_write(uint16_t address, uint8_t data)
+{
+    uint32_t mapped_address = 0;
+    if (mapper_0_ppu_write(address, &mapped_address))
+    {
+        CHR_ROM[mapped_address] = data;
+        return  true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
 bool cartridgeBus_cpu_read(uint16_t address, uint8_t* data)
 {
     uint32_t mapped_address = 0;
-    if (mapper_0(address, &mapped_address))
+    if (mapper_0_cpu_read(address, &mapped_address))
     {
         *data = PRG_ROM[mapped_address];
         return  true;
@@ -298,7 +349,7 @@ bool cartridgeBus_cpu_read(uint16_t address, uint8_t* data)
 bool cartridgeBus_cpu_write(uint16_t address, uint8_t data)
 {
     uint32_t mapped_address = 0;
-    if (mapper_0(address, &mapped_address))
+    if (mapper_0_cpu_write(address, &mapped_address))
     {
         PRG_ROM[mapped_address] = data;
         return  true;
@@ -309,32 +360,96 @@ bool cartridgeBus_cpu_write(uint16_t address, uint8_t data)
     }
 }
 
-bool cartridgeBus_ppu_read(uint16_t address, uint8_t* data)
+uint8_t ppuBus_read(uint16_t address)
 {
-    uint32_t mapped_address = 0;
-    if (mapper_0_ppu(address, &mapped_address))
+    uint8_t data = 0x00;
+    if (cartridgeBus_ppu_read(address, &data))
     {
-        *data = CHR_ROM[mapped_address];
-        return  true;
+        return data;
     }
-    else
+    if (address > 0x0000 & address < 0x0FFF)
     {
-        return false;
+        //pattern table 1
+        data = CHR_ROM[address];
     }
-}
 
-bool cartridgeBus_ppu_write(uint16_t address, uint8_t data)
-{
-    uint32_t mapped_address = 0;
-    if (mapper_0_ppu(address, &mapped_address))
+    if (address > 0x1000 & address < 0x1FFF)
     {
-        CHR_ROM[mapped_address] = data;
-        return  true;
+        //pattern table 2
+        data = CHR_ROM[address];
     }
-    else
+
+    if (address > 0x2000 & address < 0x23BF)
     {
-        return false;
+        //nametable 0
+        data = nametables[0][address & 0x03FF];
     }
+
+    if (address > 0x23C0 & address < 0x23FF)
+    {
+        //attribute table 0
+        data = nametables[0][address & 0x03FF];
+    }
+
+    if (address > 0x2400 & address < 0x27BF)
+    {
+        //nametable 1
+        data = nametables[1][address & 0x03FF];
+    }
+
+    if (address > 0x27C0 & address < 0x27FF)
+    {
+        //attribute table 1
+        data = nametables[1][address & 0x03FF];
+    }
+
+    if (address > 0x2800 & address < 0x2BBF)
+    {
+        //nametable 2
+        printf("nametable 2 ppuBus_read\n");
+        data = 0x00;
+    }
+
+    if (address > 0x2BC0 & address < 0x2BFF)
+    {
+        //attribute table 2
+        printf("attribute table 2 ppuBus_read\n");
+        data = 0x00;
+    }
+
+    if (address > 0x2C00 & address < 0x2FBF)
+    {
+        //nametable 3
+        printf("nametable 3 ppuBus_read\n");
+        data = 0x00;
+    }
+
+    if (address > 0x2FC0 & address < 0x2FFF)
+    {
+        //attribute table 3
+        printf("attribute table 3 ppuBus_read\n");
+        data = 0x00;
+    }
+
+    if (address > 0x3000 & address < 0x3EFF)
+    {
+        //mirror of 0x2000 - 0x2EFF
+        data = ppuBus_read(address & 0x2EFF);
+    }
+
+    if (address > 0x3F00 & address < 0x3F1F)
+    {
+        //palette ram indexes
+        data = ppu_palette[address & 0x001F];
+    }
+
+    if (address > 0x3F20 & address < 0x3FFF)
+    {
+        //mirror of 0x3F00 - 0x3F1F
+        data = ppuBus_read(address & 0x3F1F);
+    }
+    return data;
+
 }
 
 void ppuBus_write(uint16_t address, uint8_t data)
@@ -343,276 +458,210 @@ void ppuBus_write(uint16_t address, uint8_t data)
     {
         return;
     }
-    if (address >= 0x0000 && address <= 0x1FFF)
+    if (address > 0x0000 && address < 0x2000)
     {
-        // CHR ROM
+        //CHR ROM
         CHR_ROM[address] = data;
     }
-    else if (address >= 0x2000 && address <= 0x3EFF)
+    else if (address > 0x2000 && address < 0x3F00)
     {
-        // Nametables
-        if (mirror_mode == "VERTICAL")
-        {
-            if (address >= 0x2000 && address <= 0x23FF)
-            {
-                nametables[0][address & 0x03FF] = data;
-            }
-            else if (address >= 0x2400 && address <= 0x27FF)
-            {
-                nametables[1][address & 0x03FF] = data;
-            }
-            else if (address >= 0x2800 && address <= 0x2BFF)
-            {
-                nametables[0][address & 0x03FF] = data;
-            }
-            else if (address >= 0x2C00 && address <= 0x2FFF)
-            {
-                nametables[1][address & 0x03FF] = data;
-            }
-        }
-        if (mirror_mode == "HORIZONTAL")
-        {
-            if (address >= 0x2000 && address <= 0x23FF)
-            {
-                nametables[0][address & 0x03FF] = data;
-            }
-            else if (address >= 0x2400 && address <= 0x27FF)
-            {
-                nametables[0][address & 0x03FF] = data;
-            }
-            else if (address >= 0x2800 && address <= 0x2BFF)
-            {
-                nametables[1][address & 0x03FF] = data;
-            }
-            else if (address >= 0x2C00 && address <= 0x2FFF)
-            {
-                nametables[1][address & 0x03FF] = data;
-            }
-        }
+        //nametables and attribute tables
+        uint8_t table_index = (address >> 10) & 0x03;
+        uint16_t table_address = address & 0x03FF;
+        nametables[table_index][table_address] = data;
     }
-    else if (address >= 0x3F00 && address <= 0x3FFF)
+    else if (address > 0x3F00 && address < 0x3F20)
     {
-        // Palette
-        address &= 0x001F;
-        if (address == 0x0010) address = 0x0000;
-        if (address == 0x0014) address = 0x0004;
-        if (address == 0x0018) address = 0x0008;
-        if (address == 0x001C) address = 0x000C;
-        ppu_palette[address] = data;
+        //palette ram indexes
+        uint8_t palette_index = address & 0x001F;
+        ppu_palette[palette_index] = data;
     }
-}
-
-uint8_t ppuBus_read(uint16_t address)
-{
-    uint8_t data = 0x00;
-
-    if (cartridgeBus_ppu_read(address, &data))
+    else if (address > 0x3F20 && address < 0x4000)
     {
-
+        //mirror of 0x3F00 - 0x3F1F
+        ppuBus_write(address & 0x3F1F, data);
     }
-    else if (address >= 0x0000 && address <= 0x1FFF)
-    {
-        // CHR ROM
-        data = CHR_ROM[address];
-    }
-    else if (address >= 0x2000 && address <= 0x3EFF)
-    {
-        // Nametables
-        if (mirror_mode == "VERTICAL")
-        {
-            //vertical
-            if (address >= 0x0000 && address <= 0x03FF)
-            {
-                data = nametables[0][address & 0x03FF];
-            }
-            if (address >= 0x0400 && address <= 0x07FF)
-            {
-                data = nametables[1][address & 0x03FF];
-            }
-            if (address >= 0x0800 && address <= 0x0BFF)
-            {
-                data = nametables[0][address & 0x03FF];
-            }
-            if (address >= 0x0C00 && address <= 0x0FFF)
-            {
-                data = nametables[1][address & 0x03FF];
-            }
-        }
-        if (mirror_mode == "HORIZONTAL")
-        {
-            //horizontal
-            if (address >= 0x0000 && address <= 0x03FF)
-            {
-                data = nametables[0][address & 0x03FF];
-            }
-            if (address >= 0x0400 && address <= 0x07FF)
-            {
-                data = nametables[0][address & 0x03FF];
-            }
-            if (address >= 0x0800 && address <= 0x0BFF)
-            {
-                data = nametables[1][address & 0x03FF];
-            }
-            if (address >= 0x0C00 && address <= 0x0FFF)
-            {
-                data = nametables[1][address & 0x03FF];
-            }
-        }
-    }
-    else if (address >= 0x3F00 && address <= 0x3FFF)
-    {
-        // Palette
-        address &= 0x001F;
-        if (address == 0x0010) address = 0x0000;
-        if (address == 0x0014) address = 0x0004;
-        if (address == 0x0018) address = 0x0008;
-        if (address == 0x001C) address = 0x000C;
-        data = ppu_palette[address];
-    }
-    // Invalid address
-    return data;
-}
-
-void cpuBus_write(uint16_t address, uint8_t data)
-{   
-    if (cartridgeBus_cpu_write(address, data))
-    {
-        //cart
-    }
-    else if (address >= 0x0000 && address <= 0x1FFF)
-    {
-        // cpu RAM address space
-        cpuRam[address % 0x0800] = data;
-    }
-    else if (address >= 0x2000 && address <= 0x3FFF)
-    {
-        // Handle write to PPU registers
-        switch (address % 8)
-        {
-        case 0:
-            //PPUCTRL
-            ppu_ctrl.reg = data;
-            tram_address.nametable_x = ppu_ctrl.nametable_x;
-            tram_address.nametable_y = ppu_ctrl.nametable_y;
-            break;
-        case 1:
-            //PPUMASK
-            ppu_mask.reg = data;
-            break;
-        case 3:
-            //OAMADDR
-            break;
-        case 4:
-            //OAMDATA
-            break;
-        case 5:
-            //PPUSCROLL
-            if (address_latch == 0)
-            {
-                fine_x = data & 0x07;
-                tram_address.coarse_x = data >> 3;
-                address_latch = 1;
-            }
-            else
-            {
-                tram_address.fine_y = data & 0x07;
-                tram_address.coarse_y = data >> 3;
-                address_latch = 0;
-            }
-            break;
-        case 6:
-            //PPUADDR
-            if (address_latch == 0)
-            {
-                tram_address.reg = (tram_address.reg & 0x00FF) | (data << 8);
-                address_latch = 1;
-            }
-            else
-            {
-                tram_address.reg = (tram_address.reg & 0xFF00) | data;
-                vram_address.reg = tram_address.reg;
-                address_latch = 0;
-            }
-            break;
-        case 7:
-            //PPUDATA
-            ppuBus_write(tram_address.reg, data);
-            tram_address.reg += (ppu_ctrl.increment_mode ? 32 : 1);
-            break;
-        }
-        
-    }
-    else if (address >= 0x4000 && address <= 0x4017)
-    {
-        // write to APU and I/O registers TODO
-    }
-    // Invalid address
 }
 
 uint8_t cpuBus_read(uint16_t address)
 {
-    uint8_t data = 0;
-
+    uint8_t data = 0x00;
     if (cartridgeBus_cpu_read(address, &data))
     {
-        //cart
+        return data;
     }
-    else if (address >= 0x0000 && address <= 0x1FFF)
+    if (address >= 0x0000 && address <= 0x1FFF)
     {
-        // cpu RAM address space
-        data = cpuRam[address % 0x0800];
+        data = cpuRam[address & 0x07FF];
     }
     else if (address >= 0x2000 && address <= 0x3FFF)
     {
-        // Handle read from PPU registers
-        switch (address % 8)
+        //ppu registers
+        switch (address & 0x0007)
         {
-        case 0:
-            //PPUCTRL
-            break;
-        case 1:
-            //PPUMASK
-            break;
-        case 2:
-            //PPUSTATUS
-            data = (ppu_status.reg & 0xE0) | (ppu_data_buffer & 0x1F);
-            //clear vblank flag
-            ppu_status.vertical_blank = 0;
-            address_latch = 0;
-            break;
-        case 3:
-            //OAMADDR
-            break;
-        case 4:
-            //OAMDATA
-            break;
-        case 5:
-            //PPUSCROLL
-            break;
-        case 6:
-            //PPUADDR
-            break;
-        case 7:
-            //PPUDATA
-            data = ppu_data_buffer;
-            ppu_data_buffer = ppuBus_read(vram_address.reg);
-
-            if (vram_address.reg >= 0x3F00 && vram_address.reg <= 0x3FFF)
-            {
+            case 0x0000:
+                //PPUCTRL
+                break;
+            case 0x0001:
+                //PPUMASK
+                break;
+            case 0x0002:
+                //PPUSTATUS
+                data = (ppu_status.reg & 0xE0) | (ppu_data_buffer & 0x1F);
+                ppu_status.vertical_blank = 0;
+                address_latch = 0;
+                break;
+            case 0x0003:
+                //OAMADDR
+                break;
+            case 0x0004:
+                //OAMDATA
+                break;
+            case 0x0005:
+                //PPUSCROLL
+                break;
+            case 0x0006:
+                //PPUADDR
+                break;
+            case 0x0007:
+                //PPUDATA
                 data = ppu_data_buffer;
-            }
-            vram_address.reg += (ppu_ctrl.increment_mode ? 32 : 1);
-            break;
+                ppu_data_buffer = ppuBus_read(vram_address.reg);
+                if (vram_address.reg >= 0x3F00)
+                {
+                    data = ppu_data_buffer;
+                }
+                vram_address.reg += (ppu_ctrl.increment_mode ? 32 : 1);
+                break;
+            default:
+                // handle invalid address
+                break;
         }
     }
-    else if (address >= 0x4000 && address <= 0x4017)
+    else if (address == 0x4015)
     {
-        // read from APU and I/O registers TODO
+        //apu register
     }
+    else if (address == 0x4016)
+    {
+        //controller 1
+    }
+    else if (address == 0x4017)
+    {
+        //controller 2
+    }
+    else if (address >= 0x4017 && address <= 0x401F)
+    {
+        //APU and IO registers
+    }
+    else if (address >= 0x8000 && address <= 0xFFFF)
+    {
+        //cartridge space
+        data = PRG_ROM[address - 0x8000];
+    }
+    else
+    {
+        printf("cpuBus_read: address out of range: %04X\n", address);
+        data = 0x00;
+    }
+
     return data;
 }
 
-
+void cpuBus_write(uint16_t address, uint8_t data)
+{
+    if (cartridgeBus_cpu_write(address, data))
+    {
+        return;
+    }
+    if (address >= 0x0000 && address <= 0x1FFF)
+    {
+        cpuRam[address & 0x07FF] = data;
+    }
+    else if (address >= 0x2000 && address <= 0x3FFF)
+    {
+        switch (address & 0x0007)
+        {
+            case 0x0000:
+                //PPUCTRL
+                ppu_ctrl.reg = data;
+                tram_address.nametable_x = ppu_ctrl.nametable_x;
+                tram_address.nametable_y = ppu_ctrl.nametable_y;
+                break;
+            case 0x0001:
+                //PPUMASK
+                ppu_mask.reg = data;
+                break;
+            case 0x0002:
+                //PPUSTATUS
+                break;
+            case 0x0003:
+                //OAMADDR
+                break;
+            case 0x0004:
+                //OAMDATA
+                break;
+            case 0x0005:
+                //PPUSCROLL
+                if (address_latch == 0)
+                {
+                    fine_x = data & 0x07;
+                    tram_address.coarse_x = data >> 3;
+                    address_latch = 1;
+                } else {
+                    tram_address.fine_y = data & 0x07;
+                    tram_address.coarse_y = data >> 3;
+                    address_latch = 0;
+                }
+                break;
+            case 0x0006:
+                //PPUADDR
+                if (address_latch == 0)
+                {
+                    tram_address.reg = (tram_address.reg & 0x00FF) | ((uint16_t)data << 8);
+                    address_latch = 1;
+                } else {
+                    tram_address.reg = (tram_address.reg & 0xFF00) | (uint16_t)data;
+                    vram_address = tram_address;
+                    address_latch = 0;
+                }
+                break;
+            case 0x0007:
+                //PPUDATA
+                ppuBus_write(vram_address.reg, data);
+                vram_address.reg += (ppu_ctrl.increment_mode ? 32 : 1);
+                break;
+            default:
+                // handle invalid address
+                break;
+        }
+    }
+    else if (address == 0x4015)
+    {
+        //apu register
+    }
+    else if (address == 0x4016)
+    {
+        //controller 1
+    }
+    else if (address == 0x4017)
+    {
+        //controller 2
+    }
+    else if (address >= 0x4017 && address <= 0x401F)
+    {
+        //APU and IO registers
+    }
+    else if (address >= 0x8000 && address <= 0xFFFF)
+    {
+        //cartridge space
+        PRG_ROM[address - 0x8000] = data;
+    }
+    else
+    {
+        printf("cpuBus_write: address out of range: %04X\n", address);
+    }
+}
 
 //addressing modes
 uint8_t IMP()
@@ -2227,7 +2276,7 @@ void initialize_cpu()
     uint8_t x_register = 0x00;
     uint8_t y_register = 0x00;
 
-    uint16_t program_counter = 0x8000;
+    uint16_t program_counter = 0x0000;
     uint8_t stack_pointer = 0xFD;
     uint8_t status_register = 0x00;
 
@@ -2275,6 +2324,7 @@ void load_rom(char* filename)
 
     // extract PRG ROM data
     prg_rom_size = header[4] * 16384;
+    prg_banks = header[4];
     PRG_ROM = malloc(prg_rom_size);
     fread(PRG_ROM, sizeof(unsigned char), prg_rom_size, file);
 
@@ -2282,10 +2332,21 @@ void load_rom(char* filename)
 
     // extract CHR ROM data
     chr_rom_size = header[5] * 8192;
+    chr_banks = header[5];
     CHR_ROM = malloc(chr_rom_size);
     fread(CHR_ROM, sizeof(unsigned char), chr_rom_size, file);
 
     printf("CHR ROM size: %d bytes\n", chr_rom_size);
+
+    // load nametables from CHR ROM into array
+    for (int i = 0; i < 2; i++)
+    {
+        for (int j = 0; j < 1024; j++)
+        {
+            int index = i * 1024 + j;
+            nametables[i][j] = CHR_ROM[index];
+        }
+    }
 
     //dump CHR ROM to file
     FILE* chr_rom_file = fopen("chr_rom_dump.bin", "wb");
@@ -2296,6 +2357,17 @@ void load_rom(char* filename)
     FILE* prg_rom_file = fopen("prg_rom_dump.bin", "wb");
     fwrite(PRG_ROM, sizeof(unsigned char), prg_rom_size, prg_rom_file);
     fclose(prg_rom_file);
+
+    //dump nametable 0
+    FILE* nametable_0_file = fopen("nametable_0.bin", "wb");
+    fwrite(nametables[0], sizeof(unsigned char), 1024, nametable_0_file);
+    fclose(nametable_0_file);
+
+    //dump nametable 1
+    FILE* nametable_1_file = fopen("nametable_1.bin", "wb");
+    fwrite(nametables[1], sizeof(unsigned char), 1024, nametable_1_file);
+    fclose(nametable_1_file);
+
 
     //since palettes are broken, just for visuals
     for (int i = 0; i < 32; i++)
@@ -2904,7 +2976,7 @@ int main(int argc, char* argv[])
     //load rom at 0x8000, default location
     load_rom("nestest.nes");
     reset();
-
+    
     SDL_Init(SDL_INIT_VIDEO);
 
     TTF_Init();
@@ -2993,6 +3065,10 @@ int main(int argc, char* argv[])
                         clock_print_flag = 1;
                     }
                     updateDebugWindow();
+                }
+                if (event.key.keysym.sym == SDLK_t) {
+                    //execute rigorous cpu tests
+                    print("Start CPU tests\n");
                 }
                 if (event.key.keysym.sym == SDLK_ESCAPE) {
                     // Exit main loop
