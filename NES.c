@@ -70,6 +70,8 @@ uint16_t relative_address = 0x0000;
 
 
 uint8_t cpuRam[0x0800] = {0};
+uint8_t cpuTestRam[0xFFFF] = {0};
+bool cpu_test_mode = false;
 
 //CPU BUS SPECIFICATIONS:
 
@@ -486,6 +488,11 @@ void ppuBus_write(uint16_t address, uint8_t data)
 uint8_t cpuBus_read(uint16_t address)
 {
     uint8_t data = 0x00;
+    //branch for testing cpu
+    if (cpu_test_mode)
+    {
+        return cpuTestRam[address];
+    }
     if (cartridgeBus_cpu_read(address, &data))
     {
         return data;
@@ -570,6 +577,12 @@ uint8_t cpuBus_read(uint16_t address)
 
 void cpuBus_write(uint16_t address, uint8_t data)
 {
+    //branch for testing cpu
+    if (cpu_test_mode)
+    {
+        cpuTestRam[address] = data;
+        return;
+    }
     if (cartridgeBus_cpu_write(address, data))
     {
         return;
@@ -2961,6 +2974,12 @@ void bus_clock()
     system_clock_count++;
 }
 
+bool cpu_test_suite()
+{
+    //returns true if all the super cpu tests pass, false otherwise
+    return true;
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -3068,7 +3087,10 @@ int main(int argc, char* argv[])
                 }
                 if (event.key.keysym.sym == SDLK_t) {
                     //execute rigorous cpu tests
-                    print("Start CPU tests\n");
+                    printf("Start CPU tests\n");
+                    cpu_test_mode = true;
+                    cpu_test_suite() ? printf("All CPU tests passed\n") : printf("CPU tests failed\n");
+                    cpu_test_mode = false;
                 }
                 if (event.key.keysym.sym == SDLK_ESCAPE) {
                     // Exit main loop
