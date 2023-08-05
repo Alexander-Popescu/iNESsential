@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
+#include <json.h>
 
 //6502
 //A: Accumulator
@@ -2974,10 +2975,36 @@ void bus_clock()
     system_clock_count++;
 }
 
+void cpu_and_ram_full_reset()
+{
+    //set all of ram to 0
+    for (int i = 0; i < sizeof(cpuTestRam) / 8; i++)
+    {
+        cpuTestRam[i] = 0;
+    }
+
+    //cpu registers to 0
+    program_counter = 0x0000;
+    stack_pointer = 0x00;
+    accumulator = 0x00;
+    x_register = 0x00;
+    y_register = 0x00;
+    status_register = 0x00;
+}
+
 bool cpu_test_suite()
 {
     //returns true if all the super cpu tests pass, false otherwise
-    return true;
+
+    //loop over all test files.
+    //reset cpu and ram state
+    //run test
+    //compare test, if anything went wrong return false and exit cpu test suite with false
+    //if no errors return true
+
+    //for now just testing the first file
+    cpu_and_ram_full_reset();
+    return false;
 }
 
 
