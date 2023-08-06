@@ -688,7 +688,7 @@ uint8_t IMP()
 uint8_t IMM()
 {
     //immediate
-    absolute_address = program_counter++;
+    absolute_address = program_counter + 1;
     return 0;
 }
 
@@ -860,6 +860,7 @@ uint8_t ACC()
 {
     //accumulator
     accumulator_mode = true;
+    program_counter++;
     return 0;
 }
 
@@ -879,6 +880,7 @@ uint8_t ADC()
 
     accumulator = tmp & 0x00FF;
 
+    program_counter++;
     return 1;
 }
 
@@ -895,6 +897,7 @@ uint8_t AND()
     set_flag(N_flag, accumulator & 0x80);
 
     //return 1 if extra clock cycle is possible, it will check with addressing mode function
+    program_counter++;
     return 1;
 }
 
@@ -936,8 +939,11 @@ uint8_t BCC()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
+        program_counter++;
         return 1;
     }
+
+    program_counter++;
     return 1;
 }
 
@@ -957,8 +963,10 @@ uint8_t BCS()
         //update program counter since we just moved 
         program_counter = absolute_address;
 
+        program_counter++;
         return 1;
     }
+    program_counter++;
     return 1;
 }
 
@@ -977,9 +985,11 @@ uint8_t BEQ()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
-
+        
+        program_counter++;
         return 0;
     }
+    program_counter++;
     return 0;
 }
 
@@ -998,6 +1008,7 @@ uint8_t BIT()
     set_flag(N_flag, data_at_absolute & 0x80);
     set_flag(V_flag, data_at_absolute & 0x40);
 
+    program_counter++;
     return 0;
 }
 
@@ -1017,6 +1028,7 @@ uint8_t BMI()
         //update program counter since we just moved 
         program_counter = absolute_address;
     }
+    program_counter++;
     return 1;
 }
 
@@ -1035,8 +1047,10 @@ uint8_t BNE()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
+        program_counter++;
         return 1;
     }
+    program_counter++;
     return 1;
 }
 
@@ -1055,8 +1069,10 @@ uint8_t BPL()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
+        program_counter++;
         return 1;
     }
+    program_counter++;
     return 1;
 }
 
@@ -1068,6 +1084,7 @@ uint8_t BRK()
     //set break flag
     set_flag(B_flag, 1);
 
+    program_counter++;
     return 0;
 }
 
@@ -1086,8 +1103,10 @@ uint8_t BVC()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
+        program_counter++;
         return 1;
     }
+    program_counter++;
     return 1;
 }
 
@@ -1106,32 +1125,38 @@ uint8_t BVS()
         }
         //update program counter since we just moved 
         program_counter = absolute_address;
+        program_counter++;
         return 1;
     }
+    program_counter++;
     return 1;
 }
 
 uint8_t CLC()
 {
     set_flag(C_flag, 0);
+    program_counter++;
     return 0;
 }
 
 uint8_t CLD()
 {
     set_flag(D_flag, 0);
+    program_counter++;
     return 0;
 }
 
 uint8_t CLI()
 {
     set_flag(I_flag, 0);
+    program_counter++;
     return 0;
 }
 
 uint8_t CLV()
 {
     set_flag(V_flag, 0);
+    program_counter++;
     return 0;
 }
 
@@ -1146,6 +1171,7 @@ uint8_t CMP()
     set_flag(Z_flag, (temp & 0x00FF) == 0x0000);
     set_flag(N_flag, temp & 0x0080);
 
+    program_counter++;
     return 1;
 }
 
@@ -1181,6 +1207,7 @@ uint8_t CPX()
         set_flag(N_flag, 0);
     }
 
+    program_counter++;
     return 0;
 }
 
@@ -1216,6 +1243,7 @@ uint8_t CPY()
         set_flag(N_flag, 0);
     }
 
+    program_counter++;
     return 0;
 }
 
@@ -1228,6 +1256,7 @@ uint8_t DEC()
     set_flag(Z_flag, data_at_absolute == 0x00);
     set_flag(N_flag, data_at_absolute & 0x80);
 
+    program_counter++;
     return 0;
 }
 
@@ -1254,6 +1283,7 @@ uint8_t DEX()
         set_flag(N_flag, 0);
     } 
 
+    program_counter++;
     return 0;
 }
 
@@ -1280,6 +1310,7 @@ uint8_t DEY()
         set_flag(N_flag, 0);
     }
     
+    program_counter++;
     return 0;
 }
 
@@ -1307,6 +1338,7 @@ uint8_t EOR()
         set_flag(N_flag, 0);
     }
 
+    program_counter++;
     return 1;
 }
 
@@ -1319,6 +1351,7 @@ uint8_t INC()
     set_flag(Z_flag, data_at_absolute == 0x00);
     set_flag(N_flag, data_at_absolute & 0x80);
 
+    program_counter++;
     return 0;
 }
 
@@ -1345,6 +1378,7 @@ uint8_t INX()
         set_flag(N_flag, 0);
     }
 
+    program_counter++;
     return 0;
 }
 
@@ -1371,12 +1405,15 @@ uint8_t INY()
         set_flag(N_flag, 0);
     }
 
+    program_counter++;
     return 0;
 }
 
 uint8_t JMP()
 {
     program_counter = absolute_address;
+
+    program_counter++;
     return 0;
 }
 
@@ -1398,6 +1435,7 @@ uint8_t JSR()
     //set program counter
     program_counter = target;
 
+    program_counter++;
     return 0;
 }
 
@@ -1410,6 +1448,7 @@ uint8_t LDA()
     set_flag(Z_flag, accumulator == 0x00);
     set_flag(N_flag, accumulator & 0x80);
 
+    program_counter++;
     return 1;
 }
 
@@ -1438,6 +1477,7 @@ uint8_t LDX()
         set_flag(N_flag, 0);
     }
 
+    program_counter++;
     return 1;
 }
 
@@ -1483,6 +1523,7 @@ uint8_t LSR()
     accumulator_mode ? accumulator = temp : cpuBus_write(absolute_address, temp);
     accumulator_mode = false;
 
+    program_counter++;
     return 0;
 }
 
@@ -1495,6 +1536,8 @@ uint8_t NOP()
     {
         return 1;
     }
+
+    program_counter++;
     return 0;
 }
 
@@ -1523,6 +1566,7 @@ uint8_t ORA()
         set_flag(N_flag, 0);
     }
 
+    program_counter++;
     return 1;
 }
 
@@ -1543,6 +1587,7 @@ uint8_t PHP()
     set_flag(U_flag, 1);
     stack_pointer--;
 
+    program_counter++;
     return 0;
 }
 
@@ -1567,6 +1612,8 @@ uint8_t PLA()
     {
         set_flag(N_flag, 0);
     }
+
+    program_counter++;
     return 0;
 }
 
@@ -1577,6 +1624,8 @@ uint8_t PLP()
     status_register = cpuBus_read(0x0100 + stack_pointer);
     set_flag(U_flag, 1);
     set_flag(B_flag, 0);
+
+    program_counter++;
     return 0;
 }
 
@@ -1601,7 +1650,8 @@ uint8_t ROL()
     }
 
     accumulator_mode = false;
-    
+
+    program_counter++;
     return 0;
 }
 
@@ -1628,6 +1678,7 @@ uint8_t ROR()
 
     accumulator_mode = false;
 
+    program_counter++;
     return 0;
 }
 
@@ -1647,6 +1698,8 @@ uint8_t RTI()
     uint16_t first_half = cpuBus_read(0x0100 + stack_pointer) << 8;
 
     program_counter = first_half | second_half;
+
+    program_counter++;
     return 0;
 }
 
@@ -1660,6 +1713,7 @@ uint8_t RTS()
     //go to next instruction
     program_counter++;
 
+    program_counter++;
     return 0;
 }
 
@@ -1677,24 +1731,31 @@ uint8_t SBC()
 
     accumulator = tmp & 0x00FF;
 
+    program_counter++;
     return 1;
 }
 
 uint8_t SEC()
 {
     set_flag(C_flag, true);
+
+    program_counter++;
     return 0;
 }
 
 uint8_t SED()
 {
     set_flag(D_flag, true);
+
+    program_counter++;
     return 0;
 }
 
 uint8_t SEI()
 {
     set_flag(I_flag, true);
+
+    program_counter++;
     return 0;
 }
 
@@ -1705,6 +1766,7 @@ uint8_t STA()
 
     cpuBus_write(absolute_address, accumulator);
 
+    program_counter++;
     return 0;
 }
 
@@ -1712,12 +1774,16 @@ uint8_t STX()
 {
     cpuBus_write(absolute_address, x_register);
     //absolute addressing
+
+    program_counter++;
     return 0;
 }
 
 uint8_t STY()
 {
     cpuBus_write(absolute_address, y_register);
+
+    program_counter++;
     return 0;
 }
 
@@ -1727,6 +1793,8 @@ uint8_t TAX()
 
     set_flag(Z_flag, x_register == 0x00);
     set_flag(N_flag, x_register & 0x80);
+
+    program_counter++;
     return 0;
 }
 
@@ -1736,6 +1804,8 @@ uint8_t TAY()
 
     set_flag(Z_flag, y_register == 0x00);
     set_flag(N_flag, y_register & 0x80);
+
+    program_counter++;
     return 0;
 }
 
@@ -1746,6 +1816,7 @@ uint8_t TSX()
     set_flag(Z_flag, x_register == 0x00);
     set_flag(N_flag, x_register & 0x80);
 
+    program_counter++;
     return 0;
 }
 
@@ -1756,12 +1827,15 @@ uint8_t TXA()
     set_flag(Z_flag, accumulator == 0x00);
     set_flag(N_flag, accumulator & 0x80);
 
+    program_counter++;
     return 0;
 }
 
 uint8_t TXS()
 {
     stack_pointer = x_register;
+
+    program_counter++;
     return 0;
 }
 
@@ -1771,6 +1845,8 @@ uint8_t TYA()
 
     set_flag(Z_flag, accumulator == 0x00);
     set_flag(N_flag, accumulator & 0x80);
+
+    program_counter++;
     return 0;
 }
 
@@ -1778,6 +1854,7 @@ uint8_t XXX()
 {
     printf("\nINVALID OPCODE\n");
     printf("opcode: %02X\n", current_opcode);
+    program_counter++;
     return 0;
 }
 
@@ -1855,7 +1932,7 @@ typedef struct opcode
 
 opcode opcode_matrix[16][16] = {
 //   0                         1                         2                         3                         4                         5                         6                         7                         8                         9                         A                         B                         C                         D                         E                         F
-    {{ "BRK", BRK, IMP, 1, 7 },{"ORA", ORA, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"SLO", SLO, IZX, 2, 8 },{"NOP", NOP, ZP0, 0, 3 },{"ORA", ORA, ZP0, 2, 3 },{"ASL", ASL, ZP0, 2, 5 },{"SLO", SLO, ZP0, 2, 5 },{"PHP", PHP, IMP, 1, 3 },{"ORA", ORA, IMM, 2, 2 },{"ASL", ASL, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ABS, 3, 4 },{"ORA", ORA, ABS, 3, 4 },{"ASL", ASL, ABS, 3, 6 },{"SLO", SLO, ABS, 3, 6 }},
+    {{ "BRK", BRK, IMP, 2, 7 },{"ORA", ORA, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"SLO", SLO, IZX, 2, 8 },{"NOP", NOP, ZP0, 0, 3 },{"ORA", ORA, ZP0, 2, 3 },{"ASL", ASL, ZP0, 2, 5 },{"SLO", SLO, ZP0, 2, 5 },{"PHP", PHP, IMP, 1, 3 },{"ORA", ORA, IMM, 2, 2 },{"ASL", ASL, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ABS, 3, 4 },{"ORA", ORA, ABS, 3, 4 },{"ASL", ASL, ABS, 3, 6 },{"SLO", SLO, ABS, 3, 6 }},
     {{ "BPL", BPL, REL, 2, 2 },{"ORA", ORA, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"SLO", SLO, IZY, 2, 8 },{"NOP", NOP, ZPX, 2, 4 },{"ORA", ORA, ZPX, 2, 4 },{"ASL", ASL, ZPX, 2, 6 },{"SLO", SLO, ZPX, 2, 6 },{"CLC", CLC, IMP, 1, 2 },{"ORA", ORA, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"SLO", SLO, ABY, 3, 7 },{"NOP", NOP, ABX, 3, 4 },{"ORA", ORA, ABX, 3, 4 },{"ASL", ASL, ABX, 3, 7 },{"SLO", SLO, ABX, 3, 7 }},
     {{ "JSR", JSR, ABS, 3, 6 },{"AND", AND, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"RLA", RLA, IZX, 2, 8 },{"BIT", BIT, ZP0, 2, 3 },{"AND", AND, ZP0, 2, 3 },{"ROL", ROL, ZP0, 2, 5 },{"RLA", RLA, ZP0, 2, 5 },{"PLP", PLP, IMP, 1, 4 },{"AND", AND, IMM, 2, 2 },{"ROL", ROL, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"BIT", BIT, ABS, 3, 4 },{"AND", AND, ABS, 3, 4 },{"ROL", ROL, ABS, 3, 6 },{"RLA", RLA, ABS, 3, 6 }},
     {{ "BMI", BMI, REL, 2, 2 },{"AND", AND, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"RLA", RLA, IZY, 2, 8 },{"NOP", NOP, ZPX, 2, 4 },{"AND", AND, ZPX, 2, 4 },{"ROL", ROL, ZPX, 2, 6 },{"RLA", RLA, ZPX, 2, 6 },{"SEC", SEC, IMP, 1, 2 },{"AND", AND, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"RLA", RLA, ABY, 3, 7 },{"NOP", NOP, ABX, 3, 4 },{"AND", AND, ABX, 3, 4 },{"ROL", ROL, ABX, 3, 7 },{"RLA", RLA, ABX, 3, 7 }},
@@ -2879,7 +2956,6 @@ void clock()
 
         //increment program counter
         uint16_t old_program_counter = program_counter;
-        program_counter++;
 
         //cycles
 
@@ -2993,7 +3069,12 @@ void cpu_and_ram_full_reset()
 }
 
 bool cpu_test_suite()
-{
+{    
+    printf("Begin Cpu Test Suite\n");
+    //list of opcodes to test
+    uint8_t ops_to_test[256] = {0x00, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x01, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x02, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x03, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, 0x04, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x05, 0x5A, 0x5B, 0x5C, 0x5D, 0x5E, 0x5F, 0x06, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x07, 0x7A, 0x7B, 0x7C, 0x7D, 0x7E, 0x7F, 0x08, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0x8F, 0x09, 0x9A, 0x9B, 0x9C, 0x9D, 0x9E, 0x9F, 0x0A, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF, 0x0B, 0xBA, 0xBB, 0xBC, 0xBD, 0xBE, 0xBF, 0x0C, 0xCA, 0xCB, 0xCC, 0xCD, 0xCE, 0xCF, 0x0D, 0xDA, 0xDB, 0xDC, 0xDD, 0xDE, 0xDF, 0x0E, 0xEA, 0xEB, 0xEC, 0xED, 0xEE, 0xEF, 0x0F, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE};
+
+
     //returns true if all the super cpu tests pass, false otherwise
 
     //loop over all test files.
@@ -3002,99 +3083,133 @@ bool cpu_test_suite()
     //compare test, if anything went wrong return false and exit cpu test suite with false
     //if no errors return true
 
-    printf("Begin Cpu Test Suite\n");
-    //for now just testing the first file
-    cpu_and_ram_full_reset();
-
-    printf("Begin Reading CpuTest_00\n");
-    FILE *cpuTest_00;
-    static char buffer[1024*1024*6];
-    printf("created buffer\n");
-    struct json_object *parsed_json;
-    fp = fopen("cpu_tests/00.json", "r");
-    fread(buffer, 1024*1024*6, 1, fp);
-    printf("read file\n");
-    fclose(fp);
-
-    parsed_json = json_tokener_parse(buffer);
-
-    struct json_object *test_array;
-    struct json_object *single_test_object;
-
-    //loops over all tests in the file
-    for (int i = 0; i < 1; i++) { //change 1 to json_object_array_length(parsed_json) when done testing individual
-
-        //reset from last test
+    for (int iteration = 0; iteration < 1; iteration++)
+    {
         cpu_and_ram_full_reset();
+        uint8_t current_test_opcode = ops_to_test[iteration];
+        printf("Begin Reading CpuTest_%02X\n", current_test_opcode);
+        FILE *cpuTest_00;
+        static char buffer[1024*1024*6];
+        printf("created buffer\n");
+        struct json_object *parsed_json;
+        char file_str[100];
+        sprintf(file_str, "cpu_tests/%02X.json", current_test_opcode);
+        fp = fopen(file_str, "r");
+        fread(buffer, 1024*1024*6, 1, fp);
+        printf("read file\n");
+        fclose(fp);
 
-        //import single test from large json file
-        single_test_object = json_object_array_get_idx(parsed_json, i);
-        printf("Test %d: %s\n", i, json_object_to_json_string(single_test_object));
-        struct json_object *test_name;
-        struct json_object *test_initial_state;
-        struct json_object *test_final_state;
-        
-        test_name = json_object_object_get(single_test_object, "name");
-        test_initial_state = json_object_object_get(single_test_object, "initial");
-        test_final_state = json_object_object_get(single_test_object, "final");
+        parsed_json = json_tokener_parse(buffer);
 
-        printf("Test Name: %s\n", json_object_get_string(test_name));
-        printf("Test Initial State: %s\n", json_object_to_json_string(test_initial_state));
-        printf("Test Final State: %s\n", json_object_to_json_string(test_final_state));
+        struct json_object *test_array;
+        struct json_object *single_test_object;
 
-        //extract initial
+        //loops over all tests in the file
+        for (int i = 0; i < json_object_array_length(parsed_json); i++) { //change 1 to json_object_array_length(parsed_json) when done testing individual
+            printf("Executing CPU test %d for opcode %02X \n", i, current_test_opcode);
 
-        int initial_pc = json_object_get_int(json_object_object_get(test_initial_state, "pc"));
-        int initial_sp = json_object_get_int(json_object_object_get(test_initial_state, "s"));
-        int initial_a = json_object_get_int(json_object_object_get(test_initial_state, "a"));
-        int initial_x = json_object_get_int(json_object_object_get(test_initial_state, "x"));
-        int initial_y = json_object_get_int(json_object_object_get(test_initial_state, "y"));
-        int initial_p = json_object_get_int(json_object_object_get(test_initial_state, "p"));
-        struct json_object *initial_ram = json_object_object_get(test_initial_state, "ram");
+            //reset from last test
+            cpu_and_ram_full_reset();
 
-        printf("Initial PC: %d\n", initial_pc);
-        printf("Initial SP: %d\n", initial_sp);
-        printf("Initial A: %d\n", initial_a);
-        printf("Initial X: %d\n", initial_x);
-        printf("Initial Y: %d\n", initial_y);
-        printf("Initial P: %d\n", initial_p);
-        printf("Initial Ram: %s\n", json_object_to_json_string(initial_ram));
-        //loop over ram json object
-        for (int i = 0; i < json_object_array_length(initial_ram); i++)
-        {
-            struct json_object *initial_ram_entry = json_object_array_get_idx(initial_ram, i);
-            int initial_ram_entry_address = json_object_get_int(json_object_array_get_idx(initial_ram_entry, 0));
-            int initial_ram_entry_value = json_object_get_int(json_object_array_get_idx(initial_ram_entry, 1));
-            printf("Initial Ram Entry %d: %d , %d\n", i, initial_ram_entry_address, initial_ram_entry_value);
-        }
+            //import single test from large json file
+            single_test_object = json_object_array_get_idx(parsed_json, i);
+            struct json_object *test_name;
+            struct json_object *test_initial_state;
+            struct json_object *test_final_state;
+            
+            test_name = json_object_object_get(single_test_object, "name");
+            test_initial_state = json_object_object_get(single_test_object, "initial");
+            test_final_state = json_object_object_get(single_test_object, "final");
 
-        //extract final
+            //extract initial
 
-        int final_pc = json_object_get_int(json_object_object_get(test_final_state, "pc"));
-        int final_sp = json_object_get_int(json_object_object_get(test_final_state, "s"));
-        int final_a = json_object_get_int(json_object_object_get(test_final_state, "a"));
-        int final_x = json_object_get_int(json_object_object_get(test_final_state, "x"));
-        int final_y = json_object_get_int(json_object_object_get(test_final_state, "y"));
-        int final_p = json_object_get_int(json_object_object_get(test_final_state, "p"));
-        struct json_object *final_ram = json_object_object_get(test_final_state, "ram");
+            int initial_pc = json_object_get_int(json_object_object_get(test_initial_state, "pc"));
+            int initial_sp = json_object_get_int(json_object_object_get(test_initial_state, "s"));
+            int initial_a = json_object_get_int(json_object_object_get(test_initial_state, "a"));
+            int initial_x = json_object_get_int(json_object_object_get(test_initial_state, "x"));
+            int initial_y = json_object_get_int(json_object_object_get(test_initial_state, "y"));
+            int initial_p = json_object_get_int(json_object_object_get(test_initial_state, "p"));
+            struct json_object *initial_ram = json_object_object_get(test_initial_state, "ram");
 
-        printf("Final PC: %d\n", final_pc);
-        printf("Final SP: %d\n", final_sp);
-        printf("Final A: %d\n", final_a);
-        printf("Final X: %d\n", final_x);
-        printf("Final Y: %d\n", final_y);
-        printf("Final P: %d\n", final_p);
-        printf("Final Ram: %s\n", json_object_to_json_string(final_ram));
-        //loop over ram json object
-        for (int i = 0; i < json_object_array_length(final_ram); i++)
-        {
-            struct json_object *final_ram_entry = json_object_array_get_idx(final_ram, i);
-            int final_ram_entry_address = json_object_get_int(json_object_array_get_idx(final_ram_entry, 0));
-            int final_ram_entry_value = json_object_get_int(json_object_array_get_idx(final_ram_entry, 1));
-            printf("Final Ram Entry %d: %d , %d\n", i, final_ram_entry_address, final_ram_entry_value);
+            //extract final
+
+            int final_pc = json_object_get_int(json_object_object_get(test_final_state, "pc"));
+            int final_sp = json_object_get_int(json_object_object_get(test_final_state, "s"));
+            int final_a = json_object_get_int(json_object_object_get(test_final_state, "a"));
+            int final_x = json_object_get_int(json_object_object_get(test_final_state, "x"));
+            int final_y = json_object_get_int(json_object_object_get(test_final_state, "y"));
+            int final_p = json_object_get_int(json_object_object_get(test_final_state, "p"));
+            struct json_object *final_ram = json_object_object_get(test_final_state, "ram");
+
+            //run test
+            program_counter = initial_pc;
+            stack_pointer = initial_sp;
+            accumulator = initial_a;
+            x_register = initial_x;
+            y_register = initial_y;
+            status_register = initial_p;
+
+            //initialize ram for test
+            for (int i = 0; i < json_object_array_length(initial_ram); i++)
+            {
+                struct json_object *initial_ram_entry = json_object_array_get_idx(initial_ram, i);
+                int initial_ram_entry_address = json_object_get_int(json_object_array_get_idx(initial_ram_entry, 0));
+                int initial_ram_entry_value = json_object_get_int(json_object_array_get_idx(initial_ram_entry, 1));
+                cpuBus_write(initial_ram_entry_address, initial_ram_entry_value);
+            }
+
+            //run opcode
+            opcode op_to_execute = get_opcode(0x0A);
+            op_to_execute.addressing_mode();
+            op_to_execute.opcode();
+
+            //compare against final state
+            if (program_counter != final_pc)
+            {
+                printf("CPU FAILURE, PC: %d, %d\n", program_counter, final_pc);
+                return false;
+            }
+            if (stack_pointer != final_sp)
+            {
+                printf("CPU FAILURE, SP: %d, %d\n", stack_pointer, final_sp);
+                return false;
+            }
+            if (accumulator != final_a)
+            {
+                printf("CPU FAILURE, A: %d, %d\n", accumulator, final_a);
+                return false;
+            }
+            if (x_register != final_x)
+            {
+                printf("CPU FAILURE, X: %d, %d\n", x_register, final_x);
+                return false;
+            }
+            if (y_register != final_y)
+            {
+                printf("CPU FAILURE, Y: %d, %d\n", y_register, final_y);
+                return false;
+            }
+            if (status_register != final_p)
+            {
+                printf("CPU FAILURE, P: %d, %d\n", status_register, final_p);
+                return false;
+            }
+
+            //ram checks
+            for (int i = 0; i < json_object_array_length(final_ram); i++)
+            {
+                struct json_object *final_ram_entry = json_object_array_get_idx(final_ram, i);
+                int final_ram_entry_address = json_object_get_int(json_object_array_get_idx(final_ram_entry, 0));
+                int final_ram_entry_value = json_object_get_int(json_object_array_get_idx(final_ram_entry, 1));
+                if (cpuBus_read(final_ram_entry_address) != final_ram_entry_value)
+                {
+                    printf("CPU FAILURE, RAM: %d, %d\n", cpuBus_read(final_ram_entry_address), final_ram_entry_value);
+                    return false;
+                }
+            }
         }
     }
-    return false;
+    return true;
 }
 
 
