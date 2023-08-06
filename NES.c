@@ -3002,8 +3002,30 @@ bool cpu_test_suite()
     //compare test, if anything went wrong return false and exit cpu test suite with false
     //if no errors return true
 
+    printf("Begin Cpu Test Suite\n");
     //for now just testing the first file
     cpu_and_ram_full_reset();
+
+    printf("Begin Reading CpuTest_00\n");
+    FILE *cpuTest_00;
+    static char buffer[1024*1024*6];
+    printf("created buffer\n");
+    struct json_object *parsed_json;
+    fp = fopen("cpu_tests/00.json", "r");
+    fread(buffer, 1024*1024*6, 1, fp);
+    printf("read file\n");
+    fclose(fp);
+
+    parsed_json = json_tokener_parse(buffer);
+
+    struct json_object *test_array;
+    struct json_object *test_object;
+
+    //loops over all tests in the file
+    for (int i = 0; i < json_object_array_length(parsed_json); i++) {
+        test_object = json_object_array_get_idx(parsed_json, i);
+        printf("Test %d: %s\n", i, json_object_to_json_string(test_object));
+    }
     return false;
 }
 
