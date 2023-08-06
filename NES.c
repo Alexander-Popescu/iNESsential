@@ -3019,12 +3019,80 @@ bool cpu_test_suite()
     parsed_json = json_tokener_parse(buffer);
 
     struct json_object *test_array;
-    struct json_object *test_object;
+    struct json_object *single_test_object;
 
     //loops over all tests in the file
-    for (int i = 0; i < json_object_array_length(parsed_json); i++) {
-        test_object = json_object_array_get_idx(parsed_json, i);
-        printf("Test %d: %s\n", i, json_object_to_json_string(test_object));
+    for (int i = 0; i < 1; i++) { //change 1 to json_object_array_length(parsed_json) when done testing individual
+
+        //reset from last test
+        cpu_and_ram_full_reset();
+
+        //import single test from large json file
+        single_test_object = json_object_array_get_idx(parsed_json, i);
+        printf("Test %d: %s\n", i, json_object_to_json_string(single_test_object));
+        struct json_object *test_name;
+        struct json_object *test_initial_state;
+        struct json_object *test_final_state;
+        
+        test_name = json_object_object_get(single_test_object, "name");
+        test_initial_state = json_object_object_get(single_test_object, "initial");
+        test_final_state = json_object_object_get(single_test_object, "final");
+
+        printf("Test Name: %s\n", json_object_get_string(test_name));
+        printf("Test Initial State: %s\n", json_object_to_json_string(test_initial_state));
+        printf("Test Final State: %s\n", json_object_to_json_string(test_final_state));
+
+        //extract initial
+
+        int initial_pc = json_object_get_int(json_object_object_get(test_initial_state, "pc"));
+        int initial_sp = json_object_get_int(json_object_object_get(test_initial_state, "s"));
+        int initial_a = json_object_get_int(json_object_object_get(test_initial_state, "a"));
+        int initial_x = json_object_get_int(json_object_object_get(test_initial_state, "x"));
+        int initial_y = json_object_get_int(json_object_object_get(test_initial_state, "y"));
+        int initial_p = json_object_get_int(json_object_object_get(test_initial_state, "p"));
+        struct json_object *initial_ram = json_object_object_get(test_initial_state, "ram");
+
+        printf("Initial PC: %d\n", initial_pc);
+        printf("Initial SP: %d\n", initial_sp);
+        printf("Initial A: %d\n", initial_a);
+        printf("Initial X: %d\n", initial_x);
+        printf("Initial Y: %d\n", initial_y);
+        printf("Initial P: %d\n", initial_p);
+        printf("Initial Ram: %s\n", json_object_to_json_string(initial_ram));
+        //loop over ram json object
+        for (int i = 0; i < json_object_array_length(initial_ram); i++)
+        {
+            struct json_object *initial_ram_entry = json_object_array_get_idx(initial_ram, i);
+            int initial_ram_entry_address = json_object_get_int(json_object_array_get_idx(initial_ram_entry, 0));
+            int initial_ram_entry_value = json_object_get_int(json_object_array_get_idx(initial_ram_entry, 1));
+            printf("Initial Ram Entry %d: %d , %d\n", i, initial_ram_entry_address, initial_ram_entry_value);
+        }
+
+        //extract final
+
+        int final_pc = json_object_get_int(json_object_object_get(test_final_state, "pc"));
+        int final_sp = json_object_get_int(json_object_object_get(test_final_state, "s"));
+        int final_a = json_object_get_int(json_object_object_get(test_final_state, "a"));
+        int final_x = json_object_get_int(json_object_object_get(test_final_state, "x"));
+        int final_y = json_object_get_int(json_object_object_get(test_final_state, "y"));
+        int final_p = json_object_get_int(json_object_object_get(test_final_state, "p"));
+        struct json_object *final_ram = json_object_object_get(test_final_state, "ram");
+
+        printf("Final PC: %d\n", final_pc);
+        printf("Final SP: %d\n", final_sp);
+        printf("Final A: %d\n", final_a);
+        printf("Final X: %d\n", final_x);
+        printf("Final Y: %d\n", final_y);
+        printf("Final P: %d\n", final_p);
+        printf("Final Ram: %s\n", json_object_to_json_string(final_ram));
+        //loop over ram json object
+        for (int i = 0; i < json_object_array_length(final_ram); i++)
+        {
+            struct json_object *final_ram_entry = json_object_array_get_idx(final_ram, i);
+            int final_ram_entry_address = json_object_get_int(json_object_array_get_idx(final_ram_entry, 0));
+            int final_ram_entry_value = json_object_get_int(json_object_array_get_idx(final_ram_entry, 1));
+            printf("Final Ram Entry %d: %d , %d\n", i, final_ram_entry_address, final_ram_entry_value);
+        }
     }
     return false;
 }
