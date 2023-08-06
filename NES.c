@@ -3126,6 +3126,11 @@ bool cpu_test_suite()
         char file_str[100];
         sprintf(file_str, "cpu_tests/%02X.json", current_test_opcode);
         fp = fopen(file_str, "r");
+        if (fp == NULL)
+        {
+            printf("%sTest File Not Found For Opcode %02X\n%s", "\x1B[31m", current_test_opcode, "\x1B[0m"); // red terminal output
+            continue;
+        }
         fread(buffer, 1024*1024*6, 1, fp);
         printf("read file\n");
         fclose(fp);
