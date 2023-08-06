@@ -23,7 +23,6 @@
 
 uint8_t check_flag(uint8_t flag);
 void set_flag(uint8_t flag, bool value);
-void print_cpu_state();
 void interrupt_request();
 void updateFrame();
 
@@ -2278,7 +2277,7 @@ void reset()
 
 void interrupt_request()
 {
-    if (check_flag(I_flag) != 1)
+    if (check_flag(I_flag) == 0)
     {
         //pc to stack
         cpuBus_write(0x0100 + stack_pointer, (program_counter >> 8) & 0x00FF);
@@ -3027,6 +3026,7 @@ void clock()
             cycles++;
         }
 
+
         //flag set thing
         set_flag(U_flag, 1);
 
@@ -3115,7 +3115,7 @@ bool cpu_test_suite()
         printf("Opcode Name: %s\n", opcode_name);
         if (opcode_name == "???")
         {
-            printf("%sSkipping opcode %02X\n%s", "\x1B[31m", current_test_opcode, "\x1B[0m"); // red terminal output
+            printf("%sSkipping opcode %02X\n%s", "\x1B[33m", current_test_opcode, "\x1B[0m"); // yellow terminal output
             continue;
         }
         printf("Begin Reading CpuTest_%02X\n", current_test_opcode);
@@ -3128,7 +3128,7 @@ bool cpu_test_suite()
         fp = fopen(file_str, "r");
         if (fp == NULL)
         {
-            printf("%sTest File Not Found For Opcode %02X\n%s", "\x1B[31m", current_test_opcode, "\x1B[0m"); // red terminal output
+            printf("%sTest File Not Found For Opcode %02X\n%s", "\x1B[33m", current_test_opcode, "\x1B[0m"); // yellow terminal output
             continue;
         }
         fread(buffer, 1024*1024*6, 1, fp);
@@ -3204,36 +3204,42 @@ bool cpu_test_suite()
             {
                 printf("CPU FAILURE, PC: %d, %d\n", program_counter, final_pc);
                 printf("Opcode: %s\n", opcode_name);
+                printf("\033[38;5;202mTest that caused error:\n %s\033[0m\n", json_object_get_string(single_test_object));
                 return false;
             }
             if (stack_pointer != final_sp)
             {
                 printf("CPU FAILURE, SP: %d, %d\n", stack_pointer, final_sp);
                 printf("Opcode: %s\n", opcode_name);
+                printf("\033[38;5;202mTest that caused error:\n %s\033[0m\n", json_object_get_string(single_test_object));
                 return false;
             }
             if (accumulator != final_a)
             {
                 printf("CPU FAILURE, A: %d, %d\n", accumulator, final_a);
                 printf("Opcode: %s\n", opcode_name);
+                printf("\033[38;5;202mTest that caused error:\n %s\033[0m\n", json_object_get_string(single_test_object));
                 return false;
             }
             if (x_register != final_x)
             {
                 printf("CPU FAILURE, X: %d, %d\n", x_register, final_x);
                 printf("Opcode: %s\n", opcode_name);
+                printf("\033[38;5;202mTest that caused error:\n %s\033[0m\n", json_object_get_string(single_test_object));
                 return false;
             }
             if (y_register != final_y)
             {
                 printf("CPU FAILURE, Y: %d, %d\n", y_register, final_y);
                 printf("Opcode: %s\n", opcode_name);
+                printf("\033[38;5;202mTest that caused error:\n %s\033[0m\n", json_object_get_string(single_test_object));
                 return false;
             }
             if (status_register != final_p)
             {
                 printf("CPU FAILURE, P: %d, %d\n", status_register, final_p);
                 printf("Opcode: %s\n", opcode_name);
+                printf("\033[38;5;202mTest that caused error:\n %s\033[0m\n", json_object_get_string(single_test_object));
                 return false;
             }
 
@@ -3245,8 +3251,9 @@ bool cpu_test_suite()
                 int final_ram_entry_value = json_object_get_int(json_object_array_get_idx(final_ram_entry, 1));
                 if (cpuBus_read(final_ram_entry_address) != final_ram_entry_value)
                 {
-                    printf("CPU FAILURE, RAM: %d, %d\n", cpuBus_read(final_ram_entry_address), final_ram_entry_value);
+                    printf("CPU FAILURE, RAM[0x%04X]: 0x%04X, 0x%04X\n", final_ram_entry_address, cpuBus_read(final_ram_entry_address), final_ram_entry_value);
                     printf("Opcode: %s\n", opcode_name);
+                    printf("\033[38;5;202mTest that caused error:\n %s\033[0m\n", json_object_get_string(single_test_object));
                     return false;
                 }
             }
@@ -3364,7 +3371,7 @@ int main(int argc, char* argv[])
                     //execute rigorous cpu tests
                     printf("Start CPU tests\n");
                     cpu_test_mode = true;
-                    cpu_test_suite() ? printf("All CPU tests passed\n") : printf("CPU tests failed\n");
+                    cpu_test_suite() ? printf("\033[0;32mAll CPU tests passed\033[0m\n") : printf("\033[0;31mCPU tests failed\033[0m\n");
                     cpu_test_mode = false;
                 }
                 if (event.key.keysym.sym == SDLK_ESCAPE) {
