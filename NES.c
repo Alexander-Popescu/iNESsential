@@ -23,8 +23,8 @@
 
 uint8_t check_flag(uint8_t flag);
 void set_flag(uint8_t flag, bool value);
-void interrupt_request();
 void print_cpu_state();
+void interrupt_request();
 void updateFrame();
 
 uint32_t instruction_count = 0;
@@ -1078,13 +1078,20 @@ uint8_t BPL()
 
 uint8_t BRK()
 {
-    //break
-    interrupt_request();
-
-    //set break flag
-    set_flag(B_flag, 1);
-
     program_counter++;
+
+    set_flag(I_flag, 1);
+    cpuBus_write(0x0100 + stack_pointer, (program_counter >> 8) & 0x00FF);
+    stack_pointer--;
+    cpuBus_write(0x0100 + stack_pointer, program_counter & 0x00FF);
+    stack_pointer--;
+
+    set_flag(B_flag, 1);
+    cpuBus_write(0x0100 + stack_pointer, status_register);
+    stack_pointer--;
+    set_flag(B_flag, 0);
+
+    program_counter = (uint16_t)cpuBus_read(0xFFFE) | ((uint16_t)cpuBus_read(0xFFFF) << 8);
     return 0;
 }
 
@@ -1932,7 +1939,7 @@ typedef struct opcode
 
 opcode opcode_matrix[16][16] = {
 //   0                         1                         2                         3                         4                         5                         6                         7                         8                         9                         A                         B                         C                         D                         E                         F
-    {{ "BRK", BRK, IMP, 2, 7 },{"ORA", ORA, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"SLO", SLO, IZX, 2, 8 },{"NOP", NOP, ZP0, 0, 3 },{"ORA", ORA, ZP0, 2, 3 },{"ASL", ASL, ZP0, 2, 5 },{"SLO", SLO, ZP0, 2, 5 },{"PHP", PHP, IMP, 1, 3 },{"ORA", ORA, IMM, 2, 2 },{"ASL", ASL, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ABS, 3, 4 },{"ORA", ORA, ABS, 3, 4 },{"ASL", ASL, ABS, 3, 6 },{"SLO", SLO, ABS, 3, 6 }},
+    {{ "BRK", BRK, IMP, 1, 7 },{"ORA", ORA, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"SLO", SLO, IZX, 2, 8 },{"NOP", NOP, ZP0, 0, 3 },{"ORA", ORA, ZP0, 2, 3 },{"ASL", ASL, ZP0, 2, 5 },{"SLO", SLO, ZP0, 2, 5 },{"PHP", PHP, IMP, 1, 3 },{"ORA", ORA, IMM, 2, 2 },{"ASL", ASL, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"NOP", NOP, ABS, 3, 4 },{"ORA", ORA, ABS, 3, 4 },{"ASL", ASL, ABS, 3, 6 },{"SLO", SLO, ABS, 3, 6 }},
     {{ "BPL", BPL, REL, 2, 2 },{"ORA", ORA, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"SLO", SLO, IZY, 2, 8 },{"NOP", NOP, ZPX, 2, 4 },{"ORA", ORA, ZPX, 2, 4 },{"ASL", ASL, ZPX, 2, 6 },{"SLO", SLO, ZPX, 2, 6 },{"CLC", CLC, IMP, 1, 2 },{"ORA", ORA, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"SLO", SLO, ABY, 3, 7 },{"NOP", NOP, ABX, 3, 4 },{"ORA", ORA, ABX, 3, 4 },{"ASL", ASL, ABX, 3, 7 },{"SLO", SLO, ABX, 3, 7 }},
     {{ "JSR", JSR, ABS, 3, 6 },{"AND", AND, IZX, 2, 6 },{"???", XXX, IMP, 0, 2 },{"RLA", RLA, IZX, 2, 8 },{"BIT", BIT, ZP0, 2, 3 },{"AND", AND, ZP0, 2, 3 },{"ROL", ROL, ZP0, 2, 5 },{"RLA", RLA, ZP0, 2, 5 },{"PLP", PLP, IMP, 1, 4 },{"AND", AND, IMM, 2, 2 },{"ROL", ROL, ACC, 1, 2 },{"???", XXX, IMP, 0, 2 },{"BIT", BIT, ABS, 3, 4 },{"AND", AND, ABS, 3, 4 },{"ROL", ROL, ABS, 3, 6 },{"RLA", RLA, ABS, 3, 6 }},
     {{ "BMI", BMI, REL, 2, 2 },{"AND", AND, IZY, 2, 5 },{"???", XXX, IMP, 0, 2 },{"RLA", RLA, IZY, 2, 8 },{"NOP", NOP, ZPX, 2, 4 },{"AND", AND, ZPX, 2, 4 },{"ROL", ROL, ZPX, 2, 6 },{"RLA", RLA, ZPX, 2, 6 },{"SEC", SEC, IMP, 1, 2 },{"AND", AND, ABY, 3, 4 },{"NOP", NOP, IMP, 1, 2 },{"RLA", RLA, ABY, 3, 7 },{"NOP", NOP, ABX, 3, 4 },{"AND", AND, ABX, 3, 4 },{"ROL", ROL, ABX, 3, 7 },{"RLA", RLA, ABX, 3, 7 }},
@@ -3083,10 +3090,17 @@ bool cpu_test_suite()
     //compare test, if anything went wrong return false and exit cpu test suite with false
     //if no errors return true
 
-    for (int iteration = 0; iteration < 1; iteration++)
+    for (int iteration = 1; iteration < 3; iteration++) //start at 1 to skip BRK for now
     {
         cpu_and_ram_full_reset();
         uint8_t current_test_opcode = ops_to_test[iteration];
+        char *opcode_name = get_opcode(current_test_opcode).name;
+        printf("Opcode Name: %s\n", opcode_name);
+        if (opcode_name == "???")
+        {
+            printf("%sSkipping opcode %02X\n%s", "\x1B[31m", current_test_opcode, "\x1B[0m"); // red terminal output
+            continue;
+        }
         printf("Begin Reading CpuTest_%02X\n", current_test_opcode);
         FILE *cpuTest_00;
         static char buffer[1024*1024*6];
@@ -3167,31 +3181,37 @@ bool cpu_test_suite()
             if (program_counter != final_pc)
             {
                 printf("CPU FAILURE, PC: %d, %d\n", program_counter, final_pc);
+                printf("Opcode: %s\n", opcode_name);
                 return false;
             }
             if (stack_pointer != final_sp)
             {
                 printf("CPU FAILURE, SP: %d, %d\n", stack_pointer, final_sp);
+                printf("Opcode: %s\n", opcode_name);
                 return false;
             }
             if (accumulator != final_a)
             {
                 printf("CPU FAILURE, A: %d, %d\n", accumulator, final_a);
+                printf("Opcode: %s\n", opcode_name);
                 return false;
             }
             if (x_register != final_x)
             {
                 printf("CPU FAILURE, X: %d, %d\n", x_register, final_x);
+                printf("Opcode: %s\n", opcode_name);
                 return false;
             }
             if (y_register != final_y)
             {
                 printf("CPU FAILURE, Y: %d, %d\n", y_register, final_y);
+                printf("Opcode: %s\n", opcode_name);
                 return false;
             }
             if (status_register != final_p)
             {
                 printf("CPU FAILURE, P: %d, %d\n", status_register, final_p);
+                printf("Opcode: %s\n", opcode_name);
                 return false;
             }
 
@@ -3204,6 +3224,7 @@ bool cpu_test_suite()
                 if (cpuBus_read(final_ram_entry_address) != final_ram_entry_value)
                 {
                     printf("CPU FAILURE, RAM: %d, %d\n", cpuBus_read(final_ram_entry_address), final_ram_entry_value);
+                    printf("Opcode: %s\n", opcode_name);
                     return false;
                 }
             }
