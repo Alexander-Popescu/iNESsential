@@ -3251,7 +3251,7 @@ bool cpu_test_suite()
                 int final_ram_entry_value = json_object_get_int(json_object_array_get_idx(final_ram_entry, 1));
                 if (cpuBus_read(final_ram_entry_address) != final_ram_entry_value)
                 {
-                    printf("CPU FAILURE, RAM[0x%04X]: 0x%04X, 0x%04X\n", final_ram_entry_address, cpuBus_read(final_ram_entry_address), final_ram_entry_value);
+                    printf("CPU FAILURE, RAM[0x%d]: 0x%d, 0x%d\n", final_ram_entry_address, cpuBus_read(final_ram_entry_address), final_ram_entry_value);
                     printf("Opcode: %s\n", opcode_name);
                     printf("\033[38;5;202mTest that caused error:\n %s\033[0m\n", json_object_get_string(single_test_object));
                     return false;
