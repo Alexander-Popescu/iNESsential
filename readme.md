@@ -1,10 +1,10 @@
-#iNESsential2
+# iNESsential2
 
-an NES emulator for an independant study
+an NES emulator made for an independent study
 
-##gui
+## GUI
 
 This project uses SDL to render a texture and IMGUI for debugging
 
-##running
+## running
 cd into builddir, and run ninja to compile. Uses meson build system
