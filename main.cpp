@@ -4,12 +4,14 @@
 #include "imgui/imgui_impl_sdl2.h"
 #include "imgui/imgui_impl_opengl3.h"
 #include <vector>
-#include "PixelBuffer.h"
-#include "Emulator.h"
+#include "src/PixelBuffer.h"
+#include "src/Emulator.h"
 
 
 #define DEFAULT_WIDTH 256
 #define DEFAULT_HEIGHT 240
+
+//IMGUI font
 #define FONT_SCALE 2
 
 //change for larger / smaller window size
@@ -47,7 +49,7 @@ int main(int, char**)
     ImGui_ImplOpenGL3_Init("#version 330");
 
     // Setup style
-    ImGui::StyleColorsDark();
+    ImGui::StyleColorsLight();
     
     // Main loop
     bool done = false; //used to exit main loop
@@ -65,6 +67,12 @@ int main(int, char**)
     //circular buffer for graphing frametimes
     std::vector<float> frametimes;
     const int MAX_FRAMETIMES = 100;
+
+    //create the actual emulator object
+    Emulator emulator = Emulator();
+
+    //hard code rom load for now, add to imgui later
+    emulator.loadCartridge("../testRoms/nestest.nes");
 
     while(!done)
     {
@@ -142,13 +150,11 @@ int main(int, char**)
             ImGui::Text("Actual FPS: %f", ImGui::GetIO().Framerate);
             ImGui::Text("Frame Update Time: %ims", frametime);
             ImGui::PlotLines("FrameTimes (ms)", &frametimes[0], frametimes.size(), 0, NULL, 0.0f, 100.0f, ImVec2(0, 80));
-            ImGui::Text("Graph is from 0 - 100 ms");
+            ImGui::Text("Graph is from 0 - 100 ms, measures pixelbuffer update function time");
             ImGui::Separator();
 
 
             ImGui::Text("Emulator Debug Info:");
-
-
 
             ImGui::Separator();
             ImGui::Text("Press Space to hide this window");
