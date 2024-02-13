@@ -48,6 +48,7 @@ int main(int, char**)
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
+
     //make font larger
     io.FontGlobalScale = FONT_SCALE;
 
@@ -67,7 +68,7 @@ int main(int, char**)
     int window_height;
     SDL_GetWindowSize(window, &window_width, &window_height);
 
-    //pixel buffer, really just a texture with some extra stuff
+    //pixel buffer, really just a texture with some extra stuff for nes debugging
     PixelBuffer* pixelBuffer = new PixelBuffer(renderer, DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
     //circular buffer for graphing frametimes
@@ -184,6 +185,43 @@ int main(int, char**)
                 ImGui::SameLine();
                 ImGui::Image(pixelBuffer->getPatternTableTexture(1), ImVec2(128 * 2, 128 * 2));
 
+                //button to update pattern tables
+                if (ImGui::Button("Update Pattern Tables")) {
+                    printf(YELLOW "Main: Pattern Table Update\n" RESET);
+                    pixelBuffer->updatePatternTables();
+                }
+
+                ImGui::Separator();
+
+                ImGui::Text("Palettes:");
+                //remove spacing temporarily
+                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, ImGui::GetStyle().ItemSpacing.y));
+                //loop over system palettes
+                for (int i = 0; i < 8; i++) {
+                    ImVec4* palette = pixelBuffer->getPalette(i);
+                    for (int j = 0; j < 4; j++) {
+                        //render small box as color
+                        ImGui::ColorButton("##palette", palette[j], ImGuiColorEditFlags_NoBorder, ImVec2(40, 40));
+                        ImGui::SameLine();
+                    }
+                    //spacing between palettes
+                    ImGui::Dummy(ImVec2(10, 0));
+                    if (i % 4 == 3) {
+                        ImGui::NewLine();
+                    } else {
+                        ImGui::SameLine();
+                    }
+                    if (i == 7) {
+                        //button to update palettes
+                        if (ImGui::Button("Update Palettes")) {
+                            printf(YELLOW "Main: Palette Update\n" RESET);
+                            pixelBuffer->updatePalettes();
+                        }
+                    }
+                }
+                //revert styling
+                ImGui::PopStyleVar();
+
             } else {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
                 ImGui::Text("Cartridge Not Loaded");
@@ -191,7 +229,6 @@ int main(int, char**)
             }
 
             ImGui::Separator();
-
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.9f, 1.0f));
             ImGui::Text("Press Space to hide this window");
             ImGui::PopStyleColor();

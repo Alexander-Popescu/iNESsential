@@ -87,3 +87,17 @@ void PixelBuffer::addPixelArrayToPatternTable(const uint32_t* pixels, int index)
 ImTextureID PixelBuffer::getPatternTableTexture(int index) {
     return patternTables[index];
 }
+
+ImVec4* PixelBuffer::getPalette(int index) {
+    return palettes[index];
+}
+
+void PixelBuffer::updatePalettes() {
+    //not implemented but this will take the current palette ram and update the palettes as vec4s
+    return;
+}
+
+void PixelBuffer::updatePatternTables() {
+    //not implemented but this pulls pattern tables from the cartridge
+    return;            
+}
