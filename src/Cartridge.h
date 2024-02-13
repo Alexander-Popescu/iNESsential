@@ -10,7 +10,7 @@ public:
 
     uint8_t read(uint16_t address);
     uint8_t write(uint16_t address);
-    void loadRom(const char* gamePath);
+    int loadRom(const char* gamePath);
 
     uint8_t *getPRGROM();
     uint8_t *getCHRROM();

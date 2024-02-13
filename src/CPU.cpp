@@ -12,3 +12,7 @@ CPU::CPU() {
 CPU::~CPU() {
     
 }
+
+void CPU::reset() {
+    
+}

@@ -17,7 +17,7 @@ Cartridge::~Cartridge() {
     delete[] CHR_ROM;
 }
 
-void Cartridge::loadRom(const char* gamePath) {
+int Cartridge::loadRom(const char* gamePath) {
     //load cartridge, using iNES spec to support most NES roms
 
     printf(YELLOW "Cartridge: Loading ROM\n" RESET);
@@ -39,7 +39,7 @@ void Cartridge::loadRom(const char* gamePath) {
     if (header[0] != 'N' || header[1] != 'E' || header[2] != 'S' || header[3] != 0x1A)
     {
         printf("Error: Invalid iNES header\n");
-        exit(1);
+        return 1;
     }
 
     //header structure:
@@ -60,7 +60,8 @@ void Cartridge::loadRom(const char* gamePath) {
     // close the file
     fclose(fp);
 
-    printf(GREEN "Cartridge: ROM loaded\n" RESET);
+    printf(GREEN "Cartridge: ROM loaded%s\n" RESET, gamePath);
+    return 1;
 }
 
 uint8_t *Cartridge::getPRGROM()

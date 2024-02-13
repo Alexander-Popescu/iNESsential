@@ -17,6 +17,12 @@
 //change for larger / smaller window size
 #define WINDOW_SCALE_FACTOR 4
 
+//ansii terminal color codes
+#define RED "\x1b[31m"
+#define YELLOW "\x1b[33m"
+#define GREEN "\x1b[32m"
+#define RESET "\x1b[0m"
+
 int main(int, char**)
 {
     // Setup SDL
@@ -68,14 +74,14 @@ int main(int, char**)
     std::vector<float> frametimes;
     const int MAX_FRAMETIMES = 100;
 
-    //create the actual emulator object
-    Emulator emulator = Emulator();
-
-    //hard code rom load for now, add to imgui later
-    emulator.loadCartridge("../testRoms/nestest.nes");
+    //emulator pointer for easy reset
+    Emulator *emulator = new Emulator();
 
     while(!done)
     {
+        //calculate time
+        int start_time = SDL_GetTicks();
+
         SDL_Event event;
         while(SDL_PollEvent(&event))
         {
@@ -121,16 +127,7 @@ int main(int, char**)
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        //calculate time
-        int start_time = SDL_GetTicks();
         pixelBuffer->update(pause);
-        int frametime = (SDL_GetTicks() - start_time);
-        frametimes.push_back(frametime);
-
-        //circulate frametime buffer
-        if (frametimes.size() > MAX_FRAMETIMES) {
-            frametimes.erase(frametimes.begin());
-        }
 
         if(show_debug_window) {
             // Start the Dear ImGui frame
@@ -140,29 +137,71 @@ int main(int, char**)
 
             ImGui::Begin("Debug Window");
 
+            //emulation state variables
             ImGui::Text("Current Emulation State (Toggle P): %s", pause ? "Paused" : "Running"); 
             ImGui::Separator();
+
+            //pixelbuffer debug info
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.9f, 1.0f));
             ImGui::Text("PixelBuffer Info:");
+            ImGui::PopStyleColor();
+            ImGui::Separator();
+            
             ImGui::Text("Window Resolution: %d x %d", window_width, window_height);
             ImGui::Text("Window Aspect Ratio: %f", (float)window_width / (float)window_height);
             ImGui::Text("Texture Resolution: %d x %d", DEFAULT_HEIGHT, DEFAULT_WIDTH);
             ImGui::Text("Texture Aspect Ratio: %f", (float)DEFAULT_HEIGHT / (float)DEFAULT_WIDTH);
             ImGui::Text("Actual FPS: %f", ImGui::GetIO().Framerate);
-            ImGui::Text("Frame Update Time: %ims", frametime);
             ImGui::PlotLines("FrameTimes (ms)", &frametimes[0], frametimes.size(), 0, NULL, 0.0f, 100.0f, ImVec2(0, 80));
-            ImGui::Text("Graph is from 0 - 100 ms, measures pixelbuffer update function time");
+            ImGui::Text("Graph is from 0 - 100 ms, measures time since last frame");
             ImGui::Separator();
 
-
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.9f, 1.0f));
             ImGui::Text("Emulator Debug Info:");
+            ImGui::PopStyleColor();
+            ImGui::Separator();
+
+            if (ImGui::Button("Reset")) {
+                //reset emulator
+                printf(YELLOW "Main: Emulator Reset\n" RESET);
+                if (emulator) {
+                    delete emulator;
+                }
+                emulator = new Emulator();
+                emulator->reset();
+            }
+
+            if (emulator->cartridgeLoaded == true) {
+                //load only once cart is loaded to avoid segfault, since this data (shouldnt) exist untill then
+
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.7f, 0.0f, 1.0f));
+                ImGui::Text("Cartridge Loaded");
+                ImGui::PopStyleColor();
+
+                ImGui::Text("Pattern Tables:");
+
+                ImGui::Image(pixelBuffer->getPatternTableTexture(0), ImVec2(128 * 2, 128 * 2));
+                ImGui::SameLine();
+                ImGui::Image(pixelBuffer->getPatternTableTexture(1), ImVec2(128 * 2, 128 * 2));
+
+            } else {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
+                ImGui::Text("Cartridge Not Loaded");
+                ImGui::PopStyleColor();
+            }
 
             ImGui::Separator();
+
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.9f, 1.0f));
             ImGui::Text("Press Space to hide this window");
+            ImGui::PopStyleColor();
+
             ImGui::End();
 
             // Rendering
             ImGui::Render();
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
         }
 
         //render texture
@@ -172,6 +211,15 @@ int main(int, char**)
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, pixelBuffer->getTexture(), NULL, NULL);
         SDL_GL_SwapWindow(window);
+
+        //calculate time for since last frame
+        int frametime = (SDL_GetTicks() - start_time);
+        frametimes.push_back(frametime);
+
+        //circulate frametime buffer
+        if (frametimes.size() > MAX_FRAMETIMES) {
+            frametimes.erase(frametimes.begin());
+        }
     }
     
     // Cleanup

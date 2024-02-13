@@ -20,6 +20,9 @@ Emulator::Emulator() {
 
     this->cartridge = new Cartridge();
     printf(GREEN "Emulator: Cartridge created\n" RESET);
+
+    this->cartridgeLoaded = (this->loadCartridge() == 0);
+    printf(GREEN "Emulator: Default Cartridge loaded\n" RESET);
 }
 
 Emulator::~Emulator() {
@@ -35,7 +38,15 @@ int Emulator::runUntilBreak() {
     return 0;
 }
 
-void Emulator::loadCartridge(const char* gamePath)
+bool Emulator::loadCartridge(const char* gamePath)
 {
-    cartridge->loadRom(gamePath);
+    //returns 0 if cartridge was loaded correctly
+    cartridgeLoaded = (cartridge->loadRom(gamePath) == 0);
+
+    return cartridgeLoaded;
+}
+
+void Emulator::reset() {
+    cpu->reset();
+    ppu->reset();
 }

@@ -7,3 +7,7 @@ PPU::PPU() {
 PPU::~PPU() {
     
 }
+
+void PPU::reset() {
+    
+}

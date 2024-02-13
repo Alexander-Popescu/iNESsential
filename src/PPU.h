@@ -8,6 +8,8 @@ public:
     PPU();
     ~PPU();
 
+    void reset();
+
 private:
 
 };

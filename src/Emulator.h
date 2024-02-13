@@ -12,7 +12,10 @@ public:
     ~Emulator();
 
     int runUntilBreak();
-    void loadCartridge(const char* gamePath);
+    bool loadCartridge(const char* gamePath = "../testRoms/nestest.nes");
+    void reset();
+
+    bool cartridgeLoaded = false;
 
 private:
     //CPU

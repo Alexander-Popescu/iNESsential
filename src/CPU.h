@@ -8,6 +8,8 @@ public:
     CPU();
     ~CPU();
 
+    void reset();
+
 private:
     //registers
     uint8_t accumulator;
