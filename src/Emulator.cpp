@@ -31,10 +31,21 @@ Emulator::~Emulator() {
     delete cartridge;
 }
 
-int Emulator::runUntilBreak() {
-    //This will run until the specified cycle count has been reached or a frame is done being constructed
-    //It will break to allow SDL to render the current state for debugging or to see the frame
+int Emulator::runUntilBreak(int instructionRequest) {
+    //this function will return to allow the frontend to render the frame or debug information
+    //realtime means it breaks after every frame is finished generating, a specified instruction count will run that many
 
+    int instructionStart = instructionCount;
+
+    while ((realtime || (instructionCount < instructionStart + instructionRequest)) && pushFrame == false) {
+        runSingleInstruction();
+    }
+
+    printf(GREEN "Emulator: InstructionCount: %i\n" RESET, instructionCount);
+
+    //reset pushframe for next frame
+    pushFrame = false;
+     
     return 0;
 }
 
@@ -49,4 +60,15 @@ bool Emulator::loadCartridge(const char* gamePath)
 void Emulator::reset() {
     cpu->reset();
     ppu->reset();
+}
+
+void Emulator::runSingleInstruction() {
+
+    //simulate end of frame for testing
+    if (instructionCount % 10 == 0) {
+        pushFrame = true;
+    }
+
+    //dont forget as this is what breaks the instruction loop
+    instructionCount++;
 }

@@ -27,8 +27,8 @@ PixelBuffer::~PixelBuffer() {
     SDL_DestroyTexture(texture);
 }
 
-void PixelBuffer::update(bool pause) {
-    if (pause)
+void PixelBuffer::update(bool update) {
+    if (!update)
     {
         //prevent black screen on pause
         SDL_GL_BindTexture(texture, NULL, NULL);

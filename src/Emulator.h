@@ -1,4 +1,3 @@
-// NES emulator
 #pragma once
 #include <cstdint>
 #include <vector>
@@ -11,11 +10,16 @@ public:
     Emulator();
     ~Emulator();
 
-    int runUntilBreak();
+    int runUntilBreak(int instructionRequest);
     bool loadCartridge(const char* gamePath = "../testRoms/nestest.nes");
     void reset();
+    
+    void runSingleInstruction();
 
     bool cartridgeLoaded = false;
+
+    //toggles realtime emulation between instruction by instruction 
+    bool realtime = false;
 
 private:
     //CPU
@@ -31,5 +35,12 @@ private:
 
     //PPU
     PPU *ppu;
+
+    //debug information
+    int instructionCount = 0;
+    int cycleCount = 0;
+
+    //set to true to break
+    bool pushFrame = false;
     
 };

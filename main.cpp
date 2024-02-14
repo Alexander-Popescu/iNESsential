@@ -6,13 +6,11 @@
 #include <vector>
 #include "src/PixelBuffer.h"
 #include "src/Emulator.h"
+#include "src/DebugWindow.h"
 
 
 #define DEFAULT_WIDTH 256
 #define DEFAULT_HEIGHT 240
-
-//IMGUI font
-#define FONT_SCALE 2
 
 //change for larger / smaller window size
 #define WINDOW_SCALE_FACTOR 4
@@ -43,25 +41,9 @@ int main(int, char**)
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     SDL_GL_MakeCurrent(window, gl_context);
     SDL_GL_SetSwapInterval(1); // Enable vsync
-
-    // Setup ImGui binding
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-
-    //make font larger
-    io.FontGlobalScale = FONT_SCALE;
-
-    ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
-    ImGui_ImplOpenGL3_Init("#version 330");
-
-    // Setup style
-    ImGui::StyleColorsLight();
     
     // Main loop
-    bool done = false; //used to exit main loop
-    bool show_debug_window = true;
-    bool pause = false;//stops calling the pixelbuffers update function
+    bool done = false;
 
     //store window resolution for quick access
     int window_width;
@@ -71,12 +53,10 @@ int main(int, char**)
     //pixel buffer, really just a texture with some extra stuff for nes debugging
     PixelBuffer* pixelBuffer = new PixelBuffer(renderer, DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
-    //circular buffer for graphing frametimes
-    std::vector<float> frametimes;
-    const int MAX_FRAMETIMES = 100;
-
     //emulator pointer for easy reset
     Emulator *emulator = new Emulator();
+
+    DebugWindow* debugWindow = new DebugWindow(window, gl_context, emulator, pixelBuffer);
 
     while(!done)
     {
@@ -102,20 +82,26 @@ int main(int, char**)
             if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE)
             {
                 //toggle debug window
-                show_debug_window = !show_debug_window;
+                debugWindow->show_debug_window = !debugWindow->show_debug_window;
             }
             if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_p)
             {
-                pause = !pause;
+                emulator->realtime = !emulator->realtime;
             }
             if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_h)
             {
-                //fill buffer with white and update
+                //fill buffer with white and update, testing individual pixel updates on main texture
                 for(int i = 0; i < DEFAULT_WIDTH * DEFAULT_HEIGHT; i++) {
                     pixelBuffer->writeBufferPixelIndex(i, rand() % 0xFFFFFFFF);
                 }
-                pixelBuffer->update(pause);
+                pixelBuffer->update(true);
             }
+            if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_v)
+            {
+                //toggle vsync, just to test uncapped performance
+                SDL_GL_SetSwapInterval(SDL_GL_GetSwapInterval() == 1 ? 0 : 1);
+            }
+            
             //resize window event
             if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED)
             {   
@@ -128,117 +114,14 @@ int main(int, char**)
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        pixelBuffer->update(pause);
+        emulator->runUntilBreak(-1);
 
-        if(show_debug_window) {
-            // Start the Dear ImGui frame
-            ImGui_ImplOpenGL3_NewFrame();
-            ImGui_ImplSDL2_NewFrame(window);
-            ImGui::NewFrame();
+        //texture should update when emulator breaks, but this still gets run when paused
+        pixelBuffer->update(emulator->realtime);
 
-            ImGui::Begin("Debug Window");
 
-            //emulation state variables
-            ImGui::Text("Current Emulation State (Toggle P): %s", pause ? "Paused" : "Running"); 
-            ImGui::Separator();
-
-            //pixelbuffer debug info
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.9f, 1.0f));
-            ImGui::Text("PixelBuffer Info:");
-            ImGui::PopStyleColor();
-            ImGui::Separator();
-            
-            ImGui::Text("Window Resolution: %d x %d", window_width, window_height);
-            ImGui::Text("Window Aspect Ratio: %f", (float)window_width / (float)window_height);
-            ImGui::Text("Texture Resolution: %d x %d", DEFAULT_HEIGHT, DEFAULT_WIDTH);
-            ImGui::Text("Texture Aspect Ratio: %f", (float)DEFAULT_HEIGHT / (float)DEFAULT_WIDTH);
-            ImGui::Text("Actual FPS: %f", ImGui::GetIO().Framerate);
-            ImGui::PlotLines("FrameTimes (ms)", &frametimes[0], frametimes.size(), 0, NULL, 0.0f, 100.0f, ImVec2(0, 80));
-            ImGui::Text("Graph is from 0 - 100 ms, measures time since last frame");
-            ImGui::Separator();
-
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.9f, 1.0f));
-            ImGui::Text("Emulator Debug Info:");
-            ImGui::PopStyleColor();
-            ImGui::Separator();
-
-            if (ImGui::Button("Reset")) {
-                //reset emulator
-                printf(YELLOW "Main: Emulator Reset\n" RESET);
-                if (emulator) {
-                    delete emulator;
-                }
-                emulator = new Emulator();
-                emulator->reset();
-            }
-
-            if (emulator->cartridgeLoaded == true) {
-                //load only once cart is loaded to avoid segfault, since this data (shouldnt) exist untill then
-
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.7f, 0.0f, 1.0f));
-                ImGui::Text("Cartridge Loaded");
-                ImGui::PopStyleColor();
-
-                ImGui::Text("Pattern Tables:");
-
-                ImGui::Image(pixelBuffer->getPatternTableTexture(0), ImVec2(128 * 2, 128 * 2));
-                ImGui::SameLine();
-                ImGui::Image(pixelBuffer->getPatternTableTexture(1), ImVec2(128 * 2, 128 * 2));
-
-                //button to update pattern tables
-                if (ImGui::Button("Update Pattern Tables")) {
-                    printf(YELLOW "Main: Pattern Table Update\n" RESET);
-                    pixelBuffer->updatePatternTables();
-                }
-
-                ImGui::Separator();
-
-                ImGui::Text("Palettes:");
-                //remove spacing temporarily
-                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, ImGui::GetStyle().ItemSpacing.y));
-                //loop over system palettes
-                for (int i = 0; i < 8; i++) {
-                    ImVec4* palette = pixelBuffer->getPalette(i);
-                    for (int j = 0; j < 4; j++) {
-                        //render small box as color
-                        ImGui::ColorButton("##palette", palette[j], ImGuiColorEditFlags_NoBorder, ImVec2(40, 40));
-                        ImGui::SameLine();
-                    }
-                    //spacing between palettes
-                    ImGui::Dummy(ImVec2(10, 0));
-                    if (i % 4 == 3) {
-                        ImGui::NewLine();
-                    } else {
-                        ImGui::SameLine();
-                    }
-                    if (i == 7) {
-                        //button to update palettes
-                        if (ImGui::Button("Update Palettes")) {
-                            printf(YELLOW "Main: Palette Update\n" RESET);
-                            pixelBuffer->updatePalettes();
-                        }
-                    }
-                }
-                //revert styling
-                ImGui::PopStyleVar();
-
-            } else {
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
-                ImGui::Text("Cartridge Not Loaded");
-                ImGui::PopStyleColor();
-            }
-
-            ImGui::Separator();
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.9f, 1.0f));
-            ImGui::Text("Press Space to hide this window");
-            ImGui::PopStyleColor();
-
-            ImGui::End();
-
-            // Rendering
-            ImGui::Render();
-            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
+        if(debugWindow->show_debug_window) {
+            debugWindow->Update(window_width, window_height);
         }
 
         //render texture
@@ -251,17 +134,15 @@ int main(int, char**)
 
         //calculate time for since last frame
         int frametime = (SDL_GetTicks() - start_time);
-        frametimes.push_back(frametime);
+        debugWindow->frametimes.push_back(frametime);
 
         //circulate frametime buffer
-        if (frametimes.size() > MAX_FRAMETIMES) {
-            frametimes.erase(frametimes.begin());
+        if (debugWindow->frametimes.size() > debugWindow->MAX_FRAMETIMES) {
+            debugWindow->frametimes.erase(debugWindow->frametimes.begin());
         }
     }
     
-    // Cleanup
+    //Cleanup
+    delete debugWindow;
     delete pixelBuffer;
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
-    ImGui::DestroyContext();
 }

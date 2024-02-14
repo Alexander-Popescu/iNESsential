@@ -12,7 +12,7 @@ public:
 
     // turns array of pixel information into texture and puts into the pattern table buffer
 
-    void update(bool pause);
+    void update(bool update);
     uint32_t* getBuffer();
     SDL_Texture* getTexture();
     void writeBufferPixel(int x, int y, uint32_t color);
