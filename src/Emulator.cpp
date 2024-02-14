@@ -3,11 +3,7 @@
 #include "PPU.h"
 #include "Cartridge.h"
 #include <iostream>
-
-//ansi terminal color codes
-#define GREEN "\x1b[32m"
-#define RESET "\x1b[0m"
-
+#include "Definitions.h"
 
 Emulator::Emulator() {
     printf(GREEN "Emulator: Started\n" RESET);

@@ -1,21 +1,13 @@
 //a class to hold imgui calls to avoid an unreadable main class
 
+#pragma once
 #include "SDL.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_sdl2.h"
 #include "imgui/imgui_impl_opengl3.h"
 #include "src/PixelBuffer.h"
 #include "src/Emulator.h"
-
-#define DEFAULT_WIDTH 256
-#define DEFAULT_HEIGHT 240
-#define RED "\x1b[31m"
-#define YELLOW "\x1b[33m"
-#define GREEN "\x1b[32m"
-#define RESET "\x1b[0m"
-
-//IMGUI font
-#define FONT_SCALE 2
+#include "src/Definitions.h"
 
 class DebugWindow {
 public:

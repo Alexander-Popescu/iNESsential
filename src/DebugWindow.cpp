@@ -44,7 +44,7 @@ void DebugWindow::Update(int window_width, int window_height) {
     
     ImGui::Text("Window Resolution: %d x %d", window_width, window_height);
     ImGui::Text("Window Aspect Ratio: %f", (float)window_width / (float)window_height);
-    ImGui::Text("Texture Resolution: %d x %d", DEFAULT_HEIGHT, DEFAULT_WIDTH);
+    ImGui::Text("Texture Resolution: %d x %d", DEFAULT_WIDTH, DEFAULT_HEIGHT);
     ImGui::Text("Texture Aspect Ratio: %f", (float)DEFAULT_HEIGHT / (float)DEFAULT_WIDTH);
     ImGui::Text("Actual FPS: %f", ImGui::GetIO().Framerate);
     ImGui::PlotLines("FrameTimes (ms)", &frametimes[0], frametimes.size(), 0, NULL, 0.0f, 100.0f, ImVec2(0, 80));
