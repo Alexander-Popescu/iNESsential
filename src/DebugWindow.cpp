@@ -33,7 +33,9 @@ void DebugWindow::Update(int window_width, int window_height) {
     ImGui::Begin("Debug Window");
 
     //emulation state variables
-    ImGui::Text("Current Emulation State (Toggle P): %s", emulator->realtime ? "Paused" : "Realtime"); 
+    ImGui::Text("Current Emulation State (Toggle P): %s", emulator->realtime ? "Realtime" : "Paused"); 
+    ImGui::Text("Vsync (Toggle V): %s", SDL_GL_GetSwapInterval() == 1 ? "On" : "Off");
+    ImGui::Text("Refresh Main Texture (H Key)");
     ImGui::Separator();
 
     //pixelbuffer debug info

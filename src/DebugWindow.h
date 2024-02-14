@@ -24,7 +24,7 @@ public:
 
     //circular buffer for graphing frametimes
     std::vector<float> frametimes;
-    const unsigned int MAX_FRAMETIMES = 100;
+    const unsigned int MAX_FRAMETIMES = 250;
 
     bool show_debug_window = true;
 
