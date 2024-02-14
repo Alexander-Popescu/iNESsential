@@ -53,6 +53,17 @@ void DebugWindow::Update(int window_width, int window_height) {
 
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.9f, 1.0f));
     ImGui::Text("Emulator Debug Info:");
+
+    //buttons for changing the debug page
+    ImGui::SameLine();
+    if (ImGui::Button("CPU Page")) {
+        debugPage = 0;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("PPU Page")) {
+        debugPage = 1;
+    }
+
     ImGui::PopStyleColor();
     ImGui::Separator();
 
@@ -65,6 +76,8 @@ void DebugWindow::Update(int window_width, int window_height) {
         emulator = new Emulator();
         emulator->reset();
     }
+
+    ImGui::SameLine();
     if (ImGui::Button("Run Single instruction")) {
         //says instruction but no opcodes implemented so its cycles for now
         emulator->runUntilBreak(1);
@@ -72,6 +85,26 @@ void DebugWindow::Update(int window_width, int window_height) {
         pixelBuffer->update(true);
     }
 
+    if (debugPage == 0) {
+        cpuDebugInfo();
+    }
+    else if (debugPage == 1) {
+        ppuDebugInfo();
+    }
+
+    ImGui::Separator();
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.9f, 1.0f));
+    ImGui::Text("Press Space to hide this window");
+    ImGui::PopStyleColor(1);
+
+    ImGui::End();
+
+    // Rendering
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void DebugWindow::ppuDebugInfo() {
     if (emulator->cartridgeLoaded == true) {
         //load only once cart is loaded to avoid segfault, since this data (shouldnt) exist untill then
 
@@ -127,15 +160,8 @@ void DebugWindow::Update(int window_width, int window_height) {
         ImGui::Text("Cartridge Not Loaded");
         ImGui::PopStyleColor(1);
     }
+}
 
-    ImGui::Separator();
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.9f, 1.0f));
-    ImGui::Text("Press Space to hide this window");
-    ImGui::PopStyleColor(1);
+void DebugWindow::cpuDebugInfo() {
 
-    ImGui::End();
-
-    // Rendering
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }

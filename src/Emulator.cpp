@@ -41,8 +41,6 @@ int Emulator::runUntilBreak(int instructionRequest) {
         runSingleInstruction();
     }
 
-    printf(GREEN "Emulator: InstructionCount: %i\n" RESET, instructionCount);
-
     //reset pushframe for next frame
     pushFrame = false;
      
@@ -67,6 +65,7 @@ void Emulator::runSingleInstruction() {
     //simulate end of frame for testing
     if (instructionCount % 10 == 0) {
         pushFrame = true;
+        printf(GREEN "Emulator: InstructionCount: %i\n" RESET, instructionCount);
     }
 
     //dont forget as this is what breaks the instruction loop

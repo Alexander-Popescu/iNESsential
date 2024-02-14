@@ -24,11 +24,15 @@ public:
 
     void Update(int window_width, int window_height);
 
+    //functions to further abstract all the different pages
+    void ppuDebugInfo();
+    void cpuDebugInfo();
+
     //variables to track and change things about the debug window 
 
     //circular buffer for graphing frametimes
     std::vector<float> frametimes;
-    const int MAX_FRAMETIMES = 100;
+    const unsigned int MAX_FRAMETIMES = 100;
 
     bool show_debug_window = true;
 
