@@ -178,11 +178,12 @@ void DebugWindow::cpuDebugInfo() {
     ImGui::Text("PC: 0x%04x, SP: 0x%02x", state->program_counter, state->stack_pointer);
 
     //status registers with color coding
-    ImGui::Text("Status Register Flags: ");
     for (int i = 0; i < 8; ++i) {
         char flagName[2] = { flagNames[i], '\0' };
         //red or green based on 0 / 1
         ImGui::TextColored(state->status_register & (1 << i) ? ImVec4(0.0f, 1.0f, 0.0f, 1.0f) : ImVec4(1.0f, 0.0f, 0.0f, 1.0f), flagName);
         ImGui::SameLine();
     }
+
+    ImGui::Separator();
 }
