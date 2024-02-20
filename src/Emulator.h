@@ -4,6 +4,7 @@
 #include "CPU.h"
 #include "PPU.h"
 #include "Cartridge.h"
+#include "Definitions.h"
 
 class Emulator {
 public:
@@ -15,11 +16,16 @@ public:
     void reset();
     
     void runSingleInstruction();
+    CpuState *getCpuState();
 
     bool cartridgeLoaded = false;
 
     //toggles realtime emulation between instruction by instruction 
     bool realtime = false;
+
+    //debug information
+    int instructionCount = 0;
+    int cycleCount = 0;
 
 private:
     //CPU
@@ -35,10 +41,6 @@ private:
 
     //PPU
     PPU *ppu;
-
-    //debug information
-    int instructionCount = 0;
-    int cycleCount = 0;
 
     //set to true to break
     bool pushFrame = false;

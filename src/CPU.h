@@ -2,6 +2,7 @@
 #pragma once
 #include <cstdint>
 #include <vector>
+#include "Definitions.h"
 
 class CPU {
 public:
@@ -9,13 +10,11 @@ public:
     ~CPU();
 
     void reset();
+    CpuState *getState();
+
+    void setFlag(uint8_t flag, bool value);
+    
 
 private:
-    //registers
-    uint8_t accumulator;
-    uint8_t x_register;
-    uint8_t y_register;
-    uint16_t program_counter;
-    uint8_t stack_pointer;
-    unsigned int status_register : 6;
+    CpuState state;
 };

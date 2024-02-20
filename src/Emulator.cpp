@@ -3,7 +3,6 @@
 #include "PPU.h"
 #include "Cartridge.h"
 #include <iostream>
-#include "Definitions.h"
 
 Emulator::Emulator() {
     printf(GREEN "Emulator: Started\n" RESET);
@@ -57,7 +56,7 @@ void Emulator::reset() {
 }
 
 void Emulator::runSingleInstruction() {
-
+    
     //simulate end of frame for testing
     if (instructionCount % 10 == 0) {
         pushFrame = true;
@@ -66,4 +65,8 @@ void Emulator::runSingleInstruction() {
 
     //dont forget as this is what breaks the instruction loop
     instructionCount++;
+}
+
+CpuState *Emulator::getCpuState() {
+    return cpu->getState();
 }

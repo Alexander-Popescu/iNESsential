@@ -36,4 +36,7 @@ private:
     SDL_GLContext gl_context;
     Emulator* emulator;
     PixelBuffer* pixelBuffer;
+
+    //for rendering cpu status flags
+    const char* flagNames = "CZIDB-VN";
 };

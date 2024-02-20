@@ -87,6 +87,8 @@ void DebugWindow::Update(int window_width, int window_height) {
         pixelBuffer->update(true);
     }
 
+    ImGui::Text("Instruction Count: %i | Cycle Count: %i", emulator->instructionCount, emulator->cycleCount);
+
     if (debugPage == 0) {
         cpuDebugInfo();
     }
@@ -166,4 +168,21 @@ void DebugWindow::ppuDebugInfo() {
 
 void DebugWindow::cpuDebugInfo() {
 
+    CpuState *state = emulator->getCpuState();
+
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 0.8f, 1.0f));
+    ImGui::Text("CPU Debug Info: ");
+    ImGui::PopStyleColor(1);
+    
+    ImGui::Text("Registers: A: %i , X; %i , Y: %i", state->accumulator, state->x_register, state->y_register);
+    ImGui::Text("PC: 0x%04x, SP: 0x%02x", state->program_counter, state->stack_pointer);
+
+    //status registers with color coding
+    ImGui::Text("Status Register Flags: ");
+    for (int i = 0; i < 8; ++i) {
+        char flagName[2] = { flagNames[i], '\0' };
+        //red or green based on 0 / 1
+        ImGui::TextColored(state->status_register & (1 << i) ? ImVec4(0.0f, 1.0f, 0.0f, 1.0f) : ImVec4(1.0f, 0.0f, 0.0f, 1.0f), flagName);
+        ImGui::SameLine();
+    }
 }
