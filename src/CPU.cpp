@@ -5,7 +5,8 @@ CPU::CPU() {
     this->state.accumulator = 0;
     this->state.x_register = 0;
     this->state.y_register = 0;
-    this->state.program_counter = 0;
+    //start at C000 for nestest log
+    this->state.program_counter = 0xC000;
     this->state.stack_pointer = 0;
     this->state.status_register = 0;
 }

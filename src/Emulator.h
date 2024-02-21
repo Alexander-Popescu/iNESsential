@@ -18,6 +18,10 @@ public:
     void runSingleInstruction();
     CpuState *getCpuState();
 
+    uint8_t cpuBusRead(uint16_t address);
+    void cpuBusWrite(uint16_t address, uint8_t data);
+    int *getCycleCount();
+
     bool cartridgeLoaded = false;
 
     //toggles realtime emulation between instruction by instruction 
@@ -25,7 +29,9 @@ public:
 
     //debug information
     int instructionCount = 0;
-    int cycleCount = 0;
+
+    //toggle logging to file
+    bool log = false;
 
 private:
     //CPU
@@ -42,7 +48,7 @@ private:
     //PPU
     PPU *ppu;
 
-    //set to true to break
+    //set to true to break, assuming only ppu would need to trigger this 
     bool pushFrame = false;
     
 };

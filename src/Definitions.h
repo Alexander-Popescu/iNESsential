@@ -16,13 +16,13 @@
 //for IMGUI font
 #define FONT_SCALE 2
 
-#define C_FLAG 0b00000001  //Carry
-#define Z_FLAG 0b00000010  //Zero
-#define I_FLAG 0b00000100  //Interrupt disabled
-#define D_FLAG 0b00001000  //Decimal
-#define B_FLAG 0b00010000  //Break
-#define V_FLAG 0b01000000  //Overflow
-#define N_FLAG 0b10000000  //Negative
+#define C_FLAG 0b00000001 //Carry
+#define Z_FLAG 0b00000010 //Zero
+#define I_FLAG 0b00000100 //Interrupt disabled
+#define D_FLAG 0b00001000 //Decimal
+#define B_FLAG 0b00010000 //Break
+#define V_FLAG 0b01000000 //Overflow
+#define N_FLAG 0b10000000 //Negative
 
 struct CpuState {
     uint8_t accumulator;

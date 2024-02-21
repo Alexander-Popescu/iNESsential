@@ -34,6 +34,9 @@ int Emulator::runUntilBreak(int instructionRequest) {
 
     while ((realtime || (instructionCount < instructionStart + instructionRequest)) && pushFrame == false) {
         runSingleInstruction();
+
+        //manually push frame for cpu testing
+        pushFrame = true;
     }
 
     //reset pushframe for next frame
@@ -56,17 +59,39 @@ void Emulator::reset() {
 }
 
 void Emulator::runSingleInstruction() {
-    
-    //simulate end of frame for testing
-    if (instructionCount % 10 == 0) {
-        pushFrame = true;
-        printf(GREEN "Emulator: InstructionCount: %i\n" RESET, instructionCount);
-    }
 
-    //dont forget as this is what breaks the instruction loop
-    instructionCount++;
+    //read first byte at PC
+
+    //run corrosponding opcode on cpu, and log cpustate if enabled, along with the opcode that was run
+
 }
 
 CpuState *Emulator::getCpuState() {
     return cpu->getState();
+}
+
+uint8_t Emulator::cpuBusRead(uint16_t address) {
+    //cpubus, start with cpuram
+    if ( 0x0000 < address && address < 0x1FFF)
+    {
+        //cpuram, AND with physical ram size because of mirroring
+        return ram[address && 0x07FF];
+    } 
+    else if (address > 0x4020)
+    {
+        return cartridge->read(address);
+    }
+    return 0;
+}
+
+void Emulator::cpuBusWrite(uint16_t address, uint8_t data) {
+    if ( 0x0000 < address && address < 0x1FFF)
+    {
+        //cpuram, AND with physical ram size because of mirroring
+        ram[address && 0x07FF] = data;
+    }
+}
+
+int *Emulator::getCycleCount() {
+    return &cpu->cycleCount;
 }

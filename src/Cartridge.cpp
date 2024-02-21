@@ -67,3 +67,9 @@ uint8_t *Cartridge::getCHRROM()
 {
     return CHR_ROM;
 }
+
+uint8_t Cartridge::read(uint16_t address)
+{
+    //run mapper, for now none
+    return PRG_ROM[address - 0x4020];
+}
