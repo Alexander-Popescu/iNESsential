@@ -14,7 +14,7 @@ public:
     DebugWindow(SDL_Window* window, SDL_GLContext gl_context, Emulator* emulator, PixelBuffer* pixelBuffer);
     ~DebugWindow();
 
-    void Update(int window_width, int window_height);
+    void update(int window_width, int window_height);
 
     //functions to further abstract all the different pages
     void ppuDebugInfo();

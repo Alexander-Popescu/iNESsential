@@ -23,6 +23,19 @@ Emulator::~Emulator() {
     delete cpu;
     delete ppu;
     delete cartridge;
+    
+    //check if log was ever written to and delete file if blank
+    fseek(logFile, 0, SEEK_END);
+    if (ftell(logFile) == 0) {
+        printf(YELLOW "Emulator: Log unused, deleting logfile\n" RESET);
+        if (remove(filename) == 0) {
+            printf(GREEN "Emulator: Logfile deleted\n" RESET);
+        } else {
+            printf(RED "Emulator: Error deleting logfile\n" RESET);
+        }
+    } else {
+        printf(GREEN "Emulator: Keeping logfile\n" RESET);
+    }
     fclose(logFile);
 }
 

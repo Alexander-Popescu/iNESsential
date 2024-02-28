@@ -24,10 +24,9 @@ DebugWindow::DebugWindow(SDL_Window* window, SDL_GLContext gl_context, Emulator*
     ImGui::StyleColorsLight();
 
     //open logfile
-    char filename[36];
     //unique filename and timestamp
-    sprintf(filename, "../logs/iNESsential_%ld.log", time(NULL));
-    emulator->logFile = fopen(filename, "w");
+    sprintf(emulator->filename, "../logs/iNESsential_%ld.log", time(NULL));
+    emulator->logFile = fopen(emulator->filename, "w");
 }
 
 DebugWindow::~DebugWindow() {
@@ -36,7 +35,7 @@ DebugWindow::~DebugWindow() {
     ImGui::DestroyContext();
 }
 
-void DebugWindow::Update(int window_width, int window_height) {
+void DebugWindow::update(int window_width, int window_height) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame(window);
     ImGui::NewFrame();

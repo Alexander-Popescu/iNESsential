@@ -105,7 +105,7 @@ int main(int, char**)
 
 
         if(debugWindow->show_debug_window) {
-            debugWindow->Update(window_width, window_height);
+            debugWindow->update(window_width, window_height);
         }
 
         //render texture

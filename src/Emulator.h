@@ -38,6 +38,7 @@ public:
 
     //for output of emulator logs
     FILE* logFile;
+    char filename[36];
 
 private:
     //CPU
