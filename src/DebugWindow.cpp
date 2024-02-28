@@ -1,8 +1,13 @@
 #include "DebugWindow.h"
 #include <stdio.h>
+#include <time.h>
 
-DebugWindow::DebugWindow(SDL_Window* window, SDL_GLContext gl_context, Emulator* emulator, PixelBuffer* pixelBuffer)
-    : window(window), gl_context(gl_context), emulator(emulator), pixelBuffer(pixelBuffer) {
+DebugWindow::DebugWindow(SDL_Window* window, SDL_GLContext gl_context, Emulator* emulator, PixelBuffer* pixelBuffer) {
+
+    this->window = window;
+    this->gl_context = gl_context;
+    this->emulator = emulator;
+    this->pixelBuffer = pixelBuffer;
 
     // Setup ImGui binding
     IMGUI_CHECKVERSION();
@@ -17,6 +22,12 @@ DebugWindow::DebugWindow(SDL_Window* window, SDL_GLContext gl_context, Emulator*
 
     // Setup style
     ImGui::StyleColorsLight();
+
+    //open logfile
+    char filename[36];
+    //unique filename and timestamp
+    sprintf(filename, "../logs/iNESsential_%ld.log", time(NULL));
+    emulator->logFile = fopen(filename, "w");
 }
 
 DebugWindow::~DebugWindow() {
@@ -89,11 +100,12 @@ void DebugWindow::Update(int window_width, int window_height) {
 
     ImGui::SameLine();
     if (ImGui::Button("Toggle Logging")) {
-        emulator->log = !emulator->log;
+        emulator->logging = !emulator->logging;
     }
     ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.1f, 0.9f, 1.0f));
-    ImGui::Text("Log: %s", emulator->log ? "True" : "False");
+    bool logging = emulator->logging;
+    ImGui::PushStyleColor(ImGuiCol_Text, logging ? ImVec4(0.1f, 0.9f, 0.1f, 1.0f) : ImVec4(0.9f, 0.1f, 0.1f, 1.0f));
+    ImGui::Text("Log: %s", logging ? "True" : "False");
     ImGui::PopStyleColor(1);
 
     ImGui::Text("Instruction Count: %i | Cycle Count: %i", emulator->instructionCount, *emulator->getCycleCount());

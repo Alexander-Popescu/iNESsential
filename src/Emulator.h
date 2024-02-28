@@ -5,6 +5,7 @@
 #include "PPU.h"
 #include "Cartridge.h"
 #include "Definitions.h"
+#include <iostream>
 
 class Emulator {
 public:
@@ -22,6 +23,8 @@ public:
     void cpuBusWrite(uint16_t address, uint8_t data);
     int *getCycleCount();
 
+    void log(const char* message);
+
     bool cartridgeLoaded = false;
 
     //toggles realtime emulation between instruction by instruction 
@@ -31,7 +34,10 @@ public:
     int instructionCount = 0;
 
     //toggle logging to file
-    bool log = false;
+    bool logging = false;
+
+    //for output of emulator logs
+    FILE* logFile;
 
 private:
     //CPU

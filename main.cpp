@@ -78,10 +78,6 @@ int main(int, char**)
             }
             if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_h)
             {
-                //fill buffer with white and update, testing individual pixel updates on main texture
-                for(int i = 0; i < DEFAULT_WIDTH * DEFAULT_HEIGHT; i++) {
-                    pixelBuffer->writeBufferPixelIndex(i, rand() % 0xFFFFFFFF);
-                }
                 pixelBuffer->update(true);
             }
             if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_v)
@@ -133,4 +129,5 @@ int main(int, char**)
     //Cleanup
     delete debugWindow;
     delete pixelBuffer;
+    delete emulator;
 }

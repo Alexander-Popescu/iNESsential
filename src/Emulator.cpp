@@ -2,7 +2,6 @@
 #include "CPU.h"
 #include "PPU.h"
 #include "Cartridge.h"
-#include <iostream>
 
 Emulator::Emulator() {
     printf(GREEN "Emulator: Started\n" RESET);
@@ -24,6 +23,13 @@ Emulator::~Emulator() {
     delete cpu;
     delete ppu;
     delete cartridge;
+    fclose(logFile);
+}
+
+void Emulator::log(const char* message) {
+    if (logging) {
+        fprintf(logFile, message);
+    }
 }
 
 int Emulator::runUntilBreak(int instructionRequest) {
@@ -34,9 +40,16 @@ int Emulator::runUntilBreak(int instructionRequest) {
 
     while ((realtime || (instructionCount < instructionStart + instructionRequest)) && pushFrame == false) {
         runSingleInstruction();
+        //test logging
+        char message[50];
+        sprintf(message, "Instruction: %i\n", instructionCount);
+        log(message);
 
         //manually push frame for cpu testing
-        pushFrame = true;
+        if (realtime){
+            pushFrame = true;
+        }
+        
     }
 
     //reset pushframe for next frame
@@ -63,6 +76,7 @@ void Emulator::runSingleInstruction() {
     //read first byte at PC
 
     //run corrosponding opcode on cpu, and log cpustate if enabled, along with the opcode that was run
+    instructionCount++;
 
 }
 

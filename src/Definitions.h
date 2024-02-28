@@ -31,4 +31,7 @@ struct CpuState {
     uint16_t program_counter;
     uint8_t stack_pointer;
     uint8_t status_register;
+
+    //to avoid cycle accurate emulation
+    uint8_t remaining_cycles;
 };

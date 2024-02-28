@@ -35,7 +35,7 @@ void PixelBuffer::update(bool update) {
         return; 
     }
     
-    //fill with noise for testing
+    //fill with noise for testing, remove once ppu is manually changing the buffer buffer values
     for(int i = 0; i < width * height; i++) {
         pixel_buffer_buffer[i] = rand() % 0xFFFFFFFF;
     }
