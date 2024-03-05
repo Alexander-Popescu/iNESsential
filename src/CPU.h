@@ -22,6 +22,9 @@ private:
 
     Emulator *emulator;
 
+    //used during opcodes
+    uint16_t absolute_address;
+
     void setFlag(uint8_t flag, bool value);
 
     //addressing modes, in order of their documentation on https://www.masswerk.at/6502/6502_instruction_set.html
@@ -131,6 +134,8 @@ private:
         uint8_t byteCount;
         uint8_t cycleCount;
     };
+
+    void cpuLog(OpcodeInfo opcode);
 
     //indexed [row][column]
     //also [firstNibble][secondNibble] when decoding opcodes

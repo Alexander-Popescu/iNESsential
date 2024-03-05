@@ -62,16 +62,6 @@ int Cartridge::loadRom(const char* gamePath) {
     return 1;
 }
 
-uint8_t *Cartridge::getPRGROM()
-{
-    return PRG_ROM;
-}
-
-uint8_t *Cartridge::getCHRROM()
-{
-    return CHR_ROM;
-}
-
 uint8_t Cartridge::read(uint16_t address)
 {
     //run mapper, for now just mapper 0

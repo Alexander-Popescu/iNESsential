@@ -1,17 +1,20 @@
 #include "CPU.h"
 #include <stdio.h>
 #include "Emulator.h"
+#include <cstring>
 
 CPU::CPU(Emulator *emulator) {
+    //hardcoded for now, normally program counter is set to the vector at 0xFFFD/0xFFFC, also some constants here are just for using nestest
     this->state.accumulator = 0;
     this->state.x_register = 0;
     this->state.y_register = 0;
-    //start at C000 for nestest log
-    this->state.program_counter = 0xC000;
-    this->state.stack_pointer = 0;
-    this->state.status_register = 0;
+    this->state.program_counter = 0x8000;
+    this->state.stack_pointer = 0xFD;
+    this->state.status_register = 0x24;
 
-    this->state.remaining_cycles = 0;
+    this->state.remaining_cycles = 7;
+
+    this-> absolute_address = 0x00;
 
     //link to other parts of the emulator
     this->emulator = emulator;
@@ -23,6 +26,9 @@ CPU::~CPU() {
 
 void CPU::reset() {
     printf(YELLOW "CPU: Reset\n" RESET);
+    state.remaining_cycles = 7;
+    //reset vector
+    state.program_counter = emulator->cpuBusRead(0xFFFC) | (emulator->cpuBusRead(0xFFFD) << 8);
 }
 
 CpuState *CPU::getState() {
@@ -37,22 +43,50 @@ void CPU::setFlag(uint8_t flag, bool value) {
     }
 }
 
+void CPU::cpuLog(OpcodeInfo opcode) {
+    if (emulator->logging == false) {
+        return;
+    }
+
+    //log information for opcode that is about to run, if the log ends here the error occured in that opcode
+    char logMessage[100]; 
+    sprintf(logMessage, "Opcode: %s",opcode.mnemonic);
+    for (int i = 0; i < opcode.byteCount; i++) {
+        sprintf(logMessage + strlen(logMessage), " %X", emulator->cpuBusRead(state.program_counter + i));
+    }
+    sprintf(logMessage + strlen(logMessage), " A: 0x%X X: 0x%X Y: 0x%X SP: 0x%X PC: 0x%X P: 0x%X CYC: %i\n", state.accumulator, state.x_register, state.y_register, state.stack_pointer, state.program_counter, state.status_register, cycleCount);
+    emulator->log(logMessage);
+}
+
 void CPU::runInstruction() {
     //decode and run opcode at program counter
     uint8_t opcodeByte = emulator->cpuBusRead(state.program_counter);
     OpcodeInfo opcode = opcodeTable[opcodeByte >> 4][opcodeByte & 0x0F];
     printf(BLUE "CPU: Running opcode: 0x%X, %s\n" RESET, opcodeByte, opcode.mnemonic);
+
+    cpuLog(opcode);
+
     //add cycle counts to remaining cycles
+    state.remaining_cycles += opcode.cycleCount;
+
+    //calculate address of interest
+    (this->*opcode.AddrMode)();
+
+    //run the opcode
+    (this->*opcode.OpFunction)();
 }
 
 bool CPU::clock() {
     //run instruction if remaining cycles is zero, otherwise run instruction which will set the remaining cycles
     //true indicates instruction was run on this call
+
     if (state.remaining_cycles == 0) {
         runInstruction();
+        cycleCount++;
         return true;
     } else {
         state.remaining_cycles--;
+        cycleCount++;
         return false;
     }
 }
@@ -71,6 +105,16 @@ void CPU::REL() {
 
 void CPU::ABS() {
     //absolute
+    state.program_counter++;
+
+    //pull each byte of address
+    uint16_t low = emulator->cpuBusRead(state.program_counter);
+    state.program_counter++;
+
+    uint16_t high = emulator->cpuBusRead(state.program_counter) << 8;
+    state.program_counter++;
+
+    absolute_address = high | low;
 }
 
 void CPU::IMM() {
@@ -229,6 +273,8 @@ void CPU::INY() {
 
 void CPU::JMP() {
     //jump
+
+    state.program_counter = absolute_address;
 }
 
 void CPU::JSR() {

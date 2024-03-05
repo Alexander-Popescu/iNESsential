@@ -40,9 +40,8 @@ Emulator::~Emulator() {
 }
 
 void Emulator::log(const char* message) {
-    if (logging) {
-        fprintf(logFile, message);
-    }
+    //assumes logging was checked already
+    fprintf(logFile, message);
 }
 
 int Emulator::runUntilBreak(int instructionRequest) {
@@ -53,19 +52,14 @@ int Emulator::runUntilBreak(int instructionRequest) {
 
     while ((realtime || (instructionCount < instructionStart + instructionRequest)) && pushFrame == false) {
         runSingleInstruction();
-        //test logging
-        char message[50];
-        sprintf(message, "Instruction: %i\n", instructionCount);
-        log(message);
 
-        //manually push frame for cpu testing
+        //reset pushframe for next frame, remove when ppu does this once per frame
         if (realtime){
             pushFrame = true;
         }
         
     }
 
-    //reset pushframe for next frame
     pushFrame = false;
      
     return 0;
