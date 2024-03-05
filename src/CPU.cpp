@@ -1,7 +1,8 @@
 #include "CPU.h"
 #include <stdio.h>
+#include "Emulator.h"
 
-CPU::CPU() {
+CPU::CPU(Emulator *emulator) {
     this->state.accumulator = 0;
     this->state.x_register = 0;
     this->state.y_register = 0;
@@ -11,6 +12,9 @@ CPU::CPU() {
     this->state.status_register = 0;
 
     this->state.remaining_cycles = 0;
+
+    //link to other parts of the emulator
+    this->emulator = emulator;
 }
 
 CPU::~CPU() {
@@ -35,7 +39,9 @@ void CPU::setFlag(uint8_t flag, bool value) {
 
 void CPU::runInstruction() {
     //decode and run opcode at program counter
-
+    uint8_t opcodeByte = emulator->cpuBusRead(state.program_counter);
+    OpcodeInfo opcode = opcodeTable[opcodeByte >> 4][opcodeByte & 0x0F];
+    printf(BLUE "CPU: Running opcode: 0x%X, %s\n" RESET, opcodeByte, opcode.mnemonic);
     //add cycle counts to remaining cycles
 }
 

@@ -4,9 +4,11 @@
 #include <vector>
 #include "Definitions.h"
 
+class Emulator;
+
 class CPU {
 public:
-    CPU();
+    CPU(Emulator *emulator);
     ~CPU();
 
     void reset();
@@ -17,6 +19,8 @@ public:
 
 private:
     CpuState state;
+
+    Emulator *emulator;
 
     void setFlag(uint8_t flag, bool value);
 

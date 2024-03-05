@@ -7,10 +7,15 @@
 //change for larger / smaller window size
 #define WINDOW_SCALE_FACTOR 4
 
+//for cartridge bank parsing
+#define CHR_ROM_BANKSIZE 16384
+#define PRG_ROM_BANKSIZE 8192
+
 //ansii terminal color codes
 #define RED "\x1b[31m"
 #define YELLOW "\x1b[33m"
 #define GREEN "\x1b[32m"
+#define BLUE "\x1b[34m"
 #define RESET "\x1b[0m"
 
 //for IMGUI font

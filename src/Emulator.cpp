@@ -6,7 +6,7 @@
 Emulator::Emulator() {
     printf(GREEN "Emulator: Started\n" RESET);
 
-    this->cpu = new CPU();
+    this->cpu = new CPU(this);
     printf(GREEN "Emulator: CPU created\n" RESET);
 
     this->ppu = new PPU();
@@ -85,8 +85,7 @@ void Emulator::reset() {
 }
 
 void Emulator::runSingleInstruction() {
-
-    //read first byte at PC
+    while (cpu->clock() == false) {};
 
     //run corrosponding opcode on cpu, and log cpustate if enabled, along with the opcode that was run
     instructionCount++;
@@ -115,7 +114,7 @@ void Emulator::cpuBusWrite(uint16_t address, uint8_t data) {
     if ( 0x0000 < address && address < 0x1FFF)
     {
         //cpuram, AND with physical ram size because of mirroring
-        ram[address && 0x07FF] = data;
+        ram[address & 0x07FF] = data;
     }
 }
 

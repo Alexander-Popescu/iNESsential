@@ -19,5 +19,8 @@ public:
 private:
     uint8_t* PRG_ROM;
     uint8_t* CHR_ROM;
+
+    int PRGsize;
+    int CHRsize;
     int mapper;
 };

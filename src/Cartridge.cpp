@@ -3,7 +3,11 @@
 #include <cstdlib>
 
 Cartridge::Cartridge() {
-
+    this->PRG_ROM = nullptr;
+    this->CHR_ROM = nullptr;
+    this->mapper = 0;
+    this->PRGsize = 0;
+    this->CHRsize = 0;
 }
 
 Cartridge::~Cartridge() {
@@ -41,9 +45,10 @@ int Cartridge::loadRom(const char* gamePath) {
     // 5-> CHRROM size in 8kb chunks
     //6-15-> other flags and padding
 
-    int PRGsize = header[4] * 16384;
-    int CHRsize = header[5] * 8192;
+    PRGsize = header[4] * PRG_ROM_BANKSIZE;
+    CHRsize = header[5] * CHR_ROM_BANKSIZE;
 
+    //mapper 0
     PRG_ROM = new uint8_t[PRGsize];
     CHR_ROM = new uint8_t[CHRsize];
 
@@ -53,7 +58,6 @@ int Cartridge::loadRom(const char* gamePath) {
 
     // close the file
     fclose(fp);
-
     printf(GREEN "Cartridge: ROM loaded%s\n" RESET, gamePath);
     return 1;
 }
@@ -70,6 +74,11 @@ uint8_t *Cartridge::getCHRROM()
 
 uint8_t Cartridge::read(uint16_t address)
 {
-    //run mapper, for now none
-    return PRG_ROM[address - 0x4020];
+    //run mapper, for now just mapper 0
+    if (address >= 0x8000 && address <= 0xFFFF) {
+        //mirroring if not full 32kb is used
+        return PRG_ROM[address & (PRGsize - 1)];
+    }
+    printf(RED "invalid cartridge read" RESET);
+    return 0;
 }
