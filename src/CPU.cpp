@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include "Emulator.h"
 #include <cstring>
+#include <nlohmann/json.hpp>
+#include <iostream>
 
 CPU::CPU(Emulator *emulator) {
     //hardcoded for now, normally program counter is set to the vector at 0xFFFD/0xFFFC, also some constants here are just for using nestest
@@ -109,6 +111,112 @@ bool CPU::clock() {
         cycleCount++;
         return false;
     }
+}
+
+void CPU::testOpcodes() {
+
+    //this function and all related code is meant to be removed once it has verified that all the opcodes are working perfectly
+
+    using json = nlohmann::json;
+
+    //hardcode opcode to test
+    uint8_t testing = 0x4C;
+    bool breakOnFailure = true;
+    OpcodeInfo opcode = opcodeTable[testing >> 4][testing & 0x0F];
+
+    //open file with tests for this opcode
+    char filename[36];
+    sprintf(filename, "../cpuTests/v1/%02x.json", testing);
+    FILE *testFile = fopen(filename, "r");
+
+    if (testFile == NULL) {
+        printf(RED "Emulator: Error opening test file, %s\n" RESET, filename);
+        return;
+    }
+
+    json tests = json::parse(testFile);
+
+    //10000 tests per opcode
+    int success = 0;
+    int fail = 0;
+
+    //each testfile has 10000 tests
+    for (int i = 0; i < 10000; i++)
+    {
+        //clear ram 64kb
+        for (int j = 0; j < 0x10000; j++) {
+            emulator->testRam[j] = 0;
+        }
+
+        json test = tests[i];
+
+        //set up initial cpu state
+        state.accumulator = test["initial"]["a"];
+        state.x_register = test["initial"]["x"];
+        state.y_register = test["initial"]["y"];
+        state.program_counter = test["initial"]["pc"];
+        state.stack_pointer = test["initial"]["s"];
+        state.status_register = test["initial"]["p"];
+
+        //ram
+        for (int j = 0; j < (uint8_t)test["initial"]["ram"].size(); j++) {
+            emulator->testRam[test["initial"]["ram"][j][0].get<int>()] = test["initial"]["ram"][j][1].get<int>();
+        }
+
+        //run opcode
+        (this->*opcode.AddrMode)();
+        (this->*opcode.OpFunction)();
+
+        //check if passed test
+        if (test["final"]["a"] != state.accumulator) {
+            printf(RED "Emulator: Test %i failed, Accumulator was 0x%X instead of 0x%X\n" RESET, i, state.accumulator, (uint8_t)test["final"]["a"]);
+            fail++;
+            continue;
+        }
+        else if (test["final"]["x"] != state.x_register) {
+            printf(RED "Emulator: Test %i failed, X register was 0x%X instead of 0x%X\n" RESET, i, state.x_register, (uint8_t)test["final"]["x"]);
+            fail++;
+            continue;
+        }
+        else if (test["final"]["y"] != state.y_register) {
+            printf(RED "Emulator: Test %i failed, Y register was 0x%X instead of 0x%X\n" RESET, i, state.y_register, (uint8_t)test["final"]["y"]);
+            fail++;
+            continue;
+        }
+        else if (test["final"]["pc"] != state.program_counter) {
+            printf(RED "Emulator: Test %i failed, Program counter was 0x%X instead of 0x%X\n" RESET, i, state.program_counter, (uint8_t)test["final"]["pc"]);
+            fail++;
+            continue;
+        }
+        else if (test["final"]["s"] != state.stack_pointer) {
+            printf(RED "Emulator: Test %i failed, Stack pointer was 0x%X instead of 0x%X\n" RESET, i, state.stack_pointer, (uint8_t)test["final"]["s"]);
+            fail++;
+            continue;
+        }
+        else if (test["final"]["p"] != state.status_register) {
+            printf(RED "Emulator: Test %i failed, Status register was 0x%X instead of 0x%X\n" RESET, i, state.status_register, (uint8_t)test["final"]["p"]);
+            fail++;
+            continue;
+        }
+        success++;
+
+        for (int j = 0; j < (uint8_t)test["final"]["ram"].size(); j++) {
+            int index = test["final"]["ram"][j][0];
+            uint8_t value = test["final"]["ram"][j][1];
+            if (emulator->testRam[index] != value) {
+                printf(RED "Emulator: Test %i failed, Ram at %i was %i instead of %i\n" RESET, i, index, emulator->testRam[index], value);
+                fail++;
+                success--;
+                continue;
+            }
+        }
+
+        if (fail != 0 && breakOnFailure) {
+            break;
+        }
+        printf("--------------------------------\n");
+    }
+    printf(BLUE "Total tests for opcode %02X: %i, Success: %i, Fail: %i\n" RESET, testing, success + fail, success, fail);
 }
 
 //keep at bottom, cpu addressing modes and opcodes

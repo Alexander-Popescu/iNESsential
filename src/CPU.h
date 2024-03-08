@@ -17,6 +17,8 @@ public:
     void runInstruction();    
     bool clock();
 
+    void testOpcodes();
+
 private:
     CpuState state;
 

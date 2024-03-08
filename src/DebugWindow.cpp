@@ -101,6 +101,9 @@ void DebugWindow::update(int window_width, int window_height) {
     if (ImGui::Button("Toggle Logging")) {
         emulator->logging = !emulator->logging;
     }
+    if (ImGui::Button("Test Opcodes")) {
+        emulator->testOpcodes();
+    }
     ImGui::SameLine();
     bool logging = emulator->logging;
     ImGui::PushStyleColor(ImGuiCol_Text, logging ? ImVec4(0.1f, 0.9f, 0.1f, 1.0f) : ImVec4(0.9f, 0.1f, 0.1f, 1.0f));

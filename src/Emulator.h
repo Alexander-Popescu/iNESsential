@@ -25,6 +25,12 @@ public:
 
     void log(const char* message);
 
+    //for testing opcodes with Tom Harte CPU tests
+    void testOpcodes();
+    bool TestingMode = false;
+    //64kb ram for testing
+    uint8_t testRam[0x10000];
+
     bool cartridgeLoaded = false;
 
     //toggles realtime emulation between instruction by instruction 
