@@ -24,6 +24,12 @@ private:
 
     //used during opcodes
     uint16_t absolute_address;
+    //storage variable seperate to RAM to handle addressing modes
+    uint8_t absolute_data;
+
+    void updateAbsolute();
+    //special case for acc addressing mode
+    bool accumulatorMode;
 
     void setFlag(uint8_t flag, bool value);
 

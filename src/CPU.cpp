@@ -15,6 +15,7 @@ CPU::CPU(Emulator *emulator) {
     this->state.remaining_cycles = 7;
 
     this-> absolute_address = 0x00;
+    this->absolute_data = 0x00;
 
     //link to other parts of the emulator
     this->emulator = emulator;
@@ -41,6 +42,19 @@ void CPU::setFlag(uint8_t flag, bool value) {
     } else {
         state.status_register &= flag;
     }
+}
+
+void CPU::updateAbsolute() {
+    //absolute addresses are determined through the addressing modes, the data at this
+    //location is updated here, with cases for special addressing modes
+    if (accumulatorMode) {
+        //uses accumulator data as argument
+        absolute_data = state.accumulator;
+        return;
+    }
+
+    absolute_data = emulator->cpuBusRead(absolute_address);
+
 }
 
 void CPU::cpuLog(OpcodeInfo opcode) {
@@ -72,8 +86,14 @@ void CPU::runInstruction() {
     //calculate address of interest
     (this->*opcode.AddrMode)();
 
+    //addressing mode has changed absolute_address to point to the operand, store the operand now for use in the opcodes
+    updateAbsolute();
+
     //run the opcode
     (this->*opcode.OpFunction)();
+
+    //ensure accumulator mode is reset, because the opcodes dont reset it and they need to know
+    accumulatorMode = false;
 }
 
 bool CPU::clock() {
@@ -93,18 +113,25 @@ bool CPU::clock() {
 
 //keep at bottom, cpu addressing modes and opcodes
 
-//addressing modes
+//addressing modes, assume that the program counter is on the proceeding opcode by the end unless said otherwise
+//absolute address is the location of memory to check for argument, or used directly for non-memory addressing modes
 
 void CPU::IMPL() {
     //implied
+    state.program_counter++;
+    return;
 }
 
 void CPU::REL() {
     //relative
+    state.program_counter++;
+    int8_t offset = emulator->cpuBusRead(state.program_counter);
+    state.program_counter++; //end of current instruction
+    absolute_address = state.program_counter + offset; //branch instructions will branhc here sometimes, check their function
 }
 
 void CPU::ABS() {
-    //absolute
+    //absolute, full address is provided
     state.program_counter++;
 
     //pull each byte of address
@@ -118,43 +145,67 @@ void CPU::ABS() {
 }
 
 void CPU::IMM() {
-    //immediate
+    //immediate, next byte is the argument
+    absolute_address = state.program_counter + 1;
+    state.program_counter += 2;
 }
 
 void CPU::XIND() {
     //X-indexed, indirect
+    state.program_counter++;
+    absolute_address = (emulator->cpuBusRead(state.program_counter + state.x_register + 1) << 8) | emulator->cpuBusRead(state.program_counter + state.x_register);
+    state.program_counter++;
 }
 
 void CPU::INDY() {
     //indirect, Y-indexed
+    state.program_counter++;
+    absolute_address = ((emulator->cpuBusRead(state.program_counter + 1) + state.y_register ) << 8) | (emulator->cpuBusRead(state.program_counter) + state.y_register);
+    state.program_counter++;
 }
 
 void CPU::ZPG() {
     //zeropage
+    state.program_counter++;
+    absolute_address= emulator->cpuBusRead(state.program_counter);
+    state.program_counter++;
 }
 
 void CPU::ZPGX() {
     //zeropage x-indexed
+    state.program_counter++;
+    absolute_address= emulator->cpuBusRead(state.program_counter) + state.x_register;
+    state.program_counter++;
 }
 
 void CPU::ZPGY() {
     //zeropage y-indexed
+    state.program_counter++;
+    absolute_address= emulator->cpuBusRead(state.program_counter) + state.y_register;
+    state.program_counter++;
 }
 
 void CPU::ABSY() {
     //absolute, y-indexed
+    ABS();
+    absolute_address += state.y_register;
 }
 
 void CPU::ACC() {
-    //accumulator
+    //accumulator, use tracking variable for opcodes with accumuilator and also another addressing mode
+    accumulatorMode = true;
 }
 
 void CPU::IND() {
     //indirect
+    ABS();
+    absolute_address = (emulator->cpuBusRead(absolute_address + 1) << 8) & emulator->cpuBusRead(absolute_address);
 }
 
 void CPU::ABSX() {
     //absolute x-indexed
+    ABS();
+    absolute_address += state.x_register;
 }
 
 
@@ -165,136 +216,256 @@ void CPU::ABSX() {
 
 void CPU::ADC() {
     //add with carry
+    state.accumulator += absolute_data + (state.status_register & C_FLAG);
+
+    setFlag(C_FLAG, state.accumulator > 0xFF);
+    setFlag(Z_FLAG, state.accumulator == 0);
+    setFlag(N_FLAG, state.accumulator & 0x80);
+    setFlag(V_FLAG, (~(absolute_data ^ state.accumulator) & (absolute_data ^ state.accumulator) & 0x80));
 }
 
 void CPU::AND() {
     //and (with accumulator)
+    state.accumulator &= absolute_data;
+
+    setFlag(Z_FLAG, state.accumulator == 0);
+    setFlag(N_FLAG, state.accumulator & 0x80);
 }
 
 void CPU::ASL() {
     //arithmetic shift left
+    if (accumulatorMode) {
+        setFlag(C_FLAG, state.accumulator & 0x80);
+        state.accumulator <<= 1;
+        setFlag(Z_FLAG, state.accumulator == 0);
+        setFlag(N_FLAG, state.accumulator & 0x80);
+    } else {
+        setFlag(C_FLAG, absolute_data & 0x80);
+        emulator->cpuBusWrite(absolute_address, absolute_data << 1);
+        updateAbsolute();
+        setFlag(Z_FLAG, absolute_data == 0);
+        setFlag(N_FLAG, absolute_data & 0x80);
+    }
 }
 
 void CPU::BCC() {
     //branch on carry clear
+    if ((state.status_register & C_FLAG) == 0x00) {
+        state.program_counter = absolute_address;
+    }
 }
 
 void CPU::BCS() {
     //branch on carry set
+    if ((state.status_register & C_FLAG) == C_FLAG) {
+        state.program_counter = absolute_address;
+    }
 }
 
 void CPU::BEQ() {
-    //branch on equal (zero set)
+    //branch on zero set
+    if ((state.status_register & Z_FLAG) == Z_FLAG) {
+        state.program_counter = absolute_address;
+    }
 }
 
 void CPU::BIT() {
     //bit test
+    setFlag(Z_FLAG, (absolute_data & state.accumulator) == 0);
+    setFlag(N_FLAG, absolute_data & 0b01000000);
+    setFlag(V_FLAG, absolute_data & 0b00100000);
 }
 
 void CPU::BMI() {
     //branch on minus (negative set)
+    if ((state.status_register & N_FLAG) == N_FLAG) {
+        state.program_counter = absolute_address;
+    }
 }
 
 void CPU::BNE() {
     //branch on not equal (zero clear)
+    if ((state.status_register & Z_FLAG) == 0x00) {
+        state.program_counter = absolute_address;
+    }
 }
 
 void CPU::BPL() {
     //branch on plus (negative clear)
+    if ((state.status_register & N_FLAG) == 0x00) {
+        state.program_counter = absolute_address;
+    }
 }
 
 void CPU::BRK() {
     //force break
+    setFlag(I_FLAG, true);
+
+    //opcode table doesnt include brk break mark byte
+    state.program_counter++;
+
+    //push next instruction to run onto the stack, already incremented earlier
+    emulator->cpuBusWrite(0x0100 + state.stack_pointer, (state.program_counter >> 8) & 0x00FF);
+    state.stack_pointer--;
+    emulator->cpuBusWrite(0x0100 + state.stack_pointer, state.program_counter & 0x00FF);
+    state.stack_pointer--;
+
+    //requires status register as well
+    emulator->cpuBusWrite(0x0100 + state.stack_pointer, state.status_register);
+    state.stack_pointer--;
+
+    //break vector for PC
+    state.program_counter = emulator->cpuBusRead(0xFFFE) | (emulator->cpuBusRead(0xFFFF) << 8);
 }
 
 void CPU::BVC() {
     //branch on overflow clear
+    if ((state.status_register & V_FLAG) == 0x00) {
+        state.program_counter = absolute_address;
+    }
 }
 
 void CPU::BVS() {
     //branch on overflow set
+    if ((state.status_register & V_FLAG) == V_FLAG) {
+        state.program_counter = absolute_address;
+    }
 }
 
 void CPU::CLC() {
     //clear carry
+    setFlag(C_FLAG, false);
 }
 
 void CPU::CLD() {
     //clear decimal
+    setFlag(D_FLAG, false);
 }
 
 void CPU::CLI() {
     //clear interrupt disable
+    setFlag(I_FLAG, false);
 }
 
 void CPU::CLV() {
     //clear overflow
+    setFlag(V_FLAG, false);
 }
 
 void CPU::CMP() {
     //compare (with accumulator)
+
+    //imagine subtracting memory from accumulator 
+    setFlag(C_FLAG, state.accumulator >= absolute_data);
+    setFlag(Z_FLAG, state.accumulator == absolute_data);
+    setFlag(N_FLAG, (state.accumulator - absolute_data) & 0x80);
 }
 
 void CPU::CPX() {
     //compare with X
+
+    setFlag(C_FLAG, state.x_register >= absolute_data);
+    setFlag(Z_FLAG, state.x_register == absolute_data);
+    setFlag(N_FLAG, (state.x_register - absolute_data) & 0x80);
 }
 
 void CPU::CPY() {
     //compare with Y
+
+    setFlag(C_FLAG, state.y_register >= absolute_data);
+    setFlag(Z_FLAG, state.y_register == absolute_data);
+    setFlag(N_FLAG, (state.y_register - absolute_data) & 0x80);
 }
 
 void CPU::DEC() {
     //decrement
+    emulator->cpuBusWrite(absolute_address, absolute_data - 1);
 }
 
 void CPU::DEX() {
     //decrement X
+    state.x_register--;
 }
 
 void CPU::DEY() {
     //decrement Y
+    state.y_register--;
 }
 
 void CPU::EOR() {
     //exclusive or (with accumulator)
+    state.accumulator ^= absolute_data;
 }
 
 void CPU::INC() {
     //increment
+    emulator->cpuBusWrite(absolute_address, absolute_data + 1);
 }
 
 void CPU::INX() {
     //increment X
+    state.x_register++;
 }
 
 void CPU::INY() {
     //increment Y
+    state.y_register++;
 }
 
 void CPU::JMP() {
     //jump
-
     state.program_counter = absolute_address;
 }
 
 void CPU::JSR() {
     //jump subroutine
+
+    emulator->cpuBusWrite(0x0100 + state.stack_pointer, (state.program_counter >> 8) & 0x00FF);
+    state.stack_pointer--;
+    emulator->cpuBusWrite(0x0100 + state.stack_pointer, state.program_counter & 0x00FF);
+    state.stack_pointer--;
+
+    state.program_counter = absolute_address;
 }
 
 void CPU::LDA() {
     //load accumulator
+    state.accumulator = absolute_data;
+
+    setFlag(Z_FLAG, state.accumulator == 0);
+    setFlag(N_FLAG, state.accumulator & 0x80);
 }
 
 void CPU::LDX() {
     //load X
+    state.x_register = absolute_data;
+
+    setFlag(Z_FLAG, state.x_register == 0);
+    setFlag(N_FLAG, state.x_register & 0x80);
 }
 
 void CPU::LDY() {
     //load Y
+    state.y_register = absolute_data;
+
+    setFlag(Z_FLAG, state.y_register == 0);
+    setFlag(N_FLAG, state.y_register & 0x80);
 }
 
 void CPU::LSR() {
     //logical shift right
+    if (accumulatorMode) {
+        setFlag(C_FLAG, state.accumulator & 0x01);
+        state.accumulator >>= 1;
+        setFlag(Z_FLAG, state.accumulator == 0);
+        setFlag(N_FLAG, state.accumulator & 0x80);
+    } else {
+        setFlag(C_FLAG, absolute_data & 0x01);
+        emulator->cpuBusWrite(absolute_address, absolute_data >> 1);
+        updateAbsolute();
+        setFlag(Z_FLAG, absolute_data == 0);
+        setFlag(N_FLAG, absolute_data & 0x80);
+    }
 }
 
 void CPU::NOP() {
@@ -303,90 +474,177 @@ void CPU::NOP() {
 
 void CPU::ORA() {
     //or with accumulator
+    state.accumulator |= absolute_data;
+
+    setFlag(Z_FLAG, state.accumulator == 0);
+    setFlag(N_FLAG, state.accumulator & 0x80);
 }
 
 void CPU::PHA() {
     //push accumulator
+    emulator->cpuBusWrite(0x0100 + state.stack_pointer, state.accumulator);
+    state.stack_pointer--;
 }
 
 void CPU::PHP() {
     //push processor status (SR)
+    emulator->cpuBusWrite(0x0100 + state.stack_pointer, (state.status_register | B_FLAG) | U_FLAG);
 }
 
 void CPU::PLA() {
     //pull accumulator
+    state.stack_pointer++;
+    state.accumulator = emulator->cpuBusRead(0x0100 + state.stack_pointer);
+
+    setFlag(Z_FLAG, state.accumulator == 0);
+    setFlag(N_FLAG, state.accumulator & 0x80);
 }
 
 void CPU::PLP() {
     //pull processor status (SR)
+    state.stack_pointer++;
+    state.status_register = emulator->cpuBusRead(0x0100 + state.stack_pointer);
 }
 
 void CPU::ROL() {
     //rotate left
+    if (accumulatorMode) {
+        uint8_t carry = state.status_register & C_FLAG;
+        setFlag(C_FLAG, state.accumulator & 0x80);
+        state.accumulator <<= 1;
+        state.accumulator |= carry;
+        setFlag(Z_FLAG, state.accumulator == 0);
+        setFlag(N_FLAG, state.accumulator & 0x80);
+    } else {
+        uint8_t carry = state.status_register & C_FLAG;
+        setFlag(C_FLAG, absolute_data & 0x80);
+        emulator->cpuBusWrite(absolute_address, (absolute_data << 1) | carry);
+        updateAbsolute();
+        setFlag(Z_FLAG, absolute_data == 0);
+        setFlag(N_FLAG, absolute_data & 0x80);
+    }
 }
 
 void CPU::ROR() {
     //rotate right
+    if (accumulatorMode) {
+        uint8_t carry = state.status_register & C_FLAG;
+        setFlag(C_FLAG, state.accumulator & 0x01);
+        state.accumulator >>= 1;
+        state.accumulator |= carry << 7;
+        setFlag(Z_FLAG, state.accumulator == 0);
+        setFlag(N_FLAG, state.accumulator & 0x80);
+    } else {
+        uint8_t carry = state.status_register & C_FLAG;
+        setFlag(C_FLAG, absolute_data & 0x01);
+        emulator->cpuBusWrite(absolute_address, (absolute_data >> 1) | (carry << 7));
+        updateAbsolute();
+        setFlag(Z_FLAG, absolute_data == 0);
+        setFlag(N_FLAG, absolute_data & 0x80);
+    }
 }
 
 void CPU::RTI() {
     //return from interrupt
+    state.stack_pointer++;
+    state.status_register = emulator->cpuBusRead(0x0100 + state.stack_pointer);
+    state.stack_pointer++;
+    state.program_counter = emulator->cpuBusRead(0x0100 + state.stack_pointer);
+    state.stack_pointer++;
+
+    state.program_counter |= emulator->cpuBusRead(0x0100 + state.stack_pointer) << 8;
+    state.stack_pointer++;
+
+    setFlag(B_FLAG, false);
 }
 
 void CPU::RTS() {
     //return from subroutine
+    state.stack_pointer++;
+    state.program_counter = emulator->cpuBusRead(0x0100 + state.stack_pointer);
+    state.stack_pointer++;
+    state.program_counter |= emulator->cpuBusRead(0x0100 + state.stack_pointer) << 8;
+    state.program_counter++;
 }
 
 void CPU::SBC() {
     //subtract with carry
+    state.accumulator -= absolute_data - (1 - (state.status_register & C_FLAG));
 }
 
 void CPU::SEC() {
     //set carry
+    setFlag(C_FLAG, true);
 }
 
 void CPU::SED() {
     //set decimal
+    setFlag(D_FLAG, true);
 }
 
 void CPU::SEI() {
     //set interrupt disable
+    setFlag(I_FLAG, true);
 }
 
 void CPU::STA() {
     //store accumulator
+    emulator->cpuBusWrite(absolute_address, state.accumulator);
 }
 
 void CPU::STX() {
     //store X
+    emulator->cpuBusWrite(absolute_address, state.x_register);
 }
 
 void CPU::STY() {
     //store Y
+    emulator->cpuBusWrite(absolute_address, state.y_register);
 }
 
 void CPU::TAX() {
     //transfer accumulator to X
+    state.x_register = state.accumulator;
+
+    setFlag(Z_FLAG, state.x_register == 0);
+    setFlag(N_FLAG, state.x_register & 0x80);
 }
 
 void CPU::TAY() {
     //transfer accumulator to Y
+    state.y_register = state.accumulator;
+
+    setFlag(Z_FLAG, state.y_register == 0);
+    setFlag(N_FLAG, state.y_register & 0x80);
 }
 
 void CPU::TSX() {
     //transfer stack pointer to X
+    state.x_register = state.stack_pointer;
+
+    setFlag(Z_FLAG, state.x_register == 0);
+    setFlag(N_FLAG, state.x_register & 0x80);
 }
 
 void CPU::TXA() {
     //transfer X to accumulator
+    state.accumulator = state.x_register;
 }
 
 void CPU::TXS() {
     //transfer X to stack pointer
+    state.stack_pointer = state.x_register;
+
+    setFlag(Z_FLAG, state.stack_pointer == 0);
+    setFlag(N_FLAG, state.stack_pointer & 0x80);
 }
 
 void CPU::TYA() {
     //transfer Y to accumulator
+    state.accumulator = state.y_register;
+
+    setFlag(Z_FLAG, state.accumulator == 0);
+    setFlag(N_FLAG, state.accumulator & 0x80);
 }
 
 

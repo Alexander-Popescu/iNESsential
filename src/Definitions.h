@@ -26,6 +26,7 @@
 #define I_FLAG 0b00000100 //Interrupt disabled
 #define D_FLAG 0b00001000 //Decimal
 #define B_FLAG 0b00010000 //Break
+#define U_FLAG 0b00100000 //Unused
 #define V_FLAG 0b01000000 //Overflow
 #define N_FLAG 0b10000000 //Negative
 
