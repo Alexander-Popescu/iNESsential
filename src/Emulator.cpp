@@ -101,7 +101,6 @@ CpuState *Emulator::getCpuState() {
 
 uint8_t Emulator::cpuBusRead(uint16_t address) {
     if (TestingMode) {
-        printf("Test Read: %i\n", address);
         return testRam[address];
     }
     //cpubus, start with cpuram
@@ -119,7 +118,6 @@ uint8_t Emulator::cpuBusRead(uint16_t address) {
 
 void Emulator::cpuBusWrite(uint16_t address, uint8_t data) {
     if (TestingMode) {
-        printf("Test Write: %i, Data: %i\n", address, data);
         testRam[address] = data;
         return;
     }

@@ -32,6 +32,13 @@ void CPU::reset() {
     state.remaining_cycles = 7;
     //reset vector
     state.program_counter = emulator->cpuBusRead(0xFFFC) | (emulator->cpuBusRead(0xFFFD) << 8);
+
+    state.accumulator = 0;
+    state.x_register = 0;
+    state.y_register = 0;
+    state.stack_pointer = 0xFD;
+    state.status_register = 0x24;
+    cycleCount = 0;
 }
 
 CpuState *CPU::getState() {
@@ -42,8 +49,18 @@ void CPU::setFlag(uint8_t flag, bool value) {
     if (value) {
         state.status_register |= flag;
     } else {
-        state.status_register &= flag;
+        state.status_register &= ~flag;
     }
+}
+
+void CPU::pushStack(uint8_t data) {
+    emulator->cpuBusWrite(0x0100 + state.stack_pointer, data);
+    state.stack_pointer--;
+}
+
+uint8_t CPU::pullStack() {
+    state.stack_pointer++;
+    return emulator->cpuBusRead(0x0100 + state.stack_pointer);
 }
 
 void CPU::updateAbsolute() {
@@ -113,112 +130,6 @@ bool CPU::clock() {
     }
 }
 
-void CPU::testOpcodes() {
-
-    //this function and all related code is meant to be removed once it has verified that all the opcodes are working perfectly
-
-    using json = nlohmann::json;
-
-    //hardcode opcode to test
-    uint8_t testing = 0x4C;
-    bool breakOnFailure = true;
-    OpcodeInfo opcode = opcodeTable[testing >> 4][testing & 0x0F];
-
-    //open file with tests for this opcode
-    char filename[36];
-    sprintf(filename, "../cpuTests/v1/%02x.json", testing);
-    FILE *testFile = fopen(filename, "r");
-
-    if (testFile == NULL) {
-        printf(RED "Emulator: Error opening test file, %s\n" RESET, filename);
-        return;
-    }
-
-    json tests = json::parse(testFile);
-
-    //10000 tests per opcode
-    int success = 0;
-    int fail = 0;
-
-    //each testfile has 10000 tests
-    for (int i = 0; i < 10000; i++)
-    {
-        //clear ram 64kb
-        for (int j = 0; j < 0x10000; j++) {
-            emulator->testRam[j] = 0;
-        }
-
-        json test = tests[i];
-
-        //set up initial cpu state
-        state.accumulator = test["initial"]["a"];
-        state.x_register = test["initial"]["x"];
-        state.y_register = test["initial"]["y"];
-        state.program_counter = test["initial"]["pc"];
-        state.stack_pointer = test["initial"]["s"];
-        state.status_register = test["initial"]["p"];
-
-        //ram
-        for (int j = 0; j < (uint8_t)test["initial"]["ram"].size(); j++) {
-            emulator->testRam[test["initial"]["ram"][j][0].get<int>()] = test["initial"]["ram"][j][1].get<int>();
-        }
-
-        //run opcode
-        (this->*opcode.AddrMode)();
-        (this->*opcode.OpFunction)();
-
-        //check if passed test
-        if (test["final"]["a"] != state.accumulator) {
-            printf(RED "Emulator: Test %i failed, Accumulator was 0x%X instead of 0x%X\n" RESET, i, state.accumulator, (uint8_t)test["final"]["a"]);
-            fail++;
-            continue;
-        }
-        else if (test["final"]["x"] != state.x_register) {
-            printf(RED "Emulator: Test %i failed, X register was 0x%X instead of 0x%X\n" RESET, i, state.x_register, (uint8_t)test["final"]["x"]);
-            fail++;
-            continue;
-        }
-        else if (test["final"]["y"] != state.y_register) {
-            printf(RED "Emulator: Test %i failed, Y register was 0x%X instead of 0x%X\n" RESET, i, state.y_register, (uint8_t)test["final"]["y"]);
-            fail++;
-            continue;
-        }
-        else if (test["final"]["pc"] != state.program_counter) {
-            printf(RED "Emulator: Test %i failed, Program counter was 0x%X instead of 0x%X\n" RESET, i, state.program_counter, (uint8_t)test["final"]["pc"]);
-            fail++;
-            continue;
-        }
-        else if (test["final"]["s"] != state.stack_pointer) {
-            printf(RED "Emulator: Test %i failed, Stack pointer was 0x%X instead of 0x%X\n" RESET, i, state.stack_pointer, (uint8_t)test["final"]["s"]);
-            fail++;
-            continue;
-        }
-        else if (test["final"]["p"] != state.status_register) {
-            printf(RED "Emulator: Test %i failed, Status register was 0x%X instead of 0x%X\n" RESET, i, state.status_register, (uint8_t)test["final"]["p"]);
-            fail++;
-            continue;
-        }
-        success++;
-
-        for (int j = 0; j < (uint8_t)test["final"]["ram"].size(); j++) {
-            int index = test["final"]["ram"][j][0];
-            uint8_t value = test["final"]["ram"][j][1];
-            if (emulator->testRam[index] != value) {
-                printf(RED "Emulator: Test %i failed, Ram at %i was %i instead of %i\n" RESET, i, index, emulator->testRam[index], value);
-                fail++;
-                success--;
-                continue;
-            }
-        }
-
-        if (fail != 0 && breakOnFailure) {
-            break;
-        }
-        printf("--------------------------------\n");
-    }
-    printf(BLUE "Total tests for opcode %02X: %i, Success: %i, Fail: %i\n" RESET, testing, success + fail, success, fail);
-}
-
 //keep at bottom, cpu addressing modes and opcodes
 
 //addressing modes, assume that the program counter is on the proceeding opcode by the end unless said otherwise
@@ -241,15 +152,8 @@ void CPU::REL() {
 void CPU::ABS() {
     //absolute, full address is provided
     state.program_counter++;
-
-    //pull each byte of address
-    uint16_t low = emulator->cpuBusRead(state.program_counter);
-    state.program_counter++;
-
-    uint16_t high = emulator->cpuBusRead(state.program_counter) << 8;
-    state.program_counter++;
-
-    absolute_address = high | low;
+    absolute_address = (emulator->cpuBusRead(state.program_counter + 1) << 8) | emulator->cpuBusRead(state.program_counter);
+    state.program_counter += 2;
 }
 
 void CPU::IMM() {
@@ -261,35 +165,37 @@ void CPU::IMM() {
 void CPU::XIND() {
     //X-indexed, indirect
     state.program_counter++;
-    absolute_address = (emulator->cpuBusRead(state.program_counter + state.x_register + 1) << 8) | emulator->cpuBusRead(state.program_counter + state.x_register);
-    state.program_counter++;
+    uint16_t baseIndex = emulator->cpuBusRead(state.program_counter);
+	absolute_address = (emulator->cpuBusRead((baseIndex + state.x_register + 1) & 0xFF) << 8) | emulator->cpuBusRead((baseIndex + state.x_register) & 0xFF);
+	state.program_counter++;
 }
 
 void CPU::INDY() {
     //indirect, Y-indexed
     state.program_counter++;
-    absolute_address = ((emulator->cpuBusRead(state.program_counter + 1) + state.y_register ) << 8) | (emulator->cpuBusRead(state.program_counter) + state.y_register);
-    state.program_counter++;
+    uint16_t baseIndex = emulator->cpuBusRead(state.program_counter);
+	absolute_address = ((emulator->cpuBusRead((baseIndex + 1) & 0xFF) << 8) | emulator->cpuBusRead((baseIndex) & 0xFF)) + state.y_register;
+	state.program_counter++;
 }
 
 void CPU::ZPG() {
     //zeropage
     state.program_counter++;
-    absolute_address= emulator->cpuBusRead(state.program_counter);
+    absolute_address = emulator->cpuBusRead(state.program_counter);
     state.program_counter++;
 }
 
 void CPU::ZPGX() {
     //zeropage x-indexed
     state.program_counter++;
-    absolute_address= emulator->cpuBusRead(state.program_counter) + state.x_register;
+    absolute_address = (emulator->cpuBusRead(state.program_counter) + state.x_register) & 0xFF;
     state.program_counter++;
 }
 
 void CPU::ZPGY() {
     //zeropage y-indexed
     state.program_counter++;
-    absolute_address= emulator->cpuBusRead(state.program_counter) + state.y_register;
+    absolute_address= (emulator->cpuBusRead(state.program_counter) + state.y_register) & 0xFF;
     state.program_counter++;
 }
 
@@ -302,12 +208,17 @@ void CPU::ABSY() {
 void CPU::ACC() {
     //accumulator, use tracking variable for opcodes with accumuilator and also another addressing mode
     accumulatorMode = true;
+    state.program_counter++;
 }
 
 void CPU::IND() {
     //indirect
     ABS();
-    absolute_address = (emulator->cpuBusRead(absolute_address + 1) << 8) & emulator->cpuBusRead(absolute_address);
+    if ((absolute_address & 0x00FF) == 0x00FF)  {
+        absolute_address = (emulator->cpuBusRead(absolute_address & 0xFF00) << 8) | emulator->cpuBusRead(absolute_address);
+    } else {
+        absolute_address = (emulator->cpuBusRead(absolute_address + 1) << 8) | emulator->cpuBusRead(absolute_address);
+    }
 }
 
 void CPU::ABSX() {
@@ -317,19 +228,16 @@ void CPU::ABSX() {
 }
 
 
-
-
-
 // opcodes, legal first
 
 void CPU::ADC() {
     //add with carry
-    state.accumulator += absolute_data + (state.status_register & C_FLAG);
-
-    setFlag(C_FLAG, state.accumulator > 0xFF);
-    setFlag(Z_FLAG, state.accumulator == 0);
-    setFlag(N_FLAG, state.accumulator & 0x80);
-    setFlag(V_FLAG, (~(absolute_data ^ state.accumulator) & (absolute_data ^ state.accumulator) & 0x80));
+    uint16_t result = state.accumulator + absolute_data + (state.status_register & C_FLAG);
+    setFlag(C_FLAG, result > 0xFF);
+    setFlag(Z_FLAG, (result & 0xFF) == 0);
+    setFlag(N_FLAG, result & 0x80);
+    setFlag(V_FLAG, (~(state.accumulator ^ absolute_data) & (state.accumulator ^ result)) & 0x80);
+    state.accumulator = result & 0xFF;
 }
 
 void CPU::AND() {
@@ -380,8 +288,8 @@ void CPU::BEQ() {
 void CPU::BIT() {
     //bit test
     setFlag(Z_FLAG, (absolute_data & state.accumulator) == 0);
-    setFlag(N_FLAG, absolute_data & 0b01000000);
-    setFlag(V_FLAG, absolute_data & 0b00100000);
+    setFlag(N_FLAG, absolute_data & 0b10000000);
+    setFlag(V_FLAG, absolute_data & 0b01000000);
 }
 
 void CPU::BMI() {
@@ -406,21 +314,19 @@ void CPU::BPL() {
 }
 
 void CPU::BRK() {
-    //force break
-    setFlag(I_FLAG, true);
 
     //opcode table doesnt include brk break mark byte
     state.program_counter++;
 
-    //push next instruction to run onto the stack, already incremented earlier
-    emulator->cpuBusWrite(0x0100 + state.stack_pointer, (state.program_counter >> 8) & 0x00FF);
-    state.stack_pointer--;
-    emulator->cpuBusWrite(0x0100 + state.stack_pointer, state.program_counter & 0x00FF);
-    state.stack_pointer--;
+    //push next address to stack
+    pushStack((state.program_counter >> 8) & 0x00FF);
+    pushStack(state.program_counter & 0x00FF);
 
     //requires status register as well
-    emulator->cpuBusWrite(0x0100 + state.stack_pointer, state.status_register);
-    state.stack_pointer--;
+    pushStack(state.status_register | 0x30);
+
+    //force break
+    setFlag(I_FLAG, true);
 
     //break vector for PC
     state.program_counter = emulator->cpuBusRead(0xFFFE) | (emulator->cpuBusRead(0xFFFF) << 8);
@@ -464,9 +370,10 @@ void CPU::CMP() {
     //compare (with accumulator)
 
     //imagine subtracting memory from accumulator 
+    uint8_t compare = state.accumulator - absolute_data;
     setFlag(C_FLAG, state.accumulator >= absolute_data);
-    setFlag(Z_FLAG, state.accumulator == absolute_data);
-    setFlag(N_FLAG, (state.accumulator - absolute_data) & 0x80);
+    setFlag(Z_FLAG, compare == 0);
+    setFlag(N_FLAG, compare & 0x80);
 }
 
 void CPU::CPX() {
@@ -488,36 +395,59 @@ void CPU::CPY() {
 void CPU::DEC() {
     //decrement
     emulator->cpuBusWrite(absolute_address, absolute_data - 1);
+
+    updateAbsolute();
+    setFlag(Z_FLAG, absolute_data == 0);
+    setFlag(N_FLAG, absolute_data & 0x80);
 }
 
 void CPU::DEX() {
     //decrement X
     state.x_register--;
+    
+    setFlag(Z_FLAG, (state.x_register) == 0);
+    setFlag(N_FLAG, (state.x_register) & 0x80);
 }
 
 void CPU::DEY() {
     //decrement Y
     state.y_register--;
+
+    setFlag(Z_FLAG, (state.y_register) == 0);
+    setFlag(N_FLAG, (state.y_register) & 0x80);
 }
 
 void CPU::EOR() {
     //exclusive or (with accumulator)
     state.accumulator ^= absolute_data;
+
+    setFlag(Z_FLAG, state.accumulator == 0);
+    setFlag(N_FLAG, state.accumulator & 0x80);
 }
 
 void CPU::INC() {
     //increment
     emulator->cpuBusWrite(absolute_address, absolute_data + 1);
+
+    updateAbsolute();
+    setFlag(Z_FLAG, absolute_data == 0);
+    setFlag(N_FLAG, absolute_data & 0x80);
 }
 
 void CPU::INX() {
     //increment X
     state.x_register++;
+
+    setFlag(Z_FLAG, state.x_register == 0);
+    setFlag(N_FLAG, state.x_register & 0x80);
 }
 
 void CPU::INY() {
     //increment Y
     state.y_register++;
+
+    setFlag(Z_FLAG, state.y_register == 0);
+    setFlag(N_FLAG, state.y_register & 0x80);
 }
 
 void CPU::JMP() {
@@ -527,13 +457,12 @@ void CPU::JMP() {
 
 void CPU::JSR() {
     //jump subroutine
-
-    emulator->cpuBusWrite(0x0100 + state.stack_pointer, (state.program_counter >> 8) & 0x00FF);
-    state.stack_pointer--;
-    emulator->cpuBusWrite(0x0100 + state.stack_pointer, state.program_counter & 0x00FF);
-    state.stack_pointer--;
-
-    state.program_counter = absolute_address;
+    //push PC one before the next instructions
+    state.program_counter--;
+    pushStack((state.program_counter >> 8) & 0x00FF);
+    pushStack(state.program_counter & 0x00FF);
+    //perfect emulation requires HSB to be read after stack push
+    state.program_counter = (absolute_address & 0x00FF) | (emulator->cpuBusRead(state.program_counter) << 8);
 }
 
 void CPU::LDA() {
@@ -582,7 +511,7 @@ void CPU::NOP() {
 
 void CPU::ORA() {
     //or with accumulator
-    state.accumulator |= absolute_data;
+    state.accumulator = state.accumulator | absolute_data;
 
     setFlag(Z_FLAG, state.accumulator == 0);
     setFlag(N_FLAG, state.accumulator & 0x80);
@@ -590,19 +519,17 @@ void CPU::ORA() {
 
 void CPU::PHA() {
     //push accumulator
-    emulator->cpuBusWrite(0x0100 + state.stack_pointer, state.accumulator);
-    state.stack_pointer--;
+    pushStack(state.accumulator);
 }
 
 void CPU::PHP() {
     //push processor status (SR)
-    emulator->cpuBusWrite(0x0100 + state.stack_pointer, (state.status_register | B_FLAG) | U_FLAG);
+    pushStack((state.status_register | B_FLAG) | U_FLAG);
 }
 
 void CPU::PLA() {
     //pull accumulator
-    state.stack_pointer++;
-    state.accumulator = emulator->cpuBusRead(0x0100 + state.stack_pointer);
+    state.accumulator = pullStack();
 
     setFlag(Z_FLAG, state.accumulator == 0);
     setFlag(N_FLAG, state.accumulator & 0x80);
@@ -610,8 +537,10 @@ void CPU::PLA() {
 
 void CPU::PLP() {
     //pull processor status (SR)
-    state.stack_pointer++;
-    state.status_register = emulator->cpuBusRead(0x0100 + state.stack_pointer);
+    state.status_register = pullStack();
+
+    setFlag(U_FLAG, true);
+    setFlag(B_FLAG, false);
 }
 
 void CPU::ROL() {
@@ -635,49 +564,39 @@ void CPU::ROL() {
 
 void CPU::ROR() {
     //rotate right
+    uint16_t rotation = (absolute_data >> 1) | ((state.status_register & C_FLAG) << 7);
+    setFlag(C_FLAG, absolute_data & 0x01);
     if (accumulatorMode) {
-        uint8_t carry = state.status_register & C_FLAG;
-        setFlag(C_FLAG, state.accumulator & 0x01);
-        state.accumulator >>= 1;
-        state.accumulator |= carry << 7;
-        setFlag(Z_FLAG, state.accumulator == 0);
-        setFlag(N_FLAG, state.accumulator & 0x80);
+        state.accumulator = rotation;
     } else {
-        uint8_t carry = state.status_register & C_FLAG;
-        setFlag(C_FLAG, absolute_data & 0x01);
-        emulator->cpuBusWrite(absolute_address, (absolute_data >> 1) | (carry << 7));
-        updateAbsolute();
-        setFlag(Z_FLAG, absolute_data == 0);
-        setFlag(N_FLAG, absolute_data & 0x80);
+        emulator->cpuBusWrite(absolute_address, rotation);
     }
+    setFlag(Z_FLAG, rotation == 0);
+    setFlag(N_FLAG, rotation & 0x80);
 }
 
 void CPU::RTI() {
     //return from interrupt
-    state.stack_pointer++;
-    state.status_register = emulator->cpuBusRead(0x0100 + state.stack_pointer);
-    state.stack_pointer++;
-    state.program_counter = emulator->cpuBusRead(0x0100 + state.stack_pointer);
-    state.stack_pointer++;
+	state.status_register = pullStack();
 
-    state.program_counter |= emulator->cpuBusRead(0x0100 + state.stack_pointer) << 8;
-    state.stack_pointer++;
+	state.program_counter = pullStack();
+	state.program_counter |= pullStack() << 8;
 
     setFlag(B_FLAG, false);
+    setFlag(U_FLAG, true);
 }
 
 void CPU::RTS() {
     //return from subroutine
-    state.stack_pointer++;
-    state.program_counter = emulator->cpuBusRead(0x0100 + state.stack_pointer);
-    state.stack_pointer++;
-    state.program_counter |= emulator->cpuBusRead(0x0100 + state.stack_pointer) << 8;
+    state.program_counter = pullStack();
+    state.program_counter |= pullStack() << 8;
     state.program_counter++;
 }
 
 void CPU::SBC() {
     //subtract with carry
-    state.accumulator -= absolute_data - (1 - (state.status_register & C_FLAG));
+    absolute_data = ~absolute_data;
+    ADC();
 }
 
 void CPU::SEC() {
@@ -737,14 +656,14 @@ void CPU::TSX() {
 void CPU::TXA() {
     //transfer X to accumulator
     state.accumulator = state.x_register;
+
+    setFlag(Z_FLAG, state.accumulator == 0);
+    setFlag(N_FLAG, state.accumulator & 0x80);
 }
 
 void CPU::TXS() {
     //transfer X to stack pointer
     state.stack_pointer = state.x_register;
-
-    setFlag(Z_FLAG, state.stack_pointer == 0);
-    setFlag(N_FLAG, state.stack_pointer & 0x80);
 }
 
 void CPU::TYA() {
@@ -762,87 +681,291 @@ void CPU::TYA() {
 
 void CPU::SLO() {
     //shift left OR
+    ASL();
+    updateAbsolute();
+    ORA();
 }
 
 void CPU::ANC() {
     //and with carry
+    AND();
+    setFlag(C_FLAG, state.accumulator & 0x80);
 }
 
 void CPU::RLA() {
     //rotate left and AND
+    ROL();
+    updateAbsolute();
+    AND();
 }
 
 void CPU::SRE() {
     //shift right exclusive OR
+    LSR();
+    updateAbsolute();
+    EOR();
 }
 
 void CPU::ALR() {
     //and with carry, shift right
+    AND();
+    updateAbsolute();
+    accumulatorMode = true;
+    LSR();
 }
 
 void CPU::RRA() {
     //rotate right and add with carry
+    ROR();
+    updateAbsolute();
+    ADC();
 }
 
 void CPU::ARR() {
     //and with accumulator, rotate right
+    AND();
+    accumulatorMode = true;
+    updateAbsolute();
+    ROR();
+    setFlag(C_FLAG, state.accumulator & 0x40);
+    setFlag(V_FLAG, (state.accumulator & 0x40) ^ ((state.accumulator & 0x20) << 1)); 
 }
 
 void CPU::SAX() {
-    //store accumulator AND X
+    //store accumulator and X
+    emulator->cpuBusWrite(absolute_address, state.accumulator & state.x_register);
 }
 
 void CPU::ANE() {
     //and accumulator with immediate, then transfer to X and Y
+    state.accumulator = (state.accumulator | 0xEE) & state.x_register & absolute_data;
+
+    setFlag(Z_FLAG, state.accumulator == 0);
+    setFlag(N_FLAG, state.accumulator & 0x80);
 }
 
 void CPU::SHA() {
-    //and X with high byte of address, then store accumulator
+    //unstable
 }
 
 void CPU::TAS() {
-    //transfer accumulator to stack pointer
+    //unstable
 }
 
 void CPU::SHY() {
-    //and Y with high byte of address, then store X
+    //unstable
 }
 
 void CPU::SHX() {
-    //and X with high byte of address, then store X
+    //unstable
 }
 
 void CPU::LXA() {
-    //load X with immediate and AND with accumulator
+    //unstable
 }
 
 void CPU::LAX() {
     //load accumulator and X with memory
+    state.accumulator = absolute_data;
+    state.x_register = absolute_data;
+
+    setFlag(Z_FLAG, absolute_data == 0);
+    setFlag(N_FLAG, absolute_data & 0x80);
 }
 
 void CPU::DCP() {
     //decrement memory and compare
+    DEC();
+    updateAbsolute();
+    CMP();
 }
 
 void CPU::ISC() {
     //increment memory and subtract from accumulator
+    INC();
+    updateAbsolute();
+    SBC();
 }
 
 void CPU::LAS() {
     //load accumulator and stack pointer
+    uint8_t load = absolute_data & state.stack_pointer;
+    state.accumulator = load;
+    state.x_register = load;
+    state.stack_pointer = load;
+
+    setFlag(Z_FLAG, load == 0);
+    setFlag(N_FLAG, load & 0x80);
 }
 
 void CPU::SBX() {
     //subtract with X
+    uint8_t base = state.accumulator & state.x_register;
+    state.x_register = base - absolute_data;
+
+    setFlag(C_FLAG, base >= absolute_data);
+    setFlag(Z_FLAG, state.x_register == 0);
+    setFlag(N_FLAG, state.x_register & 0x80);
 }
 
 void CPU::USBC() {
     //unofficial subtract with carry
+    SBC();
 }
 
 
 //placeholder opccode
 
 void CPU::XXX() {
-    
+    //used for jam mainly
+}
+
+
+void CPU::testOpcodes() {
+    printf(GREEN "CPU: Testing CPU\n" RESET);
+
+    //this function and all related code is meant to be removed once it has verified that all the opcodes are working perfectly
+
+    using json = nlohmann::json;
+
+    //hardcode opcode to test
+    uint8_t testing = 0x00;
+    bool breakOnFailure = false;
+
+    int opcodePasses = 0;
+    int opcodeFails = 0;
+    int opcodeSkips = 0;
+
+    for (int t = testing; t < 0x100; t++) {
+        while (t == 0x93 || t == 0x9b || t == 0xab || t == 0x9f || t == 0x9e || t == 0x9c) //list of opcodes to skip due to instability, will implement later
+        {
+            printf(YELLOW "Skipping tests for opcode %X\n" RESET, t);
+            opcodeSkips++;
+            opcodeFails++;
+            t++;
+        }
+
+        accumulatorMode = false;
+        OpcodeInfo opcode = opcodeTable[t >> 4][t & 0x0F];
+
+        //open file with tests for this opcode
+        char filename[36];
+        sprintf(filename, "../cpuTests/v1/%02x.json", t);
+        FILE *testFile = fopen(filename, "r");
+
+        if (testFile == NULL) {
+            printf(RED "CPU: Error opening test file, %s\n" RESET, filename);
+            return;
+        }
+
+        json tests = json::parse(testFile);
+
+        //10000 tests per opcode
+        int success = 0;
+        int fail = 0;
+
+        //each testfile has 10000 tests
+        for (int i = 0; i < 10000; i++)
+        {
+            //clear ram 64kb
+            for (int j = 0; j < 0x10000; j++) {
+                emulator->testRam[j] = 0;
+            }
+
+            json test = tests[i];
+
+            //set up initial cpu state
+            state.accumulator = test["initial"]["a"];
+            state.x_register = test["initial"]["x"];
+            state.y_register = test["initial"]["y"];
+            state.program_counter = test["initial"]["pc"];
+            state.stack_pointer = test["initial"]["s"];
+            state.status_register = test["initial"]["p"];
+
+            //ram
+            for (int j = 0; j < (uint8_t)test["initial"]["ram"].size(); j++) {
+                emulator->testRam[test["initial"]["ram"][j][0].get<int>()] = test["initial"]["ram"][j][1].get<uint8_t>();
+            }
+
+            //run opcode
+            (this->*opcode.AddrMode)();
+            updateAbsolute();
+            (this->*opcode.OpFunction)();
+            accumulatorMode = false;
+
+            //check if passed test
+            if (test["final"]["a"] != state.accumulator) {
+                printf(RED "CPU: Test %i failed, Accumulator was 0x%X instead of 0x%X\n" RESET, i, state.accumulator, (uint8_t)test["final"]["a"]);
+                fail++;
+            }
+            else if (test["final"]["x"] != state.x_register) {
+                printf(RED "CPU: Test %i failed, X register was 0x%X instead of 0x%X\n" RESET, i, state.x_register, (uint8_t)test["final"]["x"]);
+                fail++;
+            }
+            else if (test["final"]["y"] != state.y_register) {
+                printf(RED "CPU: Test %i failed, Y register was 0x%X instead of 0x%X\n" RESET, i, state.y_register, (uint8_t)test["final"]["y"]);
+                fail++;
+            }
+            else if (test["final"]["pc"] != state.program_counter) {
+                printf(RED "CPU: Test %i failed, Program counter was 0x%04X instead of 0x%04X\n" RESET, i, state.program_counter, (uint16_t)test["final"]["pc"]);
+                fail++;
+            }
+            else if (test["final"]["s"] != state.stack_pointer) {
+                printf(RED "CPU: Test %i failed, Stack pointer was 0x%X instead of 0x%X\n" RESET, i, state.stack_pointer, (uint8_t)test["final"]["s"]);
+                fail++;
+            }
+            else if (test["final"]["p"] != state.status_register) {
+                printf(RED "CPU: Test %i failed, Status register was 0x%X instead of 0x%X\n" RESET, i, state.status_register, (uint8_t)test["final"]["p"]);
+                fail++;
+            }
+            else {
+                success++;
+            }
+
+            for (int j = 0; j < (uint8_t)test["final"]["ram"].size(); j++) {
+                int index = test["final"]["ram"][j][0];
+                uint8_t value = test["final"]["ram"][j][1];
+                if (emulator->testRam[index] != value) {
+                    printf(RED "CPU: Test %i failed, Ram at %X was %X instead of %X\n" RESET, i, index, emulator->testRam[index], value);
+                    fail++;
+                }
+            }
+
+            if (fail > 0 && breakOnFailure) {
+                printf("--------------------------------\n");
+                printf("Initial State: \n");
+                printf("A: 0x%X, X: 0x%X, Y: 0x%X, PC: 0x%04X, SP: 0x%X, P: 0x%X ", (uint8_t)test["initial"]["a"], (uint8_t)test["initial"]["x"], (uint8_t)test["initial"]["y"], (uint16_t)test["initial"]["pc"], (uint8_t)test["initial"]["s"], (uint8_t)test["initial"]["p"]);
+                std::cout << test["initial"]["ram"] << std::endl;
+                printf("Expected Final State: \n");
+                printf("A: 0x%X, X: 0x%X, Y: 0x%X, PC: 0x%04X, SP: 0x%X, P: 0x%X ", (uint8_t)test["final"]["a"], (uint8_t)test["final"]["x"], (uint8_t)test["final"]["y"], (uint16_t)test["final"]["pc"], (uint8_t)test["final"]["s"], (uint8_t)test["final"]["p"]);
+                std::cout << test["final"]["ram"] << std::endl;
+                printf("Final State: \n");
+                printf("A: 0x%X, X: 0x%X, Y: 0x%X, PC: 0x%X, SP: 0x%X, P: 0x%X ", state.accumulator, state.x_register, state.y_register, state.program_counter, state.stack_pointer, state.status_register);
+                std::cout << "[";
+                for (int i = 0; i < 0x10000; i++) {
+                    if (emulator->testRam[i] != 0) {
+                        std::cout << "[" << i << "," << (int)emulator->testRam[i] << "],";
+                    }
+                }
+                std::cout << "]" << std::endl;
+                printf("Correct Bus Calls: \n");
+                for (int j = 0; j < (uint8_t)test["cycles"].size(); j++) {
+                    std::cout << test["cycles"][j] << std::endl;
+                }
+                std::cout << test["name"] << std::endl;
+                
+                break;
+            }
+        }
+        printf(BLUE "Total tests for opcode %02X: %i, Success: %i, Fail: %i\n" RESET, t, success + fail, success, fail);
+        if (breakOnFailure && fail > 0) {
+            break;
+        }
+        breakOnFailure = true;
+        opcodePasses++;
+    }
+    reset();
+    printf(GREEN "CPU: Opcode Tests:, %i passes, %i fails\n" RESET, opcodePasses, opcodeFails);
+    printf(YELLOW "CPU: Skipped %i opcodes,count as failures\n" RESET, opcodeSkips);
+
 }
