@@ -8,8 +8,8 @@
 #define WINDOW_SCALE_FACTOR 4
 
 //for cartridge bank parsing
-#define CHR_ROM_BANKSIZE 16384
-#define PRG_ROM_BANKSIZE 8192
+#define CHR_ROM_BANKSIZE 8192
+#define PRG_ROM_BANKSIZE 16384
 
 //ansii terminal color codes
 #define RED "\x1b[31m"

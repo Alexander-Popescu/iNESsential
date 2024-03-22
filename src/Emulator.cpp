@@ -23,7 +23,12 @@ Emulator::~Emulator() {
     delete cpu;
     delete ppu;
     delete cartridge;
-    
+
+    //check if log even exists
+    if (logFile == NULL) {
+        printf(YELLOW "Emulator: logfile doesnt exist\n" RESET);
+        return;
+    }
     //check if log was ever written to and delete file if blank
     fseek(logFile, 0, SEEK_END);
     if (ftell(logFile) == 0) {
@@ -104,15 +109,18 @@ uint8_t Emulator::cpuBusRead(uint16_t address) {
         return testRam[address];
     }
     //cpubus, start with cpuram
-    if ( 0x0000 < address && address < 0x1FFF)
+    if ( 0x0000 <= address && address <= 0x1FFF)
     {
         //cpuram, AND with physical ram size because of mirroring
-        return ram[address && 0x07FF];
+        return ram[address & 0x07FF];
     } 
     else if (address > 0x4020)
     {
         return cartridge->read(address);
     }
+
+    printf(RED "Emulator: CPU Bus Read from invalid address 0x%04X\n" RESET, address);
+    realtime = false;
     return 0;
 }
 
@@ -121,11 +129,16 @@ void Emulator::cpuBusWrite(uint16_t address, uint8_t data) {
         testRam[address] = data;
         return;
     }
-    if ( 0x0000 < address && address < 0x1FFF)
+    if ( 0x0000 <= address && address <= 0x1FFF)
     {
         //cpuram, AND with physical ram size because of mirroring
         ram[address & 0x07FF] = data;
+        return;
     }
+
+    printf(RED "Emulator: CPU Bus Write to invalid address 0x%04X\n" RESET, address);
+    realtime = false;
+    return;
 }
 
 int *Emulator::getCycleCount() {

@@ -59,16 +59,18 @@ int Cartridge::loadRom(const char* gamePath) {
     // close the file
     fclose(fp);
     printf(GREEN "Cartridge: ROM loaded%s\n" RESET, gamePath);
+    printf(GREEN "Cartriddge: ROM info: PRG banks: %d, CHR banks: %d\n" RESET, header[4], header[5]);
     return 1;
 }
 
 uint8_t Cartridge::read(uint16_t address)
 {
-    //run mapper, for now just mapper 0
-    if (address >= 0x8000 && address <= 0xFFFF) {
-        //mirroring if not full 32kb is used
+     //mapper 0 mirroring
+    if (address >= 0x8000 && address <= 0xFFFF)
+    {
         return PRG_ROM[address & (PRGsize - 1)];
     }
-    printf(RED "invalid cartridge read" RESET);
+
+    printf(RED "invalid cartridge read 0x%04X\n" RESET, address);
     return 0;
 }

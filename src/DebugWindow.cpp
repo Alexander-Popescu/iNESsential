@@ -22,11 +22,6 @@ DebugWindow::DebugWindow(SDL_Window* window, SDL_GLContext gl_context, Emulator*
 
     // Setup style
     ImGui::StyleColorsLight();
-
-    //open logfile
-    //unique filename and timestamp
-    sprintf(emulator->filename, "../logs/iNESsential_%ld.log", time(NULL));
-    emulator->logFile = fopen(emulator->filename, "w");
 }
 
 DebugWindow::~DebugWindow() {
@@ -97,13 +92,30 @@ void DebugWindow::update(int window_width, int window_height) {
         pixelBuffer->update(true);
     }
 
+    if (ImGui::Button("Run 1000 instructions")) {
+        //says instruction but no opcodes implemented so its cycles for now
+        emulator->runUntilBreak(1000);
+        //update pixelbuffer to see new state
+        pixelBuffer->update(true);
+    }
+
     ImGui::SameLine();
     if (ImGui::Button("Toggle Logging")) {
+        if (emulator->logging == false) {
+            //open logfile
+            //unique filename and timestamp
+            sprintf(emulator->filename, "../logs/iNESsential_%ld.log", time(NULL));
+            emulator->logFile = fopen(emulator->filename, "w");
+        }
         emulator->logging = !emulator->logging;
     }
-    if (ImGui::Button("Test Opcodes")) {
+
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.0f, 0.0f, 1.0f));
+    if (ImGui::Button("Test Opcodes (stalls program)")) {
         emulator->testOpcodes();
     }
+    ImGui::PopStyleColor();
+
     ImGui::SameLine();
     bool logging = emulator->logging;
     ImGui::PushStyleColor(ImGuiCol_Text, logging ? ImVec4(0.1f, 0.9f, 0.1f, 1.0f) : ImVec4(0.9f, 0.1f, 0.1f, 1.0f));
