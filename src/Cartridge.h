@@ -17,8 +17,6 @@ private:
     uint8_t* PRG_ROM;
     uint8_t* CHR_ROM;
 
-    uint16_t mapper0(uint16_t address);
-
     int PRGsize;
     int CHRsize;
     int mapper;

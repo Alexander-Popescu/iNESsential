@@ -111,6 +111,12 @@ void CPU::runInstruction() {
     //run the opcode
     (this->*opcode.OpFunction)();
 
+    //extra cycle fix
+    if (extraCycleCheck == 2) {
+        state.remaining_cycles++;
+    }
+    extraCycleCheck = 0;
+
     //ensure accumulator mode is reset, because the opcodes dont reset it and they need to know
     accumulatorMode = false;
 }
@@ -121,7 +127,6 @@ bool CPU::clock() {
 
     if (state.remaining_cycles == 0) {
         runInstruction();
-        cycleCount++;
         return true;
     } else {
         state.remaining_cycles--;
@@ -147,6 +152,10 @@ void CPU::REL() {
     int8_t offset = emulator->cpuBusRead(state.program_counter);
     state.program_counter++; //end of current instruction
     absolute_address = state.program_counter + offset; //branch instructions will branhc here sometimes, check their function
+
+    if ((state.program_counter & 0xFF00) != (absolute_address & 0xFF00)) {
+        extraCycleCheck++;
+    }
 }
 
 void CPU::ABS() {
@@ -176,6 +185,10 @@ void CPU::INDY() {
     uint16_t baseIndex = emulator->cpuBusRead(state.program_counter);
 	absolute_address = ((emulator->cpuBusRead((baseIndex + 1) & 0xFF) << 8) | emulator->cpuBusRead((baseIndex) & 0xFF)) + state.y_register;
 	state.program_counter++;
+
+    if ((absolute_address & 0xFF00) != (emulator->cpuBusRead((baseIndex + 1) & 0xFF) << 8)) {
+        extraCycleCheck++;
+    }
 }
 
 void CPU::ZPG() {
@@ -203,6 +216,10 @@ void CPU::ABSY() {
     //absolute, y-indexed
     ABS();
     absolute_address += state.y_register;
+
+    if ((absolute_address & 0xFF00) != ((absolute_address - state.y_register) & 0xFF00)) {
+        extraCycleCheck++;
+    }
 }
 
 void CPU::ACC() {
@@ -225,6 +242,10 @@ void CPU::ABSX() {
     //absolute x-indexed
     ABS();
     absolute_address += state.x_register;
+
+    if ((absolute_address & 0xFF00) != ((absolute_address - state.x_register) & 0xFF00)) {
+        extraCycleCheck++;
+    }
 }
 
 
@@ -238,6 +259,8 @@ void CPU::ADC() {
     setFlag(N_FLAG, result & 0x80);
     setFlag(V_FLAG, (~(state.accumulator ^ absolute_data) & (state.accumulator ^ result)) & 0x80);
     state.accumulator = result & 0xFF;
+
+    extraCycleCheck++;
 }
 
 void CPU::AND() {
@@ -246,6 +269,8 @@ void CPU::AND() {
 
     setFlag(Z_FLAG, state.accumulator == 0);
     setFlag(N_FLAG, state.accumulator & 0x80);
+
+    extraCycleCheck++;
 }
 
 void CPU::ASL() {
@@ -267,21 +292,33 @@ void CPU::ASL() {
 void CPU::BCC() {
     //branch on carry clear
     if ((state.status_register & C_FLAG) == 0x00) {
+        if ((state.program_counter & 0xFF00) != (absolute_address & 0xFF00)) {
+            state.remaining_cycles++;
+        }
         state.program_counter = absolute_address;
+        state.remaining_cycles++;
     }
 }
 
 void CPU::BCS() {
     //branch on carry set
     if ((state.status_register & C_FLAG) == C_FLAG) {
+        if ((state.program_counter & 0xFF00) != (absolute_address & 0xFF00)) {
+            state.remaining_cycles++;
+        }
         state.program_counter = absolute_address;
+        state.remaining_cycles++;
     }
 }
 
 void CPU::BEQ() {
     //branch on zero set
     if ((state.status_register & Z_FLAG) == Z_FLAG) {
+        if ((state.program_counter & 0xFF00) != (absolute_address & 0xFF00)) {
+            state.remaining_cycles++;
+        }
         state.program_counter = absolute_address;
+        state.remaining_cycles++;
     }
 }
 
@@ -295,21 +332,33 @@ void CPU::BIT() {
 void CPU::BMI() {
     //branch on minus (negative set)
     if ((state.status_register & N_FLAG) == N_FLAG) {
+        if ((state.program_counter & 0xFF00) != (absolute_address & 0xFF00)) {
+            state.remaining_cycles++;
+        }
         state.program_counter = absolute_address;
+        state.remaining_cycles++;
     }
 }
 
 void CPU::BNE() {
     //branch on not equal (zero clear)
     if ((state.status_register & Z_FLAG) == 0x00) {
+        if ((state.program_counter & 0xFF00) != (absolute_address & 0xFF00)) {
+            state.remaining_cycles++;
+        }
         state.program_counter = absolute_address;
+        state.remaining_cycles++;
     }
 }
 
 void CPU::BPL() {
     //branch on plus (negative clear)
     if ((state.status_register & N_FLAG) == 0x00) {
+        if ((state.program_counter & 0xFF00) != (absolute_address & 0xFF00)) {
+            state.remaining_cycles++;
+        }
         state.program_counter = absolute_address;
+        state.remaining_cycles++;
     }
 }
 
@@ -335,14 +384,22 @@ void CPU::BRK() {
 void CPU::BVC() {
     //branch on overflow clear
     if ((state.status_register & V_FLAG) == 0x00) {
+        if ((state.program_counter & 0xFF00) != (absolute_address & 0xFF00)) {
+            state.remaining_cycles++;
+        }
         state.program_counter = absolute_address;
+        state.remaining_cycles++;
     }
 }
 
 void CPU::BVS() {
     //branch on overflow set
     if ((state.status_register & V_FLAG) == V_FLAG) {
+        if ((state.program_counter & 0xFF00) != (absolute_address & 0xFF00)) {
+            state.remaining_cycles++;
+        }
         state.program_counter = absolute_address;
+        state.remaining_cycles++;
     }
 }
 
@@ -374,6 +431,8 @@ void CPU::CMP() {
     setFlag(C_FLAG, state.accumulator >= absolute_data);
     setFlag(Z_FLAG, compare == 0);
     setFlag(N_FLAG, compare & 0x80);
+
+    extraCycleCheck++;
 }
 
 void CPU::CPX() {
@@ -423,6 +482,8 @@ void CPU::EOR() {
 
     setFlag(Z_FLAG, state.accumulator == 0);
     setFlag(N_FLAG, state.accumulator & 0x80);
+
+    extraCycleCheck++;
 }
 
 void CPU::INC() {
@@ -471,6 +532,8 @@ void CPU::LDA() {
 
     setFlag(Z_FLAG, state.accumulator == 0);
     setFlag(N_FLAG, state.accumulator & 0x80);
+
+    extraCycleCheck++;
 }
 
 void CPU::LDX() {
@@ -479,6 +542,8 @@ void CPU::LDX() {
 
     setFlag(Z_FLAG, state.x_register == 0);
     setFlag(N_FLAG, state.x_register & 0x80);
+
+    extraCycleCheck++;
 }
 
 void CPU::LDY() {
@@ -487,6 +552,8 @@ void CPU::LDY() {
 
     setFlag(Z_FLAG, state.y_register == 0);
     setFlag(N_FLAG, state.y_register & 0x80);
+
+    extraCycleCheck++;
 }
 
 void CPU::LSR() {
@@ -509,12 +576,20 @@ void CPU::NOP() {
     //no operation
 }
 
+void CPU::NOPE() {
+    //some nop's have extra cycle 
+    extraCycleCheck++;
+
+}
+
 void CPU::ORA() {
     //or with accumulator
     state.accumulator = state.accumulator | absolute_data;
 
     setFlag(Z_FLAG, state.accumulator == 0);
     setFlag(N_FLAG, state.accumulator & 0x80);
+
+    extraCycleCheck++;
 }
 
 void CPU::PHA() {
@@ -684,12 +759,14 @@ void CPU::SLO() {
     ASL();
     updateAbsolute();
     ORA();
+    extraCycleCheck = 0;
 }
 
 void CPU::ANC() {
     //and with carry
     AND();
     setFlag(C_FLAG, state.accumulator & 0x80);
+    extraCycleCheck = 0;
 }
 
 void CPU::RLA() {
@@ -697,6 +774,7 @@ void CPU::RLA() {
     ROL();
     updateAbsolute();
     AND();
+    extraCycleCheck = 0;
 }
 
 void CPU::SRE() {
@@ -704,6 +782,7 @@ void CPU::SRE() {
     LSR();
     updateAbsolute();
     EOR();
+    extraCycleCheck = 0;
 }
 
 void CPU::ALR() {
@@ -712,6 +791,7 @@ void CPU::ALR() {
     updateAbsolute();
     accumulatorMode = true;
     LSR();
+    extraCycleCheck = 0;
 }
 
 void CPU::RRA() {
@@ -719,6 +799,7 @@ void CPU::RRA() {
     ROR();
     updateAbsolute();
     ADC();
+    extraCycleCheck = 0;
 }
 
 void CPU::ARR() {
@@ -729,6 +810,7 @@ void CPU::ARR() {
     ROR();
     setFlag(C_FLAG, state.accumulator & 0x40);
     setFlag(V_FLAG, (state.accumulator & 0x40) ^ ((state.accumulator & 0x20) << 1)); 
+    extraCycleCheck = 0;
 }
 
 void CPU::SAX() {
@@ -771,6 +853,8 @@ void CPU::LAX() {
 
     setFlag(Z_FLAG, absolute_data == 0);
     setFlag(N_FLAG, absolute_data & 0x80);
+
+    extraCycleCheck++;
 }
 
 void CPU::DCP() {
@@ -778,6 +862,7 @@ void CPU::DCP() {
     DEC();
     updateAbsolute();
     CMP();
+    extraCycleCheck = 0;
 }
 
 void CPU::ISC() {
@@ -785,6 +870,7 @@ void CPU::ISC() {
     INC();
     updateAbsolute();
     SBC();
+    extraCycleCheck = 0;
 }
 
 void CPU::LAS() {
@@ -796,6 +882,8 @@ void CPU::LAS() {
 
     setFlag(Z_FLAG, load == 0);
     setFlag(N_FLAG, load & 0x80);
+
+    extraCycleCheck++;
 }
 
 void CPU::SBX() {
