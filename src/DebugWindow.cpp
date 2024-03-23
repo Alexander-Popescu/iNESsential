@@ -80,7 +80,7 @@ void DebugWindow::update(int window_width, int window_height) {
         if (emulator) {
             delete emulator;
         }
-        emulator = new Emulator();
+        emulator = new Emulator(pixelBuffer);
         emulator->reset();
     }
 
@@ -92,9 +92,8 @@ void DebugWindow::update(int window_width, int window_height) {
         pixelBuffer->update(true);
     }
 
-    if (ImGui::Button("Run 1000 instructions")) {
-        //says instruction but no opcodes implemented so its cycles for now
-        emulator->runUntilBreak(1000);
+    if (ImGui::Button("Run Single Frame")) {
+        emulator->runSingleFrame();
         //update pixelbuffer to see new state
         pixelBuffer->update(true);
     }
@@ -150,6 +149,8 @@ void DebugWindow::ppuDebugInfo() {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.7f, 0.0f, 1.0f));
         ImGui::Text("Cartridge Loaded");
         ImGui::PopStyleColor();
+
+        ImGui::Text("Cycle: %i, Scanline: %i", emulator->getPPUcycle(), emulator->getPPUscanline());
 
         ImGui::Text("Pattern Tables:");
 

@@ -6,18 +6,26 @@
 #include "Cartridge.h"
 #include "Definitions.h"
 #include <iostream>
+#include "PixelBuffer.h"
 
 class Emulator {
 public:
-    Emulator();
+    Emulator(PixelBuffer *pixelBuffer);
     ~Emulator();
+
+    //for ppu to directly render pixels
+    PixelBuffer *pixelBuffer;
 
     int runUntilBreak(int instructionRequest);
     bool loadCartridge(const char* gamePath = "../testRoms/nestest.nes");
     void reset();
+    bool clock();
     
     void runSingleInstruction();
+    void runSingleFrame();
     CpuState *getCpuState();
+    uint16_t getPPUcycle();
+    uint16_t getPPUscanline();
 
     uint8_t cpuBusRead(uint16_t address);
     void cpuBusWrite(uint16_t address, uint8_t data);
@@ -63,5 +71,7 @@ private:
 
     //set to true to break, assuming only ppu would need to trigger this 
     bool pushFrame = false;
+
+    int emulationTicks = 0;
     
 };

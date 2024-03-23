@@ -34,11 +34,6 @@ void PixelBuffer::update(bool update) {
         SDL_GL_BindTexture(texture, NULL, NULL);
         return; 
     }
-    
-    //fill with noise for testing, remove once ppu is manually changing the buffer buffer values
-    for(int i = 0; i < width * height; i++) {
-        pixel_buffer_buffer[i] = rand() % 0xFFFFFFFF;
-    }
 
     SDL_UpdateTexture(texture, NULL, pixel_buffer_buffer, width * sizeof(uint32_t));
 }

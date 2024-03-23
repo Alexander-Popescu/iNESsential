@@ -95,7 +95,6 @@ void CPU::runInstruction() {
     //decode and run opcode at program counter
     uint8_t opcodeByte = emulator->cpuBusRead(state.program_counter);
     OpcodeInfo opcode = opcodeTable[opcodeByte >> 4][opcodeByte & 0x0F];
-    printf(BLUE "CPU: Running opcode: 0x%X, %s\n" RESET, opcodeByte, opcode.mnemonic);
 
     cpuLog(opcode);
 

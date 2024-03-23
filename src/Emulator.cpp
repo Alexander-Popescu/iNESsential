@@ -3,13 +3,13 @@
 #include "PPU.h"
 #include "Cartridge.h"
 
-Emulator::Emulator() {
+Emulator::Emulator(PixelBuffer *pixelBuffer) {
     printf(GREEN "Emulator: Started\n" RESET);
 
     this->cpu = new CPU(this);
     printf(GREEN "Emulator: CPU created\n" RESET);
 
-    this->ppu = new PPU();
+    this->ppu = new PPU(this);
     printf(GREEN "Emulator: PPU created\n" RESET);
 
     this->cartridge = new Cartridge();
@@ -17,6 +17,9 @@ Emulator::Emulator() {
 
     this->cartridgeLoaded = (this->loadCartridge() == 0);
     printf(GREEN "Emulator: Default Cartridge loaded\n" RESET);
+
+    //link pixel buffer
+    this->pixelBuffer = pixelBuffer;
 }
 
 Emulator::~Emulator() {
@@ -66,12 +69,6 @@ int Emulator::runUntilBreak(int instructionRequest) {
 
     while ((realtime || (instructionCount < instructionStart + instructionRequest)) && pushFrame == false) {
         runSingleInstruction();
-
-        //reset pushframe for next frame, remove when ppu does this once per frame
-        if (realtime){
-            pushFrame = true;
-        }
-        
     }
 
     pushFrame = false;
@@ -93,11 +90,27 @@ void Emulator::reset() {
 }
 
 void Emulator::runSingleInstruction() {
-    while (cpu->clock() == false) {};
-
-    //run corrosponding opcode on cpu, and log cpustate if enabled, along with the opcode that was run
+    while (clock() == false) {};
     instructionCount++;
+    pushFrame = true;
 
+}
+
+void Emulator::runSingleFrame() {
+    while (pushFrame == false) {
+        clock();
+    }
+}
+
+bool Emulator::clock() {
+    pushFrame = ppu->clock();
+    if (emulationTicks % 3 == 0) {
+        if (cpu->clock() == true) {
+            instructionCount++;
+            return true;
+        }
+    }
+    return false;
 }
 
 CpuState *Emulator::getCpuState() {
@@ -143,4 +156,12 @@ void Emulator::cpuBusWrite(uint16_t address, uint8_t data) {
 
 int *Emulator::getCycleCount() {
     return &cpu->cycleCount;
+}
+
+uint16_t Emulator::getPPUcycle() {
+    return ppu->cycle;
+}
+
+uint16_t Emulator::getPPUscanline() {
+    return ppu->scanline;
 }

@@ -3,13 +3,20 @@
 #include <cstdint>
 #include <vector>
 
+class Emulator;
+
 class PPU {
 public:
-    PPU();
+    PPU(Emulator *emulator);
     ~PPU();
 
     void reset();
 
-private:
+    bool clock();
 
+    uint16_t cycle = 0;
+    uint16_t scanline = 0;
+
+private:
+    Emulator *emulator;
 };

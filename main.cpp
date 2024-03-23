@@ -42,7 +42,7 @@ int main(int, char**)
     PixelBuffer* pixelBuffer = new PixelBuffer(renderer, DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
     //emulator pointer for easy reset
-    Emulator *emulator = new Emulator();
+    Emulator *emulator = new Emulator(pixelBuffer);
 
     DebugWindow* debugWindow = new DebugWindow(window, gl_context, emulator, pixelBuffer);
 
