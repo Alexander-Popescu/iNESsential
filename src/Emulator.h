@@ -19,10 +19,11 @@ public:
     int runUntilBreak(int instructionRequest);
     bool loadCartridge(const char* gamePath = "../testRoms/nestest.nes");
     void reset();
-    bool clock();
+    void clock();
     
     void runSingleInstruction();
     void runSingleFrame();
+    void runSingleCycle();
     CpuState *getCpuState();
     uint16_t getPPUcycle();
     uint16_t getPPUscanline();
@@ -54,6 +55,9 @@ public:
     FILE* logFile;
     char filename[36];
 
+    //syncronize cpu and ppu
+    int emulationTicks = 0;
+
 private:
     //CPU
     CPU *cpu;
@@ -71,7 +75,5 @@ private:
 
     //set to true to break, assuming only ppu would need to trigger this 
     bool pushFrame = false;
-
-    int emulationTicks = 0;
     
 };

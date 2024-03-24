@@ -68,7 +68,7 @@ int Emulator::runUntilBreak(int instructionRequest) {
     int instructionStart = instructionCount;
 
     while ((realtime || (instructionCount < instructionStart + instructionRequest)) && pushFrame == false) {
-        runSingleInstruction();
+        clock();
     }
 
     pushFrame = false;
@@ -89,28 +89,22 @@ void Emulator::reset() {
     ppu->reset();
 }
 
-void Emulator::runSingleInstruction() {
-    while (clock() == false) {};
-    instructionCount++;
-    pushFrame = true;
-
-}
-
 void Emulator::runSingleFrame() {
     while (pushFrame == false) {
         clock();
     }
 }
 
-bool Emulator::clock() {
-    pushFrame = ppu->clock();
+void Emulator::runSingleCycle() {
+    clock();
+}
+
+void Emulator::clock() {
     if (emulationTicks % 3 == 0) {
-        if (cpu->clock() == true) {
-            instructionCount++;
-            return true;
-        }
+        cpu->clock();
     }
-    return false;
+    pushFrame = ppu->clock();
+    emulationTicks++;
 }
 
 CpuState *Emulator::getCpuState() {

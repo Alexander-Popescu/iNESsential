@@ -15,7 +15,7 @@ public:
     CpuState *getState();
     int cycleCount = 0;
     void runInstruction();    
-    bool clock();
+    void clock();
 
     void testOpcodes();
 

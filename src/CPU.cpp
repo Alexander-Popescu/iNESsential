@@ -82,12 +82,12 @@ void CPU::cpuLog(OpcodeInfo opcode) {
     }
 
     //log information for opcode that is about to run, if the log ends here the error occured in that opcode
-    char logMessage[100]; 
+    char logMessage[150]; 
     sprintf(logMessage, "Opcode: %s",opcode.mnemonic);
     for (int i = 0; i < opcode.byteCount; i++) {
         sprintf(logMessage + strlen(logMessage), " %X", emulator->cpuBusRead(state.program_counter + i));
     }
-    sprintf(logMessage + strlen(logMessage), " A: 0x%X X: 0x%X Y: 0x%X SP: 0x%X PC: 0x%X P: 0x%X CYC: %i\n", state.accumulator, state.x_register, state.y_register, state.stack_pointer, state.program_counter, state.status_register, cycleCount);
+    sprintf(logMessage + strlen(logMessage), " A: 0x%X X: 0x%X Y: 0x%X SP: 0x%X PC: 0x%X P: 0x%X CYC: %i, PPU: cycle %i, scanline %i\n", state.accumulator, state.x_register, state.y_register, state.stack_pointer, state.program_counter, state.status_register, cycleCount, emulator->getPPUcycle(), emulator->getPPUscanline());
     emulator->log(logMessage);
 }
 
@@ -116,21 +116,22 @@ void CPU::runInstruction() {
     }
     extraCycleCheck = 0;
 
+    cycleCount++;
+    state.remaining_cycles--;
+
     //ensure accumulator mode is reset, because the opcodes dont reset it and they need to know
     accumulatorMode = false;
+
+    //tell emulator
+    emulator->instructionCount++;
 }
 
-bool CPU::clock() {
-    //run instruction if remaining cycles is zero, otherwise run instruction which will set the remaining cycles
-    //true indicates instruction was run on this call
-
+void CPU::clock() {
     if (state.remaining_cycles == 0) {
         runInstruction();
-        return true;
     } else {
         state.remaining_cycles--;
         cycleCount++;
-        return false;
     }
 }
 

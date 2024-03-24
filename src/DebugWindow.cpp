@@ -98,6 +98,19 @@ void DebugWindow::update(int window_width, int window_height) {
         pixelBuffer->update(true);
     }
 
+    if (ImGui::Button("Run Single Cycle")) {
+        emulator->runSingleCycle();
+        //update pixelbuffer to see new state
+        pixelBuffer->update(true);
+    }
+
+    if (ImGui::Button("NESTEST")) {
+        //says instruction but no opcodes implemented so its cycles for now
+        emulator->runUntilBreak(8991);
+        //update pixelbuffer to see new state
+        pixelBuffer->update(true);
+    }
+
     ImGui::SameLine();
     if (ImGui::Button("Toggle Logging")) {
         if (emulator->logging == false) {
@@ -121,7 +134,7 @@ void DebugWindow::update(int window_width, int window_height) {
     ImGui::Text("Log: %s", logging ? "True" : "False");
     ImGui::PopStyleColor(1);
 
-    ImGui::Text("Instruction Count: %i | Cycle Count: %i", emulator->instructionCount, *emulator->getCycleCount());
+    ImGui::Text("Instruction Count: %i | CPU Cycs: %i | Eticks: %i", emulator->instructionCount, *emulator->getCycleCount(), emulator->emulationTicks);
 
     if (debugPage == 0) {
         cpuDebugInfo();
