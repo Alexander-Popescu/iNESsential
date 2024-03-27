@@ -28,8 +28,14 @@ public:
     uint16_t getPPUcycle();
     uint16_t getPPUscanline();
 
+    void updatePatternTables();
+    void updatePalettes();
+
     uint8_t cpuBusRead(uint16_t address);
     void cpuBusWrite(uint16_t address, uint8_t data);
+    uint8_t ppuBusRead(uint16_t address);
+    void ppuBusWrite(uint16_t address, uint8_t data);
+
     int *getCycleCount();
 
     void log(const char* message);

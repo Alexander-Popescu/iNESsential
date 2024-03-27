@@ -8,18 +8,6 @@ PixelBuffer::PixelBuffer(SDL_Renderer* renderer, int width, int height) {
     //all zeros
     this->pixel_buffer_buffer = (uint32_t*) calloc(width * height, sizeof(uint32_t));
     this->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, width, height);
-
-    // create pattern table textures, for testing just use noise
-    uint32_t pixels[128 * 128];
-    for (int i = 0; i < 128 * 128; i++) {
-        pixels[i] = rand() % 0xFFFFFFFF;
-    }
-    addPixelArrayToPatternTable(pixels, 0);
-
-    for (int i = 0; i < 128 * 128; i++) {
-        pixels[i] = rand() % 0xFFFFFFFF;
-    }
-    addPixelArrayToPatternTable(pixels, 1);
 }
 
 PixelBuffer::~PixelBuffer() {
@@ -85,14 +73,4 @@ ImTextureID PixelBuffer::getPatternTableTexture(int index) {
 
 ImVec4* PixelBuffer::getPalette(int index) {
     return palettes[index];
-}
-
-void PixelBuffer::updatePalettes() {
-    //not implemented but this will take the current palette ram and update the palettes as vec4s
-    return;
-}
-
-void PixelBuffer::updatePatternTables() {
-    //not implemented but this pulls pattern tables from the cartridge
-    return;            
 }

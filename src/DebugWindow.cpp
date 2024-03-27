@@ -174,7 +174,7 @@ void DebugWindow::ppuDebugInfo() {
         //button to update pattern tables
         if (ImGui::Button("Update Pattern Tables")) {
             printf(YELLOW "Main: Pattern Table Update\n" RESET);
-            pixelBuffer->updatePatternTables();
+            emulator->updatePatternTables();
         }
 
         ImGui::Separator();
@@ -201,7 +201,7 @@ void DebugWindow::ppuDebugInfo() {
                 //button to update palettes
                 if (ImGui::Button("Update Palettes")) {
                     printf(YELLOW "Main: Palette Update\n" RESET);
-                    pixelBuffer->updatePalettes();
+                    emulator->updatePalettes();
                 }
             }
         }
