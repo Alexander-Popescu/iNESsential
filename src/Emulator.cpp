@@ -219,12 +219,45 @@ uint16_t Emulator::getPPUscanline() {
 }
 
 void Emulator::updatePatternTables() {
+    uint32_t pixels[128 * 128];
+    uint8_t demoPalette[4] = {0x01, 0x2A, 0x16, 0x3F};
+    
+    for (int table = 0; table < 2; table++)
+    {
+        for (int y = 0; y < 16; y++) {
+            for (int x = 0; x < 16; x++) {
+                //tile
+                for (int py = 0; py < 8; py++) {
+                    uint8_t lowByte = ppuBusRead((table * 0x1000) + (y * 16 + x) * 16 + py);
+                    uint8_t highByte = ppuBusRead((table * 0x1000) + (y * 16 + x) * 16 + py + 8);
+                    for (int px = 0; px < 8; px++) {
+                        uint8_t color = ((lowByte >> (7 - px)) & 0x01) | (((highByte >> (7 - px)) & 0x01) << 1);
+                        uint32_t colorValue = ppu->paletteTranslationTable[demoPalette[color]];
+
+                        //opengl texture insists on abgr format, no idea why, quick fix flips color channels
+                        colorValue = ((colorValue & 0xFF000000) >> 24) | ((colorValue & 0x00FF0000) >> 8)  | ((colorValue & 0x0000FF00) << 8)  | ((colorValue & 0x000000FF) << 24);
+
+                        pixels[(x * 8 + px) + (y * 8 + py) * 128] = colorValue;
+                    }
+                }
+            }
+        }
+        pixelBuffer->addPixelArrayToPatternTable(pixels, table);
+    }
     return;
 }
 
 void Emulator::updatePalettes() {
+    //front end models this a little weird because of how the mirroring works, so it appears to be off by one position
     for (int i = 0; i < 32; i++) {
-        uint32_t color = ppu->paletteTranslationTable[ppu->palettes[i]];
+        uint32_t color;
+        if ((i % 4) == 0) {
+            //palette mirroring
+            color = ppu->paletteTranslationTable[ppu->palettes[0]];
+        }
+        else {
+            color = ppu->paletteTranslationTable[ppu->palettes[i]];
+        }
         pixelBuffer->palettes[i / 4][i % 4] = ImVec4(((color & 0xFF000000) >> 24) / 255.0f, ((color & 0x00FF0000) >> 16) / 255.0f, ((color & 0x0000FF00) >> 8) / 255.0f, 1.0f);
     }
     return;

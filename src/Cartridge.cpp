@@ -70,6 +70,10 @@ uint8_t Cartridge::read(uint16_t address)
     {
         return PRG_ROM[address & (PRGsize - 1)];
     }
+    if (address >= 0x0000 && address <= 0x1FFF)
+    {
+        return CHR_ROM[address];
+    }
     
     printf(RED "invalid cartridge read 0x%04X\n" RESET, address);
     return 0;

@@ -5,6 +5,8 @@
 PPU::PPU(Emulator *emulator) {
     this->emulator = emulator;
 
+    cycle = 0;
+    scanline = 0;
 }
 
 PPU::~PPU() {
@@ -12,7 +14,8 @@ PPU::~PPU() {
 }
 
 void PPU::reset() {
-    
+    cycle = 0;
+    scanline = 0;
 }
 
 bool PPU::clock() {
@@ -20,7 +23,7 @@ bool PPU::clock() {
 
     //noise for now
     if (scanline >= 0 && scanline < 240 && cycle < 256) {
-        emulator->pixelBuffer->writeBufferPixel(cycle, scanline, rand() % 2 ? 0xFFFFFFFF : 0x00000000);
+        emulator->pixelBuffer->writeBufferPixel(cycle, scanline, rand() % 2 ? 0xFFFFFFFF : 0x000000FF);
     }
 
     cycle++;
