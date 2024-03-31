@@ -11,13 +11,13 @@ public:
 
     uint8_t read(uint16_t address);
     void write(uint16_t address);
-    int loadRom(const char* gamePath);
-
-private:
-    uint8_t* PRG_ROM;
-    uint8_t* CHR_ROM;
+    int loadRom(char* cartName);
 
     int PRGsize;
     int CHRsize;
     int mapper;
+
+private:
+    uint8_t* PRG_ROM;
+    uint8_t* CHR_ROM;
 };

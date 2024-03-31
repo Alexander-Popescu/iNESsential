@@ -76,10 +76,6 @@ int main(int, char**)
             {
                 emulator->realtime = !emulator->realtime;
             }
-            if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_h)
-            {
-                pixelBuffer->update(true);
-            }
             if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_v)
             {
                 //toggle vsync, just to test uncapped performance

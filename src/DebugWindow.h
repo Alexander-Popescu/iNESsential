@@ -28,14 +28,13 @@ public:
 
     bool show_debug_window = true;
 
-    //variable to track what page of debug screen to show, to save space
-    int debugPage = 0;
-
 private:
     SDL_Window* window;
     SDL_GLContext gl_context;
     Emulator* emulator;
     PixelBuffer* pixelBuffer;
+
+    uint8_t patternTableScalingValue = 3;
 
     //for rendering cpu status flags
     const char* flagNames = "CZIDB-VN";

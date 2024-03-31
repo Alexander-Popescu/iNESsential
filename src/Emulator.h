@@ -16,8 +16,11 @@ public:
     //for ppu to directly render pixels
     PixelBuffer *pixelBuffer;
 
+    //$4020–$FFFF cartridge address space, let debugwindow access
+    Cartridge *cartridge;
+
     int runUntilBreak(int instructionRequest);
-    bool loadCartridge(const char* gamePath = "../testRoms/nestest.nes");
+    bool loadCartridge(char* gamePath);
     void reset();
     void clock();
     
@@ -61,6 +64,9 @@ public:
     FILE* logFile;
     char filename[36];
 
+    //cartridge
+    char cartName[25] = "nestest";
+
     //syncronize cpu and ppu
     int emulationTicks = 0;
 
@@ -72,9 +78,6 @@ private:
 
     //$0000–$07FF internal ram
     uint8_t ram[0x0800];
-
-    //$4020–$FFFF cartridge address space
-    Cartridge *cartridge;
 
     //PPU
     PPU *ppu;

@@ -1,6 +1,7 @@
 #include "Cartridge.h"
 #include <cstdio>
 #include <cstdlib>
+#include <string.h>
 
 Cartridge::Cartridge() {
     this->PRG_ROM = nullptr;
@@ -15,18 +16,23 @@ Cartridge::~Cartridge() {
     delete[] CHR_ROM;
 }
 
-int Cartridge::loadRom(const char* gamePath) {
+int Cartridge::loadRom(char* cartName) {
     //load cartridge, using iNES spec to support most NES roms
 
     printf(YELLOW "Cartridge: Loading ROM\n" RESET);
+
+    //file location from name
+    char gamePath[41] = "../testRoms/";
+    strcat(gamePath, cartName);
+    strcat(gamePath, ".nes");
 
     //open rom file
     FILE* fp = fopen(gamePath, "rb");
 
     if (fp == NULL)
     {
-        printf(RED "Error: Could not open file\n" RESET);
-        exit(0);
+        printf(RED "Cartridge: Could not open file %s\n" RESET, gamePath);
+        return 1;
     }
 
     //iNES header is 16 bytes
@@ -36,7 +42,7 @@ int Cartridge::loadRom(const char* gamePath) {
     //check if header is valid
     if (header[0] != 'N' || header[1] != 'E' || header[2] != 'S' || header[3] != 0x1A)
     {
-        printf("Error: Invalid iNES header\n");
+        printf(RED "Cartridge: Invalid iNES header\n" RESET);
         return 1;
     }
 
@@ -59,8 +65,8 @@ int Cartridge::loadRom(const char* gamePath) {
     // close the file
     fclose(fp);
     printf(GREEN "Cartridge: ROM loaded%s\n" RESET, gamePath);
-    printf(GREEN "Cartriddge: ROM info: PRG banks: %d, CHR banks: %d\n" RESET, header[4], header[5]);
-    return 1;
+    printf(GREEN "Cartridge: ROM info: PRG banks: %d, CHR banks: %d\n" RESET, header[4], header[5]);
+    return 0;
 }
 
 uint8_t Cartridge::read(uint16_t address)

@@ -40,7 +40,6 @@ void DebugWindow::update(int window_width, int window_height) {
     //emulation state variables
     ImGui::Text("Current Emulation State (Toggle P): %s", emulator->realtime ? "Realtime" : "Paused"); 
     ImGui::Text("Vsync (Toggle V): %s", SDL_GL_GetSwapInterval() == 1 ? "On" : "Off");
-    ImGui::Text("Refresh Main Texture (H Key)");
     ImGui::Separator();
 
     //pixelbuffer debug info
@@ -61,26 +60,12 @@ void DebugWindow::update(int window_width, int window_height) {
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.9f, 1.0f));
     ImGui::Text("Emulator Debug Info:");
 
-    //buttons for changing the debug page
-    ImGui::SameLine();
-    if (ImGui::Button("CPU Page")) {
-        debugPage = 0;
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("PPU Page")) {
-        debugPage = 1;
-    }
-
     ImGui::PopStyleColor();
     ImGui::Separator();
 
     if (ImGui::Button("Reset")) {
         //reset emulator
         printf(YELLOW "Main: Emulator Reset\n" RESET);
-        if (emulator) {
-            delete emulator;
-        }
-        emulator = new Emulator(pixelBuffer);
         emulator->reset();
     }
 
@@ -91,13 +76,13 @@ void DebugWindow::update(int window_width, int window_height) {
         //update pixelbuffer to see new state
         pixelBuffer->update(true);
     }
-
+    ImGui::SameLine();
     if (ImGui::Button("Run Single Frame")) {
         emulator->runSingleFrame();
         //update pixelbuffer to see new state
         pixelBuffer->update(true);
     }
-
+    ImGui::SameLine();
     if (ImGui::Button("Run Single Cycle")) {
         emulator->runSingleCycle();
         //update pixelbuffer to see new state
@@ -134,14 +119,12 @@ void DebugWindow::update(int window_width, int window_height) {
     ImGui::Text("Log: %s", logging ? "True" : "False");
     ImGui::PopStyleColor(1);
 
+    ImGui::Separator();
+
     ImGui::Text("Instruction Count: %i | CPU Cycs: %i | Eticks: %i", emulator->instructionCount, *emulator->getCycleCount(), emulator->emulationTicks);
 
-    if (debugPage == 0) {
-        cpuDebugInfo();
-    }
-    else if (debugPage == 1) {
-        ppuDebugInfo();
-    }
+    cpuDebugInfo();
+    ppuDebugInfo();
 
     ImGui::Separator();
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.9f, 1.0f));
@@ -156,20 +139,34 @@ void DebugWindow::update(int window_width, int window_height) {
 }
 
 void DebugWindow::ppuDebugInfo() {
+    ImGui::Separator();
+    //swap cartridge
+    if (ImGui::Button("Load Cartridge")) {
+        printf(YELLOW "Debug: Cartridge Load\n" RESET);
+        emulator->loadCartridge(emulator->cartName);
+        emulator->reset();
+    }
+    ImGui::SameLine();
+    ImGui::InputText("ROM Name", emulator->cartName, sizeof(emulator->cartName));
+
     if (emulator->cartridgeLoaded == true) {
         //load only once cart is loaded to avoid segfault, since this data (shouldnt) exist untill then
 
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.7f, 0.0f, 1.0f));
+
         ImGui::Text("Cartridge Loaded");
         ImGui::PopStyleColor();
+
+        ImGui::Text("mapper: %i, PRGbanks: %i, CHRbanks: %i", emulator->cartridge->mapper, emulator->cartridge->PRGsize / PRG_ROM_BANKSIZE, emulator->cartridge->CHRsize / CHR_ROM_BANKSIZE);
+        ImGui::Separator();
 
         ImGui::Text("Cycle: %i, Scanline: %i", emulator->getPPUcycle(), emulator->getPPUscanline());
 
         ImGui::Text("Pattern Tables:");
 
-        ImGui::Image(pixelBuffer->getPatternTableTexture(0), ImVec2(128 * 2, 128 * 2));
+        ImGui::Image(pixelBuffer->getPatternTableTexture(0), ImVec2(128 * patternTableScalingValue, 128 * patternTableScalingValue));
         ImGui::SameLine();
-        ImGui::Image(pixelBuffer->getPatternTableTexture(1), ImVec2(128 * 2, 128 * 2));
+        ImGui::Image(pixelBuffer->getPatternTableTexture(1), ImVec2(128 * patternTableScalingValue, 128 * patternTableScalingValue));
 
         //button to update pattern tables
         if (ImGui::Button("Update Pattern Tables")) {
@@ -219,10 +216,7 @@ void DebugWindow::cpuDebugInfo() {
 
     CpuState *state = emulator->getCpuState();
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 0.8f, 1.0f));
-    ImGui::Text("CPU Debug Info: ");
-    ImGui::PopStyleColor(1);
-    
+    //render in hex
     ImGui::Text("Registers: A: %i , X; %i , Y: %i", state->accumulator, state->x_register, state->y_register);
     ImGui::Text("PC: 0x%04X, SP: 0x%02X", state->program_counter, state->stack_pointer);
 
@@ -235,4 +229,22 @@ void DebugWindow::cpuDebugInfo() {
     }
 
     ImGui::Separator();
+
+    //allow realtime value changing, though it is in decimal
+    //show values while being able to edit in realtime
+    ImGui::Separator();
+    ImGui::PushItemWidth(75);
+    ImGui::InputScalar("A   ", ImGuiDataType_U8, &state->accumulator);
+    ImGui::SameLine();
+    ImGui::InputScalar("X   ", ImGuiDataType_U8, &state->x_register);
+    ImGui::SameLine();
+    ImGui::InputScalar("Y   ", ImGuiDataType_U8, &state->y_register);
+    ImGui::PushItemWidth(125);
+    ImGui::InputScalar("PC  ", ImGuiDataType_U16, &state->program_counter);
+    ImGui::SameLine();
+    ImGui::PushItemWidth(75);
+    ImGui::InputScalar("SP  ", ImGuiDataType_U8, &state->stack_pointer);
+    ImGui::SameLine();
+    ImGui::InputScalar("P   ", ImGuiDataType_U8, &state->status_register);
+    ImGui::PopItemWidth();
 }

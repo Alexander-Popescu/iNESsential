@@ -15,14 +15,15 @@ Emulator::Emulator(PixelBuffer *pixelBuffer) {
     this->cartridge = new Cartridge();
     printf(GREEN "Emulator: Cartridge created\n" RESET);
 
-    this->cartridgeLoaded = (this->loadCartridge() == 0);
-    printf(GREEN "Emulator: Default Cartridge loaded\n" RESET);
+    this->cartridgeLoaded = (this->loadCartridge(this->cartName));
     
     //link pixel buffer
     this->pixelBuffer = pixelBuffer;
 
-    updatePatternTables();
-    updatePalettes();
+    if (cartridgeLoaded) {
+        updatePatternTables();
+        updatePalettes();
+    }
 }
 
 Emulator::~Emulator() {
@@ -79,17 +80,35 @@ int Emulator::runUntilBreak(int instructionRequest) {
     return 0;
 }
 
-bool Emulator::loadCartridge(const char* gamePath)
+bool Emulator::loadCartridge(char *cartName)
 {
     //returns 0 if cartridge was loaded correctly
-    cartridgeLoaded = (cartridge->loadRom(gamePath) == 0);
+    if (cartridgeLoaded) {
+        delete cartridge;
+    }
+    cartridge = new Cartridge();
+    cartridgeLoaded = (cartridge->loadRom(cartName) == 0);
 
     return cartridgeLoaded;
 }
 
 void Emulator::reset() {
-    cpu->reset();
-    ppu->reset();
+    if(cartridgeLoaded) {
+        printf(YELLOW "Emulator: Reset\n" RESET);
+        cpu->reset();
+        printf(YELLOW "Emulator: CPU Reset\n" RESET);
+        ppu->reset();
+        printf(YELLOW "Emulator: PPU Reset\n" RESET);
+        emulationTicks = 0;
+        instructionCount = 0;
+
+        updatePatternTables();
+        updatePalettes();
+    }
+
+    if (logging) {
+        log("Emulator Reset\n");
+    }
 }
 
 void Emulator::runSingleFrame() {
