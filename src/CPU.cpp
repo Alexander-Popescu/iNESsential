@@ -76,6 +76,20 @@ void CPU::updateAbsolute() {
 
 }
 
+void CPU::nmi() {
+    pushStack((state.program_counter >> 8) & 0xFF);
+    pushStack(state.program_counter & 0xFF);
+
+    setFlag(B_FLAG, false);
+    setFlag(U_FLAG, true);
+    setFlag(I_FLAG, true);
+    pushStack(state.status_register);
+
+    state.program_counter = emulator->cpuBusRead(0xFFFA) | (emulator->cpuBusRead(0xFFFB) << 8);
+
+    state.remaining_cycles += 7;    
+}
+
 void CPU::cpuLog(OpcodeInfo opcode) {
     if (emulator->logging == false) {
         return;

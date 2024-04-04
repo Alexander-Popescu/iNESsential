@@ -23,6 +23,7 @@ public:
     bool loadCartridge(char* gamePath);
     void reset();
     void clock();
+    void cpuNMI();
     
     void runSingleInstruction();
     void runSingleFrame();

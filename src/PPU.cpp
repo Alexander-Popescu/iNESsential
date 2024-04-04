@@ -16,6 +16,14 @@ PPU::~PPU() {
 void PPU::reset() {
     cycle = 0;
     scanline = 0;
+
+    for (int i = 0; i < 1024; i++) {
+        nameTables[0][i] = 0;
+        nameTables[1][i] = 0;
+    }
+    for (int i = 0; i < 32; i++) {
+        palettes[i] = 0;
+    }
 }
 
 bool PPU::clock() {
@@ -30,6 +38,9 @@ bool PPU::clock() {
     if (cycle >= 341) {
         cycle = 0;
         scanline++;
+        if (scanline == 241) {
+            //nmi
+        }
         if (scanline >= 261) {
             scanline = -1;
             return true;
@@ -68,13 +79,21 @@ void PPU::writeRegisters(uint16_t address, uint8_t data) {
     //address is already mapped
     switch (address) {
         case 0x2000:
+            break;
         case 0x2001:
+            break;
         case 0x2002:
+            break;
         case 0x2003:
+            break;
         case 0x2004:
+            break;
         case 0x2005:
+            break;
         case 0x2006:
+            break;
         case 0x2007:
+            break;
         default:
             printf(RED "PPU: invalid register write 0x%04X\n" RESET, address);
             emulator->realtime = false;

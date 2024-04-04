@@ -148,14 +148,18 @@ uint8_t Emulator::cpuBusRead(uint16_t address) {
         //ppu registers and mirroring
         return ppu->readRegisters(address & 0x2007);
     }
-    else if (address > 0x4020)
+    else if (address >= 0x4000 && address <= 0x401F)
+    {
+        //audio and input registers
+        return 0;
+    }
+    else if (address >= 0x4020)
     {
         //cartridge space
         return cartridge->read(address);
     }
 
     printf(RED "Emulator: CPU Bus Read from invalid address 0x%04X\n" RESET, address);
-    realtime = false;
     return 0;
 }
 
@@ -176,9 +180,14 @@ void Emulator::cpuBusWrite(uint16_t address, uint8_t data) {
         ppu->writeRegisters(address & 0x2007, data);
         return;
     }
+    else if (address >= 0x4000 && address <= 0x401F)
+    {
+        //audio and input things
+        return;
+    }
+    //mapper 0 has no write, implement later for other mappers
 
     printf(RED "Emulator: CPU Bus Write to invalid address 0x%04X\n" RESET, address);
-    realtime = false;
     return;
 }
 
@@ -187,32 +196,67 @@ uint8_t Emulator::ppuBusRead(uint16_t address) {
     {
         return cartridge->read(address);
     }
-    else if (address >= 0x2000 && address <= 0x23BF)
+    else if (address >= 0x2000 && address <= 0x23FF)
     {
+        //nametable 0
         return ppu->nameTables[0][address & 0x03FF];
     }
     else if (address >= 0x2400 && address <= 0x27FF)
     {
+        //nametable 1
+        return ppu->nameTables[0][address & 0x03FF];
+    }
+    else if (address >= 0x2800 && address <= 0x2BFF)
+    {
+        //nametable 2
         return ppu->nameTables[1][address & 0x03FF];
+    }
+    else if (address >= 0x2C00 && address <= 0x2FFF)
+    {
+        //nametable 3
+        return ppu->nameTables[1][address & 0x03FF];
+    }
+    else if (address >= 0x3000 && address <= 0x3EFF)
+    {
+        //unused
+        return 0;
     }
     else if (address >= 0x3F00 && address <= 0x3FFF)
     {
         return ppu->palettes[address & 0x001F];
     }
     printf(RED "Emulator: invalid PPU read 0x%04X\n" RESET, address);
-    realtime = false;
     return 0;
 }
 
 void Emulator::ppuBusWrite(uint16_t address, uint8_t data) {
-    if (address >= 0x2000 && address <= 0x23BF)
+    if (address >= 0x2000 && address <= 0x23FF)
     {
+        //nametable 0
         ppu->nameTables[0][address & 0x03FF] = data;
         return;
     }
     else if (address >= 0x2400 && address <= 0x27FF)
     {
+        //nametable 1
+        ppu->nameTables[0][address & 0x03FF] = data;
+        return;
+    }
+    else if (address >= 0x2800 && address <= 0x2BFF)
+    {
+        //nametable 2
         ppu->nameTables[1][address & 0x03FF] = data;
+        return;
+    }
+    else if (address >= 0x2C00 && address <= 0x2FFF)
+    {
+        //nametable 3
+        ppu->nameTables[1][address & 0x03FF] = data;
+        return;
+    }
+    else if (address >= 0x3000 && address <= 0x3EFF)
+    {
+        //unused
         return;
     }
     else if (address >= 0x3F00 && address <= 0x3FFF)
@@ -221,7 +265,6 @@ void Emulator::ppuBusWrite(uint16_t address, uint8_t data) {
         return;
     }
     printf(RED "Emulator: invalid PPU write 0x%04X\n" RESET, address);
-    realtime = false;
     return;
 }
 
@@ -280,4 +323,8 @@ void Emulator::updatePalettes() {
         pixelBuffer->palettes[i / 4][i % 4] = ImVec4(((color & 0xFF000000) >> 24) / 255.0f, ((color & 0x00FF0000) >> 16) / 255.0f, ((color & 0x0000FF00) >> 8) / 255.0f, 1.0f);
     }
     return;
+}
+
+void Emulator::cpuNMI() {
+    cpu->nmi();
 }

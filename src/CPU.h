@@ -12,6 +12,7 @@ public:
     ~CPU();
 
     void reset();
+    void nmi();
     CpuState *getState();
     int cycleCount = 0;
     void runInstruction();    
