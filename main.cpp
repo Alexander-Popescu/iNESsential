@@ -4,9 +4,9 @@
 #include "imgui/imgui_impl_sdl2.h"
 #include "imgui/imgui_impl_opengl3.h"
 #include <vector>
-#include "src/PixelBuffer.h"
+#include "src/frontend/PixelBuffer.h"
 #include "src/Emulator.h"
-#include "src/DebugWindow.h"
+#include "src/frontend/DebugWindow.h"
 #include "src/Definitions.h"
 
 int main(int, char**)

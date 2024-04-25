@@ -7,6 +7,9 @@
 //change for larger / smaller window size
 #define WINDOW_SCALE_FACTOR 4
 
+//size of pattern tables on frontend
+#define PATTERN_TABLE_SCALING_VALUE 3
+
 //for cartridge bank parsing
 #define CHR_ROM_BANKSIZE 8192
 #define PRG_ROM_BANKSIZE 16384
@@ -40,4 +43,13 @@ struct CpuState {
 
     //to avoid cycle accurate emulation
     uint8_t remaining_cycles;
+};
+
+//for mid-tile ppu rendering
+
+struct TileInfo {
+    uint8_t id;
+    uint8_t attribute;
+    uint8_t lsb;
+    uint8_t msb;
 };

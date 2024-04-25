@@ -1,7 +1,7 @@
 #include "Emulator.h"
-#include "CPU.h"
-#include "PPU.h"
-#include "Cartridge.h"
+#include "components/CPU.h"
+#include "components/PPU.h"
+#include "components/Cartridge.h"
 
 Emulator::Emulator(PixelBuffer *pixelBuffer) {
     printf(GREEN "Emulator: Started\n" RESET);
@@ -19,6 +19,8 @@ Emulator::Emulator(PixelBuffer *pixelBuffer) {
     
     //link pixel buffer
     this->pixelBuffer = pixelBuffer;
+
+    reset();
 
     if (cartridgeLoaded) {
         updatePatternTables();
@@ -102,7 +104,6 @@ void Emulator::reset() {
         emulationTicks = 0;
         instructionCount = 0;
 
-        updatePatternTables();
         updatePalettes();
     }
 
@@ -282,7 +283,7 @@ uint16_t Emulator::getPPUscanline() {
 
 void Emulator::updatePatternTables() {
     uint32_t pixels[128 * 128];
-    uint8_t demoPalette[4] = {0x01, 0x2A, 0x16, 0x3F};
+    uint8_t demoPalette[4] = {0x00, 0x10, 0x20, 0x3F};
     
     for (int table = 0; table < 2; table++)
     {

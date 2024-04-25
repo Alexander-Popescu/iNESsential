@@ -1,12 +1,12 @@
 #pragma once
 #include <cstdint>
 #include <vector>
-#include "CPU.h"
-#include "PPU.h"
-#include "Cartridge.h"
+#include "components/CPU.h"
+#include "components/PPU.h"
+#include "components/Cartridge.h"
 #include "Definitions.h"
 #include <iostream>
-#include "PixelBuffer.h"
+#include "frontend/PixelBuffer.h"
 
 class Emulator {
 public:
@@ -18,6 +18,9 @@ public:
 
     //$4020–$FFFF cartridge address space, let debugwindow access
     Cartridge *cartridge;
+
+    //PPU
+    PPU *ppu;
 
     int runUntilBreak(int instructionRequest);
     bool loadCartridge(char* gamePath);
@@ -71,6 +74,8 @@ public:
     //syncronize cpu and ppu
     int emulationTicks = 0;
 
+    int frameCount = 0;
+
 private:
     //CPU
     CPU *cpu;
@@ -79,9 +84,6 @@ private:
 
     //$0000–$07FF internal ram
     uint8_t ram[0x0800];
-
-    //PPU
-    PPU *ppu;
 
     //set to true to break, assuming only ppu would need to trigger this 
     bool pushFrame = false;
