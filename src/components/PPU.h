@@ -52,8 +52,18 @@ public:
     uint8_t nameTables[2][1024];
 	uint8_t	palettes[32];
 
+	uint8_t OAMDATA = 0;
+	uint8_t OAMADDR = 0;
+
+	//foreground rendering
+
+	uint8_t OAM[256];
+
+	uint8_t spriteCount = 0;
+
 	//rendering functions
 	void getBackgroundPixelColor(uint8_t *pixelIndex, uint8_t *paletteindex);
+	void getForegroundPixelColor(uint8_t *pixelIndex, uint8_t *paletteindex);
 	void visiblePixelInfoCycle();
 
     //palette table, for translating the indexes stored in the nes to rgba values

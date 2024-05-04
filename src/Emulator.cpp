@@ -138,30 +138,41 @@ uint8_t Emulator::cpuBusRead(uint16_t address) {
     if (TestingMode) {
         return testRam[address];
     }
+    uint8_t data = 0;
     //cpubus, start with cpuram
     if ( 0x0000 <= address && address <= 0x1FFF)
     {
         //cpuram, AND with physical ram size because of mirroring
-        return ram[address & 0x07FF];
+        data = ram[address & 0x07FF];
     }
     else if (address >= 0x2000 && address <= 0x3FFF)
     {
         //ppu registers and mirroring
-        return ppu->readRegisters(address & 0x2007);
+        data = ppu->readRegisters(address & 0x2007);
     }
     else if (address >= 0x4000 && address <= 0x401F)
     {
         //audio and input registers
-        return 0;
+        if (address == 0x4016)
+        {
+            //controller
+            data = controller1ShiftReg & 1;
+            controller1ShiftReg >>= 1;
+        }
+        if (address == 0x4017)
+        {
+            //controller 2
+            data = controller2ShiftReg & 1;
+            controller2ShiftReg >>= 1;
+        }
     }
     else if (address >= 0x4020)
     {
         //cartridge space
-        return cartridge->read(address);
+        data = cartridge->read(address);
     }
 
-    printf(RED "Emulator: CPU Bus Read from invalid address 0x%04X\n" RESET, address);
-    return 0;
+    return data;
 }
 
 void Emulator::cpuBusWrite(uint16_t address, uint8_t data) {
@@ -183,12 +194,24 @@ void Emulator::cpuBusWrite(uint16_t address, uint8_t data) {
     }
     else if (address >= 0x4000 && address <= 0x401F)
     {
-        //audio and input things
+        if (address ==  0x4016)
+        {
+            //controller
+            if ((data & 1) == 0)
+            {
+                controller1ShiftReg = controller1;
+            }
+        }
+        if (address == 0x4017)
+        {
+            //controller 2
+            if ((data & 1) == 0)
+            {
+                controller2ShiftReg = controller2;
+            }
+        }
         return;
     }
-    //mapper 0 has no write, implement later for other mappers
-
-    printf(RED "Emulator: CPU Bus Write to invalid address 0x%04X\n" RESET, address);
     return;
 }
 

@@ -23,6 +23,11 @@ void PPU::reset() {
     for (int i = 0; i < 32; i++) {
         palettes[i] = 0;
     }
+	for (int i = 0; i < 256; i++) {
+		OAM[i] = 0;
+	}
+	OAMDATA = 0;
+	OAMADDR = 0;
 
 	PPUCTRL.setValue(0);
 	PPUMASK.setValue(0);
@@ -68,10 +73,11 @@ bool PPU::clock() {
 	}
 	
 	if (scanline >= 0 && scanline < 240 && cycle < 256) {
-		//calculate pixel color and render it
+		//calculate background pixel color and render it
 		uint8_t backgroundPixelIndex = 0;
 		uint8_t backgroundPaletteIndex = 0;
 		getBackgroundPixelColor(&backgroundPixelIndex, &backgroundPaletteIndex);
+		
 		emulator->pixelBuffer->writeBufferPixel(cycle - 1, scanline, paletteTranslationTable[emulator->ppuBusRead(0x3F00 + (backgroundPaletteIndex << 2) + backgroundPixelIndex)]);
 	}
 
@@ -215,15 +221,16 @@ uint8_t PPU::readRegisters(uint16_t address) {
 			writeToggle = 0;
 			break;
 		case 0x2003: break;
-			// OAM Address
+			//cant read OAM Address
 		case 0x2004: break;
+			data = OAM[OAMADDR];
 			// OAM Data
 		case 0x2005: break;
 			//cant read PPUSCROLL
 		case 0x2006: break;
 			//cant read PPUADDR
 		case 0x2007: 
-			// PPU Data
+			// PPU D ata
 			data = readBuffer;
 			readBuffer = emulator->ppuBusRead(vramAddress.getValue());
 			if (vramAddress.getValue() >= 0x3F00) data = readBuffer;
@@ -252,9 +259,11 @@ void PPU::writeRegisters(uint16_t address, uint8_t data) {
 		break;
 	case 0x2003:
         //OAMADDR
+		OAMADDR = data;
 		break;
 	case 0x2004:
         //OAMDATA
+		OAM[OAMADDR] = data;
 		break;
 	case 0x2005:
         //PPUSCROLL

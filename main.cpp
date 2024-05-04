@@ -81,6 +81,18 @@ int main(int, char**)
                 //toggle vsync, just to test uncapped performance
                 SDL_GL_SetSwapInterval(SDL_GL_GetSwapInterval() == 1 ? 0 : 1);
             }
+
+            //controller
+            emulator->controller1 = 0;
+            const Uint8 *state = SDL_GetKeyboardState(NULL);
+            if (state[SDL_SCANCODE_RIGHT]) emulator->controller1 |= 0x80;
+            if (state[SDL_SCANCODE_LEFT]) emulator->controller1 |= 0x40;
+            if (state[SDL_SCANCODE_DOWN]) emulator->controller1 |= 0x20;
+            if (state[SDL_SCANCODE_UP]) emulator->controller1 |= 0x10;
+            if (state[SDL_SCANCODE_S]) emulator->controller1 |= 0x08;
+            if (state[SDL_SCANCODE_A]) emulator->controller1 |= 0x04;
+            if (state[SDL_SCANCODE_X]) emulator->controller1 |= 0x02;
+            if (state[SDL_SCANCODE_Z]) emulator->controller1 |= 0x01;
             
             //resize window event
             if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED)

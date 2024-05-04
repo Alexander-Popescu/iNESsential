@@ -76,6 +76,12 @@ public:
 
     int frameCount = 0;
 
+    //controller stuff
+    uint8_t controller1 = 0;
+    uint8_t controller1ShiftReg = 0;
+
+    uint8_t controller2 = 0;
+    uint8_t controller2ShiftReg = 0;
 private:
     //CPU
     CPU *cpu;
