@@ -82,6 +82,14 @@ public:
 
     uint8_t controller2 = 0;
     uint8_t controller2ShiftReg = 0;
+
+    //direct  memory access (DMA)
+    uint8_t DMAAddr = 0;
+    uint8_t DMAData = 0;
+    uint8_t DMAPage = 0;
+    bool DMA = false;
+    bool DMASync = false;
+
 private:
     //CPU
     CPU *cpu;

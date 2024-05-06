@@ -124,7 +124,35 @@ void Emulator::runSingleCycle() {
 
 void Emulator::clock() {
     if (emulationTicks % 3 == 0) {
-        cpu->clock();
+        if (DMA) {
+            //load OAM
+            if (DMASync) {
+                if (emulationTicks % 2 == 1) {
+                    DMASync = false;
+                }
+            } else {
+                //flip reads and writes
+                switch (emulationTicks % 2) {
+                    case 0:
+                        //read
+                        DMAData = cpuBusRead((DMAPage << 8) | DMAAddr);
+                        break;
+                    case 1:
+                        //write
+                        *((uint8_t*)ppu->OAM + DMAAddr) = DMAData;
+                        DMAAddr++;
+                        if (DMAAddr == 0) {
+                            //reset DMA
+                            DMA = false;
+                            DMASync = true;
+                        }
+                        break;
+                }
+            }
+        }
+        else {
+            cpu->clock();
+        }
     }
     pushFrame = ppu->clock();
     emulationTicks++;
@@ -194,6 +222,13 @@ void Emulator::cpuBusWrite(uint16_t address, uint8_t data) {
     }
     else if (address >= 0x4000 && address <= 0x401F)
     {
+        if (address == 0x4014) {
+            //Direct memory access for faster OAM loading
+            DMAAddr = 0;
+            DMA = true;
+            DMAPage = data;
+            return;
+        }
         if (address ==  0x4016)
         {
             //controller

@@ -1,6 +1,7 @@
 #include "PPU.h"
 #include "../Emulator.h"
 #include <cstdlib>
+#include <string.h>
 
 PPU::PPU(Emulator *emulator) {
     this->emulator = emulator;
@@ -23,10 +24,9 @@ void PPU::reset() {
     for (int i = 0; i < 32; i++) {
         palettes[i] = 0;
     }
-	for (int i = 0; i < 256; i++) {
-		OAM[i] = 0;
+	for (int i = 0; i < 64; i++) {
+		OAM[i] = {0,0,0,0};
 	}
-	OAMDATA = 0;
 	OAMADDR = 0;
 
 	PPUCTRL.setValue(0);
@@ -55,12 +55,37 @@ bool PPU::clock() {
 	{
 		//clear vblank
 		PPUSTATUS.setValueRange(7,7,0);
+
+		//sprite overflow flag
+		PPUSTATUS.setValueRange(5,5,0);
+		
+		//sprite zero hit
+		PPUSTATUS.setValueRange(6,6,0);
+
+		for (int i = 0; i < 8; i++)
+		{
+			spriteLowShiftReg[i] = 0;
+			spriteHighShiftReg[i] = 0;
+		}
 	}
 
 	if (scanline >= -1 && scanline < 240)
 	{
 		//visible section of rendering, 8 pixel tile info loop
 		visiblePixelInfoCycle();
+	}
+
+	//foreground
+	if (cycle == 257 && scanline >= 0)
+	{
+		//get number of pixels, clear oam variables, etc
+		prepareScanlineSpriteInfo();
+	}
+
+	if (cycle == 340)
+	{
+		//prepares sprite info for rendering
+		updateSpriteShiftRegs();
 	}
 
 	if (scanline == 241 && cycle == 1)
@@ -77,8 +102,22 @@ bool PPU::clock() {
 		uint8_t backgroundPixelIndex = 0;
 		uint8_t backgroundPaletteIndex = 0;
 		getBackgroundPixelColor(&backgroundPixelIndex, &backgroundPaletteIndex);
-		
-		emulator->pixelBuffer->writeBufferPixel(cycle - 1, scanline, paletteTranslationTable[emulator->ppuBusRead(0x3F00 + (backgroundPaletteIndex << 2) + backgroundPixelIndex)]);
+
+		uint8_t foregroundPixelIndex = 0;
+		uint8_t foregroundPaletteIndex = 0;
+		uint8_t foregroundPriority = 0;
+		getForegroundPixelColor(&foregroundPixelIndex, &foregroundPaletteIndex, &foregroundPriority);
+
+		uint8_t pixel = backgroundPixelIndex;
+		uint8_t palette = backgroundPaletteIndex;
+
+		//if foreground isnt transparent, render that
+		if (foregroundPixelIndex > 0) {
+			pixel = foregroundPixelIndex;
+			palette = foregroundPaletteIndex;
+		}
+
+		emulator->pixelBuffer->writeBufferPixel(cycle - 1, scanline, paletteTranslationTable[emulator->ppuBusRead(0x3F00 + (palette << 2) + pixel)]);
 	}
 
 	cycle++;
@@ -114,6 +153,29 @@ void PPU::getBackgroundPixelColor(uint8_t *index, uint8_t *palette) {
 	}
 }
 
+void PPU::getForegroundPixelColor(uint8_t *foregroundPixelIndex, uint8_t *foregroundPaletteIndex, uint8_t *foregroundPriority) {
+	if ((PPUMASK.getValueRange(4,4) >> 4))
+	{
+		//check all sprites
+		for (uint8_t i = 0; i < spriteCount; i++)
+		{
+			//this means its time to render
+			if (spriteInfoBuffer[i].x == 0) 
+			{
+				*foregroundPixelIndex = (((spriteHighShiftReg[i] & 0x80) >> 7) << 1) | ((spriteLowShiftReg[i] & 0x80) >> 7);
+				*foregroundPaletteIndex = (spriteInfoBuffer[i].attributes & 0x03) + 0x04;
+				*foregroundPriority = (spriteInfoBuffer[i].attributes & 0x20) == 0;
+
+				if (*foregroundPixelIndex != 0)
+				{
+					if (i == 0) PPUSTATUS.setValueRange(6,6, 1 << 6);
+					break;
+				}				
+			}
+		}		
+	}
+}
+
 void PPU::visiblePixelInfoCycle() {
 	//the pull 8 bits worth of render information cycle that occurs during visible (and prerender) scanalines
 
@@ -124,6 +186,14 @@ void PPU::visiblePixelInfoCycle() {
 		{
 			shiftPattern.shift();
 			shiftAttribute.shift();
+
+			if ((PPUMASK.getValueRange(4,4) >> 4) && cycle >= 1 && cycle < 258)
+			{
+				for (int i = 0; i < spriteCount; i++)
+				{
+					spriteInfoBuffer[i].x > 0 ? spriteInfoBuffer[i].x-- : (spriteLowShiftReg[i] <<= 1, spriteHighShiftReg[i] <<= 1);
+				}
+			}
 		}
 		//different values of the nextTile information are loaded depending on how deep we are in the loop
 		loadTileInfo((cycle - 1) % 8);
@@ -164,6 +234,66 @@ void PPU::visiblePixelInfoCycle() {
 			vramAddress.syncAddress(tempVramAddress, 'y');
 		}
 	}
+}
+
+void PPU::prepareScanlineSpriteInfo() {
+	//reset sprite variables
+	for (int i = 0; i < 8; i++)
+	{
+		spriteInfoBuffer[i] = {0,0,0,0};
+	}
+
+	spriteCount = 0;
+
+	for (uint8_t i = 0; i < 8; i++)
+	{
+		spriteLowShiftReg[i] = 0;
+		spriteHighShiftReg[i] = 0;
+	}
+
+	for (uint8_t i = 0; i < 64; i++)
+	{
+		//max sprite overflow
+		if (spriteCount > 8) break;
+
+		//check if sprite is between scanline and scanline + height of sprite
+		if ((scanline - OAM[i].y) >= 0 && (scanline - OAM[i].y) < ((PPUCTRL.getValueRange(5,5) >> 5) ? 16 : 8))
+		{
+			spriteInfoBuffer[spriteCount] = OAM[i];
+			spriteCount++;
+		}
+	}
+
+	PPUSTATUS.setValueRange(5,5,(spriteCount > 8));
+}
+
+void PPU::updateSpriteShiftRegs() {
+	uint8_t spriteIndex = 0;
+    while (spriteIndex < spriteCount) {
+        OAMentry &currentSprite = spriteInfoBuffer[spriteIndex];
+
+		//calculate where current sprite info is
+        uint16_t spriteLowAddress = ((PPUCTRL.getValueRange(3,3) >> 3) << 12) | (currentSprite.spriteIndex << 4) | ((currentSprite.attributes & 0x80) ? 7 - (scanline - currentSprite.y) : scanline - currentSprite.y);
+        uint16_t spriteHighAddress = spriteLowAddress + 8;
+		
+		//load into shifters
+        spriteLowShiftReg[spriteIndex] = emulator->ppuBusRead(spriteLowAddress);
+        spriteHighShiftReg[spriteIndex] = emulator->ppuBusRead(spriteHighAddress);
+
+		//flip if attribute says so
+        if (currentSprite.attributes & 0x40) {
+            uint8_t lowFlip = 0;
+            uint8_t highFlip = 0;
+            for (int i = 0; i < 8; i++) {
+                lowFlip |= ((spriteLowShiftReg[spriteIndex] >> i) & 1) << (7 - i);
+                highFlip |= ((spriteHighShiftReg[spriteIndex] >> i) & 1) << (7 - i);
+            }
+            spriteLowShiftReg[spriteIndex] = lowFlip;
+            spriteHighShiftReg[spriteIndex] = highFlip;
+        }
+
+        spriteIndex++;
+    }
 }
 
 void PPU::loadTileInfo(uint8_t step) {
@@ -223,7 +353,7 @@ uint8_t PPU::readRegisters(uint16_t address) {
 		case 0x2003: break;
 			//cant read OAM Address
 		case 0x2004: break;
-			data = OAM[OAMADDR];
+			data = *((uint8_t*)OAM + OAMADDR);
 			// OAM Data
 		case 0x2005: break;
 			//cant read PPUSCROLL
@@ -263,7 +393,7 @@ void PPU::writeRegisters(uint16_t address, uint8_t data) {
 		break;
 	case 0x2004:
         //OAMDATA
-		OAM[OAMADDR] = data;
+		*((uint8_t*)OAM + OAMADDR) = data;
 		break;
 	case 0x2005:
         //PPUSCROLL
