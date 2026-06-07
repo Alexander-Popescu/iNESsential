@@ -64,7 +64,7 @@ void Emulator::testOpcodes() {
 
 void Emulator::log(const char* message) {
     //assumes logging was checked already
-    fprintf(logFile, message);
+    fprintf(logFile, "%s", message);
 }
 
 int Emulator::runUntilBreak(int instructionRequest) {

@@ -4,14 +4,14 @@
 #include "SDL.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_sdl2.h"
-#include "imgui/imgui_impl_opengl3.h"
+#include "imgui/imgui_impl_sdlrenderer2.h"
 #include "PixelBuffer.h"
 #include "../Emulator.h"
 #include "../Definitions.h"
 
 class DebugWindow {
 public:
-    DebugWindow(SDL_Window* window, SDL_GLContext gl_context, Emulator* emulator, PixelBuffer* pixelBuffer);
+    DebugWindow(SDL_Window* window, SDL_Renderer* renderer, Emulator* emulator, PixelBuffer* pixelBuffer);
     ~DebugWindow();
 
     void update(int window_width, int window_height);
@@ -30,7 +30,7 @@ public:
 
 private:
     SDL_Window* window;
-    SDL_GLContext gl_context;
+    SDL_Renderer* renderer;
     Emulator* emulator;
     PixelBuffer* pixelBuffer;
 

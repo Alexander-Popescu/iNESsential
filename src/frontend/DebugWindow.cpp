@@ -2,10 +2,10 @@
 #include <stdio.h>
 #include <time.h>
 
-DebugWindow::DebugWindow(SDL_Window* window, SDL_GLContext gl_context, Emulator* emulator, PixelBuffer* pixelBuffer) {
+DebugWindow::DebugWindow(SDL_Window* window, SDL_Renderer* renderer, Emulator* emulator, PixelBuffer* pixelBuffer) {
 
     this->window = window;
-    this->gl_context = gl_context;
+    this->renderer = renderer;
     this->emulator = emulator;
     this->pixelBuffer = pixelBuffer;
 
@@ -17,21 +17,21 @@ DebugWindow::DebugWindow(SDL_Window* window, SDL_GLContext gl_context, Emulator*
     //make font larger
     io.FontGlobalScale = FONT_SCALE;
 
-    ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
-    ImGui_ImplOpenGL3_Init("#version 330");
+    ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
+    ImGui_ImplSDLRenderer2_Init(renderer);
 
     // Setup style
     ImGui::StyleColorsLight();
 }
 
 DebugWindow::~DebugWindow() {
-    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplSDLRenderer2_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 }
 
 void DebugWindow::update(int window_width, int window_height) {
-    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplSDLRenderer2_NewFrame();
     ImGui_ImplSDL2_NewFrame(window);
     ImGui::NewFrame();
 
@@ -39,7 +39,7 @@ void DebugWindow::update(int window_width, int window_height) {
 
     //emulation state variables
     ImGui::Text("Current Emulation State (Toggle P): %s", emulator->realtime ? "Realtime" : "Paused"); 
-    ImGui::Text("Vsync (Toggle V): %s", SDL_GL_GetSwapInterval() == 1 ? "On" : "Off");
+    ImGui::Text("Vsync: On");
     ImGui::Separator();
 
     //pixelbuffer debug info
@@ -101,8 +101,12 @@ void DebugWindow::update(int window_width, int window_height) {
         if (emulator->logging == false) {
             //open logfile
             //unique filename and timestamp
-            sprintf(emulator->filename, "../logs/iNESsential_%ld.log", time(NULL));
+            sprintf(emulator->filename, "logs/iNESsential_%ld.log", time(NULL));
             emulator->logFile = fopen(emulator->filename, "w");
+            if (emulator->logFile == NULL) {
+                sprintf(emulator->filename, "../logs/iNESsential_%ld.log", time(NULL));
+                emulator->logFile = fopen(emulator->filename, "w");
+            }
         }
         emulator->logging = !emulator->logging;
     }
@@ -135,7 +139,10 @@ void DebugWindow::update(int window_width, int window_height) {
 
     // Rendering
     ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    ImGuiIO& io = ImGui::GetIO();
+    SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
+    ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+    SDL_RenderSetScale(renderer, 1.0f, 1.0f);
 }
 
 void DebugWindow::ppuDebugInfo() {
@@ -224,7 +231,7 @@ void DebugWindow::cpuDebugInfo() {
     for (int i = 0; i < 8; ++i) {
         char flagName[2] = { flagNames[i], '\0' };
         //red or green based on 0 / 1
-        ImGui::TextColored(state->status_register & (1 << i) ? ImVec4(0.0f, 1.0f, 0.0f, 1.0f) : ImVec4(1.0f, 0.0f, 0.0f, 1.0f), flagName);
+        ImGui::TextColored(state->status_register & (1 << i) ? ImVec4(0.0f, 1.0f, 0.0f, 1.0f) : ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%s", flagName);
         ImGui::SameLine();
     }
 

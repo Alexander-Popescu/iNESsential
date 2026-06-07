@@ -2,7 +2,6 @@
 #include "SDL.h"
 #include <cstdint>
 #include <vector>
-#include <GLFW/glfw3.h>
 #include "../imgui/imgui.h"
 
 class PixelBuffer {

@@ -8,18 +8,24 @@ PixelBuffer::PixelBuffer(SDL_Renderer* renderer, int width, int height) {
     //all zeros
     this->pixel_buffer_buffer = (uint32_t*) calloc(width * height, sizeof(uint32_t));
     this->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, width, height);
+    this->patternTables[0] = nullptr;
+    this->patternTables[1] = nullptr;
 }
 
 PixelBuffer::~PixelBuffer() {
     delete[] pixel_buffer_buffer;
     SDL_DestroyTexture(texture);
+    if (patternTables[0]) {
+        SDL_DestroyTexture((SDL_Texture*)patternTables[0]);
+    }
+    if (patternTables[1]) {
+        SDL_DestroyTexture((SDL_Texture*)patternTables[1]);
+    }
 }
 
 void PixelBuffer::update(bool update) {
     if (!update)
     {
-        //prevent black screen on pause
-        SDL_GL_BindTexture(texture, NULL, NULL);
         return; 
     }
 
@@ -48,23 +54,12 @@ SDL_Texture* PixelBuffer::getTexture() {
 //functions for pattern table rendering
 void PixelBuffer::addPixelArrayToPatternTable(const uint32_t* pixels, int index)
 {
-    // 128x128 patterntable texture from array of pixels
-    uint32_t texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 128, 128, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-
-    // nearest for no anti-aliasing
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    //double cast in case pointer is larger than u32
-    patternTables[index] = (ImTextureID)(uintptr_t)texture;
-
-    return;
+    SDL_Texture* tex = (SDL_Texture*)patternTables[index];
+    if (!tex) {
+        tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 128, 128);
+        patternTables[index] = (ImTextureID)tex;
+    }
+    SDL_UpdateTexture(tex, NULL, pixels, 128 * sizeof(uint32_t));
 }
 
 ImTextureID PixelBuffer::getPatternTableTexture(int index) {

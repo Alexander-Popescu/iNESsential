@@ -22,16 +22,25 @@ int Cartridge::loadRom(char* cartName) {
     printf(YELLOW "Cartridge: Loading ROM\n" RESET);
 
     //file location from name
-    char gamePath[41] = "../testRoms/";
+    char gamePath[256] = "testRoms/";
     strcat(gamePath, cartName);
     strcat(gamePath, ".nes");
 
     //open rom file
     FILE* fp = fopen(gamePath, "rb");
 
+    // Fallback to parent testRoms
     if (fp == NULL)
     {
-        printf(RED "Cartridge: Could not open file %s\n" RESET, gamePath);
+        strcpy(gamePath, "../testRoms/");
+        strcat(gamePath, cartName);
+        strcat(gamePath, ".nes");
+        fp = fopen(gamePath, "rb");
+    }
+
+    if (fp == NULL)
+    {
+        printf(RED "Cartridge: Could not open file %s or fallback\n" RESET, gamePath);
         return 1;
     }
 

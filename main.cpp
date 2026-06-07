@@ -1,8 +1,7 @@
 #include "SDL.h"
-#include <GLFW/glfw3.h>
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_sdl2.h"
-#include "imgui/imgui_impl_opengl3.h"
+#include "imgui/imgui_impl_sdlrenderer2.h"
 #include <vector>
 #include "src/frontend/PixelBuffer.h"
 #include "src/Emulator.h"
@@ -19,16 +18,11 @@ int main(int, char**)
     }
 
     // Setup window
-    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE);
+    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     SDL_Window* window = SDL_CreateWindow("NES", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, DEFAULT_WIDTH * WINDOW_SCALE_FACTOR, DEFAULT_HEIGHT * WINDOW_SCALE_FACTOR, window_flags);
 
-    //OpenGL context
-    SDL_GLContext gl_context = SDL_GL_CreateContext(window);
-
     //Renderer
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    SDL_GL_MakeCurrent(window, gl_context);
-    SDL_GL_SetSwapInterval(1); // Enable vsync
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
     
     // Main loop
     bool done = false;
@@ -44,7 +38,7 @@ int main(int, char**)
     //emulator pointer for easy reset
     Emulator *emulator = new Emulator(pixelBuffer);
 
-    DebugWindow* debugWindow = new DebugWindow(window, gl_context, emulator, pixelBuffer);
+    DebugWindow* debugWindow = new DebugWindow(window, renderer, emulator, pixelBuffer);
 
     while(!done)
     {
@@ -76,11 +70,7 @@ int main(int, char**)
             {
                 emulator->realtime = !emulator->realtime;
             }
-            if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_v)
-            {
-                //toggle vsync, just to test uncapped performance
-                SDL_GL_SetSwapInterval(SDL_GL_GetSwapInterval() == 1 ? 0 : 1);
-            }
+
 
             //controller
             emulator->controller1 = 0;
@@ -103,26 +93,23 @@ int main(int, char**)
             }
         }
 
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
 
-        emulator->runUntilBreak(-1);
+        if (emulator->cartridgeLoaded) {
+            emulator->runUntilBreak(-1);
 
-        //texture should update when emulator breaks, but this still gets run when paused
-        pixelBuffer->update(emulator->realtime);
+            //texture should update when emulator breaks, but this still gets run when paused
+            pixelBuffer->update(emulator->realtime);
+        }
 
+        SDL_RenderCopy(renderer, pixelBuffer->getTexture(), NULL, NULL);
 
         if(debugWindow->show_debug_window) {
             debugWindow->update(window_width, window_height);
         }
 
-        //render texture
-        int display_w, display_h;
-        SDL_GetWindowSize(window, &display_w, &display_h);
-        glViewport(0, 0, display_w, display_h);
-        SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, pixelBuffer->getTexture(), NULL, NULL);
-        SDL_GL_SwapWindow(window);
+        SDL_RenderPresent(renderer);
 
         //calculate time for since last frame
         int frametime = (SDL_GetTicks() - start_time);
