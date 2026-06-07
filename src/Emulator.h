@@ -32,6 +32,7 @@ public:
     void runSingleFrame();
     void runSingleCycle();
     CpuState *getCpuState();
+    uint8_t getRamValue(uint16_t address) const { return ram[address & 0x07FF]; }
     uint16_t getPPUcycle();
     uint16_t getPPUscanline();
 

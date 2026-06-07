@@ -40,10 +40,12 @@ int main(int, char**)
 
     DebugWindow* debugWindow = new DebugWindow(window, renderer, emulator, pixelBuffer);
 
+    Uint64 target_ticks = SDL_GetPerformanceFrequency() / 60;
+
     while(!done)
     {
         //calculate time
-        int start_time = SDL_GetTicks();
+        Uint64 start_time = SDL_GetPerformanceCounter();
 
         SDL_Event event;
         while(SDL_PollEvent(&event))
@@ -112,12 +114,25 @@ int main(int, char**)
         SDL_RenderPresent(renderer);
 
         //calculate time for since last frame
-        int frametime = (SDL_GetTicks() - start_time);
+        int frametime = (int)((double)(SDL_GetPerformanceCounter() - start_time) * 1000.0 / (double)SDL_GetPerformanceFrequency());
         debugWindow->frametimes.push_back(frametime);
 
         //circulate frametime buffer
         if (debugWindow->frametimes.size() > debugWindow->MAX_FRAMETIMES) {
             debugWindow->frametimes.erase(debugWindow->frametimes.begin());
+        }
+
+        // Frame rate limiting to 60 FPS
+        Uint64 end_time = SDL_GetPerformanceCounter();
+        Uint64 elapsed = end_time - start_time;
+        if (elapsed < target_ticks) {
+            double delay_ms = (double)(target_ticks - elapsed) * 1000.0 / (double)SDL_GetPerformanceFrequency();
+            if (delay_ms > 1.0) {
+                SDL_Delay((Uint32)(delay_ms - 1.0));
+            }
+            while (SDL_GetPerformanceCounter() - start_time < target_ticks) {
+                SDL_Delay(0);
+            }
         }
     }
     

@@ -4,6 +4,8 @@
 #include "SDL.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_sdl2.h"
+#include <string>
+#include <vector>
 #include "imgui/imgui_impl_sdlrenderer2.h"
 #include "PixelBuffer.h"
 #include "../Emulator.h"
@@ -19,6 +21,8 @@ public:
     //functions to further abstract all the different pages
     void ppuDebugInfo();
     void cpuDebugInfo();
+    void memoryHexViewer();
+    void addRecentRom(const std::string& romName);
 
     //variables to track and change things about the debug window 
 
@@ -36,4 +40,11 @@ private:
 
     //for rendering cpu status flags
     const char* flagNames = "CZIDB-VN";
+
+    std::vector<std::string> recentRoms;
+    void loadRecentRoms();
+    void saveRecentRoms();
+
+    ImFont* mainFont = nullptr;
+    ImFont* monoFont = nullptr;
 };
